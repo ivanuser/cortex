@@ -1,15 +1,15 @@
 export function buildControlUiCspHeader(): string {
-  // Control UI: block framing, block inline scripts, keep styles permissive
-  // (UI uses a lot of inline style attributes in templates).
+  // Cortex UI (SvelteKit): needs inline scripts for hydration,
+  // external fonts (Google Fonts), and flexible connectivity.
   return [
     "default-src 'self'",
     "base-uri 'none'",
     "object-src 'none'",
     "frame-ancestors 'none'",
-    "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https:",
-    "font-src 'self'",
-    "connect-src 'self' ws: wss:",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "img-src 'self' data: https: blob:",
+    "font-src 'self' https://fonts.gstatic.com",
+    "connect-src 'self' ws: wss: https:",
   ].join("; ");
 }
