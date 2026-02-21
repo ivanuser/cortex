@@ -28,7 +28,7 @@ Cortex builds on OpenClaw's foundation as a personal AI assistant that runs on y
 While OpenClaw provides excellent functionality, Cortex addresses specific needs:
 
 1. **Security First**: Stricter defaults, improved authentication, and security-focused features
-2. **Enterprise Ready**: Better suited for professional environments with compliance requirements  
+2. **Enterprise Ready**: Better suited for professional environments with compliance requirements
 3. **Simplified Management**: Reduced operational complexity with the Cortex UI
 4. **Focused Vision**: Prioritizes stability and security over rapid feature expansion
 5. **Upstream Compatibility**: Maintains ability to sync with OpenClaw developments
@@ -49,26 +49,30 @@ cortex gateway start
 ```
 
 The onboarding wizard guides you through:
+
 - Gateway setup and configuration
 - Model provider authentication (Anthropic, OpenAI)
 - Channel integrations
 - Security hardening options
 - Cortex UI deployment
 
-**Recommended Models**: 
+**Recommended Models**:
+
 - Anthropic Claude Pro/Max (Sonnet 4/Opus 4.6) for best performance
 - OpenAI GPT-4 models as fallback
 
 ## Features
 
 ### Core Capabilities
+
 - **Multi-Channel AI**: WhatsApp, Telegram, Discord, Slack, Signal, Teams, and more
 - **Voice Support**: Natural speech interaction on macOS/iOS/Android
-- **Canvas Rendering**: Interactive visual outputs and live updates  
+- **Canvas Rendering**: Interactive visual outputs and live updates
 - **File Processing**: Documents, images, audio, and code analysis
 - **Tool Integration**: Extensible plugin system for custom capabilities
 
 ### Cortex Enhancements
+
 - **Cortex UI**: Unified web interface for management and interaction
 - **Security Hardening**: Enhanced authentication, access controls, and audit logging
 - **Simplified Pairing**: Streamlined node discovery and configuration
@@ -80,20 +84,24 @@ The onboarding wizard guides you through:
 Cortex follows OpenClaw's proven **Gateway + Nodes** architecture:
 
 ### Gateway (Control Plane)
+
 - Central coordination and routing
 - Model provider management
 - Channel integrations
 - Security enforcement
 - Cortex UI hosting
 
-### Nodes (Execution Plane)  
+### Nodes (Execution Plane)
+
 - Distributed processing capabilities
 - Platform-specific integrations (camera, screen, location)
 - Resource isolation
 - Simplified pairing with gateway
 
 ### One UI Philosophy
+
 Unlike distributed UIs, Cortex centralizes management through the **Cortex UI**, providing:
+
 - Unified configuration interface
 - Real-time monitoring and logging
 - Security policy management
@@ -101,32 +109,17 @@ Unlike distributed UIs, Cortex centralizes management through the **Cortex UI**,
 
 ## Migration from OpenClaw
 
-Cortex maintains full compatibility with existing OpenClaw installations:
+Cortex is a **drop-in replacement** — same data directory, same config format, same protocols.
 
-### Easy Migration
 ```bash
-# Backup your existing OpenClaw data
-openclaw gateway stop
-cp -r ~/.openclaw ~/.openclaw-backup
-
-# Install Cortex
-npm install -g cortex@latest
-
-# Your existing configuration and data work unchanged
-cortex gateway start
+openclaw gateway stop          # Stop OpenClaw
+npm install -g cortex          # Install Cortex
+cortex gateway start           # Done. Everything carries over.
 ```
 
-### Command Compatibility
-- `cortex` commands work exactly like `openclaw` commands
-- `openclaw` command remains available as an alias
-- All existing skills, channels, and configurations are preserved
-- No data migration required
+Your `~/.openclaw/` data, paired nodes, channels, memory, cron jobs, and agent files all work unchanged. The `openclaw` command still works as an alias.
 
-### What Changes
-- Enhanced security defaults (can be adjusted)
-- Cortex UI available at your gateway URL
-- Additional monitoring and logging capabilities
-- Simplified node pairing process
+**[Full Migration Guide →](MIGRATION.md)** — detailed steps, node migration, systemd, rollback, FAQ
 
 ## Upstream Sync
 
@@ -136,7 +129,7 @@ Cortex maintains compatibility with upstream OpenClaw developments:
 # Add upstream OpenClaw as a remote
 git remote add upstream https://github.com/openclaw/openclaw.git
 
-# Sync with latest OpenClaw changes  
+# Sync with latest OpenClaw changes
 git fetch upstream
 git merge upstream/main
 ```
@@ -146,12 +139,14 @@ See [FORK.md](FORK.md) for detailed sync procedures and architectural difference
 ## Installation Options
 
 ### Global Install (Recommended)
+
 ```bash
 npm install -g cortex@latest
 cortex onboard
 ```
 
 ### Docker
+
 ```bash
 git clone https://github.com/ivanuser/cortex.git
 cd cortex
@@ -159,6 +154,7 @@ docker-compose up -d
 ```
 
 ### From Source
+
 ```bash
 git clone https://github.com/ivanuser/cortex.git
 cd cortex
