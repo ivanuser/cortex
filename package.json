@@ -1,7 +1,7 @@
 {
-  "name": "cortex",
+  "name": "openclaw",
   "version": "2026.2.20",
-  "description": "Cortex — AI Assistant Command Center. A security-hardened fork of OpenClaw with enhanced UI and simplified architecture.",
+  "description": "Cortex — AI Assistant Command Center. A security-hardened fork of OpenClaw.",
   "keywords": [],
   "homepage": "https://github.com/ivanuser/cortex#readme",
   "bugs": {
