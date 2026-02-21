@@ -42,28 +42,48 @@ check_dependencies() {
     
     # Check if Node.js is installed
     if ! command -v node &> /dev/null; then
-        error "Node.js is required but not installed. Please install Node.js >= 18."
+        error "Node.js is required but not installed. Please install Node.js >= 22."
     fi
     
     # Check Node.js version
     node_version=$(node --version | sed 's/v//')
     node_major=$(echo "$node_version" | cut -d. -f1)
-    if [ "$node_major" -lt 18 ]; then
-        error "Node.js >= 18 is required. Current version: $node_version"
+    if [ "$node_major" -lt 22 ]; then
+        error "Node.js >= 22 is required. Current version: $node_version"
     fi
     
     log "Node.js version $node_version ✓"
+}
+
+# Detect install mode: npm (global) vs source (in repo)
+detect_install_mode() {
+    if [ -f "package.json" ] && grep -q '"openclaw"' package.json 2>/dev/null; then
+        INSTALL_MODE="source"
+    else
+        INSTALL_MODE="npm"
+    fi
+}
+
+install_cortex_npm() {
+    log "Installing Cortex from npm..."
     
-    # Check if we're in the right directory
-    if [ ! -f "package.json" ] || ! grep -q "openclaw" package.json; then
-        error "Please run this script from the Cortex repository root directory."
+    # Remove upstream openclaw if present
+    if command -v openclaw &> /dev/null; then
+        local current_pkg
+        current_pkg=$(npm list -g openclaw --depth=0 2>/dev/null | grep openclaw || true)
+        if echo "$current_pkg" | grep -q "openclaw@" && ! echo "$current_pkg" | grep -q "openclaw-cortex"; then
+            warn "Upstream 'openclaw' package detected. Removing to avoid conflicts..."
+            npm uninstall -g openclaw 2>/dev/null || true
+        fi
     fi
     
-    log "Repository structure ✓"
+    npm install -g openclaw-cortex
+    log "Cortex installed ✓"
+    log "Commands available: cortex, openclaw"
 }
 
 build_cortex() {
-    log "Building Cortex..."
+    log "Building Cortex from source..."
     
     if ! command -v pnpm &> /dev/null; then
         log "Installing pnpm..."
@@ -76,8 +96,11 @@ build_cortex() {
     log "Building project..."
     pnpm build
     
-    log "Building UI assets..."
-    pnpm ui:build
+    log "Building UI..."
+    cd ui && pnpm install && pnpm build && cd ..
+    
+    log "Linking globally..."
+    npm link
     
     log "Build completed ✓"
 }
@@ -85,8 +108,12 @@ build_cortex() {
 setup_gateway() {
     log "Setting up Gateway mode..."
     
-    # Build the project
-    build_cortex
+    # Install Cortex
+    if [ "$INSTALL_MODE" = "npm" ]; then
+        install_cortex_npm
+    else
+        build_cortex
+    fi
     
     # Create default config directory
     CONFIG_DIR="$HOME/.openclaw"
@@ -161,16 +188,12 @@ EOF
 setup_node() {
     log "Setting up Node mode..."
     
-    # Build just what we need for a node
-    log "Installing dependencies..."
-    if ! command -v pnpm &> /dev/null; then
-        npm install -g pnpm
+    # Install Cortex
+    if [ "$INSTALL_MODE" = "npm" ]; then
+        install_cortex_npm
+    else
+        build_cortex
     fi
-    pnpm install
-    
-    log "Building node components..."
-    pnpm build
-    # Note: We don't build UI assets for nodes since they don't serve UI
     
     # Get gateway connection details
     echo
@@ -245,6 +268,14 @@ main() {
     
     # Check dependencies
     check_dependencies
+    detect_install_mode
+    
+    if [ "$INSTALL_MODE" = "source" ]; then
+        log "Detected source install (in repository)"
+    else
+        log "Will install from npm (openclaw-cortex)"
+    fi
+    echo
     
     echo -e "${BLUE}Cortex Architecture:${NC}"
     echo "• Gateway: Full service with web UI, agents, memory, channels"

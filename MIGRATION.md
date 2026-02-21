@@ -10,14 +10,17 @@ Cortex is a drop-in replacement for OpenClaw. Same engine, same data, same proto
 # 1. Stop OpenClaw
 openclaw gateway stop
 
-# 2. Install Cortex (replaces openclaw binary)
-npm install -g cortex
+# 2. Remove OpenClaw, install Cortex
+npm uninstall -g openclaw
+npm install -g openclaw-cortex
 
 # 3. Start Cortex
 cortex gateway start
 ```
 
 That's it. Your config, memory, nodes, channels, and devices all carry over automatically.
+
+> **Important:** You must uninstall `openclaw` first — the `openclaw` binary from the original package conflicts with the one provided by `openclaw-cortex`. Alternatively, use `npm install -g openclaw-cortex --force` to overwrite in place.
 
 ## What Stays the Same
 
@@ -64,12 +67,14 @@ cp -r ~/.openclaw ~/.openclaw-backup
 npm uninstall -g openclaw
 ```
 
+This removes the upstream `openclaw` package and its binaries, preventing conflicts.
+
 ### 4. Install Cortex
 
-**From npm (when published):**
+**From npm:**
 
 ```bash
-npm install -g cortex
+npm install -g openclaw-cortex
 ```
 
 **From source:**
@@ -79,27 +84,30 @@ git clone https://github.com/ivanuser/cortex.git
 cd cortex
 pnpm install
 pnpm build
+cd ui && pnpm install && pnpm build && cd ..
 npm link
 ```
 
-### 5. Start Cortex
+### 5. Update systemd Service (if applicable)
+
+If you installed OpenClaw as a systemd service, update the service file:
+
+```bash
+# Check current service
+systemctl cat openclaw-gateway.service
+
+# Reinstall with Cortex
+cortex gateway install
+sudo systemctl daemon-reload
+```
+
+### 6. Start Cortex
 
 ```bash
 cortex gateway start
 ```
 
-Or if using systemd:
-
-```bash
-# Update the service file
-sudo sed -i 's|openclaw gateway|cortex gateway|g' /etc/systemd/system/openclaw.service
-# Optionally rename the service
-sudo mv /etc/systemd/system/openclaw.service /etc/systemd/system/cortex.service
-sudo systemctl daemon-reload
-sudo systemctl start cortex
-```
-
-### 6. Verify
+### 7. Verify
 
 ```bash
 cortex status
@@ -117,7 +125,7 @@ If you want to update the node binary too:
 ```bash
 # On each node:
 npm uninstall -g openclaw
-npm install -g cortex
+npm install -g openclaw-cortex
 # Restart the node service
 cortex node run --gateway-url <your-gateway-url>
 ```
@@ -150,7 +158,7 @@ If something goes wrong:
 
 ```bash
 cortex gateway stop
-npm uninstall -g cortex
+npm uninstall -g openclaw-cortex
 npm install -g openclaw
 openclaw gateway start
 ```
@@ -158,6 +166,9 @@ openclaw gateway start
 Your data is untouched — Cortex doesn't modify `~/.openclaw/` format.
 
 ## FAQ
+
+**Q: Why `openclaw-cortex` and not just `cortex`?**
+The name `cortex` is taken on npm by an unrelated package. `openclaw-cortex` is the official npm package name, but it installs both `cortex` and `openclaw` commands.
 
 **Q: Will my SOUL.md / USER.md / AGENTS.md work?**
 Yes. Cortex reads the same agent files from the same locations.
@@ -173,3 +184,6 @@ Not on the same machine (they'd fight over `~/.openclaw/` and port 18789). But y
 
 **Q: Do I need to reconfigure my Cloudflare tunnel?**
 No. The gateway still listens on the same port. Your tunnel config doesn't change.
+
+**Q: What about the `EEXIST` error during install?**
+If you see `EEXIST: file already exists` for the `openclaw` binary, it means the upstream `openclaw` package wasn't removed first. Run `npm uninstall -g openclaw` then try again, or use `npm install -g openclaw-cortex --force`.

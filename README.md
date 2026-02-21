@@ -39,7 +39,7 @@ While OpenClaw provides excellent functionality, Cortex addresses specific needs
 
 ```bash
 # Install Cortex globally
-npm install -g cortex@latest
+npm install -g openclaw-cortex
 
 # Run the onboarding wizard
 cortex onboard
@@ -112,12 +112,15 @@ Unlike distributed UIs, Cortex centralizes management through the **Cortex UI**,
 Cortex is a **drop-in replacement** — same data directory, same config format, same protocols.
 
 ```bash
-openclaw gateway stop          # Stop OpenClaw
-npm install -g cortex          # Install Cortex
-cortex gateway start           # Done. Everything carries over.
+openclaw gateway stop                # Stop OpenClaw
+npm uninstall -g openclaw            # Remove upstream package
+npm install -g openclaw-cortex       # Install Cortex
+cortex gateway start                 # Done. Everything carries over.
 ```
 
 Your `~/.openclaw/` data, paired nodes, channels, memory, cron jobs, and agent files all work unchanged. The `openclaw` command still works as an alias.
+
+> **Note:** You must uninstall `openclaw` first to avoid binary conflicts. See the full guide for details.
 
 **[Full Migration Guide →](MIGRATION.md)** — detailed steps, node migration, systemd, rollback, FAQ
 
