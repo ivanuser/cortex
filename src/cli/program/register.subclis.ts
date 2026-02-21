@@ -37,6 +37,15 @@ const loadConfig = async (): Promise<OpenClawConfig> => {
 // and set the flag accordingly.
 const entries: SubCliEntry[] = [
   {
+    name: "audit",
+    description: "Security audit log (view, filter, and manage audit entries)",
+    hasSubcommands: true,
+    register: async (program) => {
+      const mod = await import("../audit-cli.js");
+      mod.registerAuditCli(program);
+    },
+  },
+  {
     name: "acp",
     description: "Agent Control Protocol tools",
     hasSubcommands: true,

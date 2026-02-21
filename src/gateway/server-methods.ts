@@ -1,3 +1,5 @@
+import { AuditLogger } from "../audit/audit-logger.js";
+import { loadConfig } from "../config/config.js";
 import { formatControlPlaneActor, resolveControlPlaneActor } from "./control-plane-audit.js";
 import { consumeControlPlaneWriteBudget } from "./control-plane-rate-limit.js";
 import {
@@ -8,6 +10,7 @@ import {
 import { ErrorCodes, errorShape } from "./protocol/index.js";
 import { agentHandlers } from "./server-methods/agent.js";
 import { agentsHandlers } from "./server-methods/agents.js";
+import { auditHandlers } from "./server-methods/audit.js";
 import { browserHandlers } from "./server-methods/browser.js";
 import { channelsHandlers } from "./server-methods/channels.js";
 import { chatHandlers } from "./server-methods/chat.js";
@@ -35,6 +38,69 @@ import { webHandlers } from "./server-methods/web.js";
 import { wizardHandlers } from "./server-methods/wizard.js";
 
 const CONTROL_PLANE_WRITE_METHODS = new Set(["config.apply", "config.patch", "update.run"]);
+
+/** Methods that always get audit logged when audit is enabled. */
+const AUDIT_SENSITIVE_METHODS = new Set([
+  "config.set",
+  "config.apply",
+  "config.patch",
+  "device.pair.approve",
+  "device.pair.reject",
+  "node.pair.approve",
+  "node.pair.reject",
+  "exec.approvals.set",
+  "sessions.delete",
+  "update.run",
+]);
+
+type AuditLevel = "sensitive" | "all" | "off";
+
+function resolveAuditConfig(): { enabled: boolean; level: AuditLevel } {
+  try {
+    const cfg = loadConfig();
+    const security = (cfg as Record<string, unknown>).security as
+      | { audit?: { enabled?: boolean; level?: string } }
+      | undefined;
+    const enabled = security?.audit?.enabled !== false; // default true
+    const level = (security?.audit?.level as AuditLevel) ?? "sensitive";
+    return { enabled, level };
+  } catch {
+    return { enabled: true, level: "sensitive" };
+  }
+}
+
+function shouldAuditMethod(method: string, level: AuditLevel): boolean {
+  if (level === "off") {
+    return false;
+  }
+  if (level === "all") {
+    return true;
+  }
+  return AUDIT_SENSITIVE_METHODS.has(method);
+}
+
+function auditLogMethodCall(
+  method: string,
+  client: GatewayRequestOptions["client"],
+  result: "success" | "failure" | "denied",
+): void {
+  try {
+    const logger = AuditLogger.getInstance();
+    const actorType = client?.connect?.role ?? "unknown";
+    const actorId = client?.connect?.client?.id ?? client?.connect?.device?.id ?? undefined;
+    const ip = client?.clientIp ?? undefined;
+    logger.log({
+      actor_type: actorType as "operator" | "node" | "device" | "system" | "webchat" | "unknown",
+      actor_id: actorId,
+      action: method,
+      ip,
+      result,
+      details: result !== "success" ? `method ${method} ${result}` : undefined,
+    });
+  } catch {
+    // Never crash from audit logging
+  }
+}
 function authorizeGatewayMethod(method: string, client: GatewayRequestOptions["client"]) {
   if (!client?.connect) {
     return null;
@@ -93,6 +159,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...agentHandlers,
   ...agentsHandlers,
   ...browserHandlers,
+  ...auditHandlers,
 };
 
 export async function handleGatewayRequest(
@@ -101,6 +168,11 @@ export async function handleGatewayRequest(
   const { req, respond, client, isWebchatConnect, context } = opts;
   const authError = authorizeGatewayMethod(req.method, client);
   if (authError) {
+    // Audit log auth failures
+    const auditCfg = resolveAuditConfig();
+    if (auditCfg.enabled) {
+      auditLogMethodCall(req.method, client, "denied");
+    }
     respond(false, undefined, authError);
     return;
   }
@@ -139,12 +211,34 @@ export async function handleGatewayRequest(
     );
     return;
   }
-  await handler({
-    req,
-    params: (req.params ?? {}) as Record<string, unknown>,
-    client,
-    isWebchatConnect,
-    respond,
-    context,
-  });
+
+  // Audit logging for sensitive (or all) methods
+  const auditCfg = resolveAuditConfig();
+  const shouldAudit = auditCfg.enabled && shouldAuditMethod(req.method, auditCfg.level);
+
+  if (shouldAudit) {
+    // Wrap respond to capture success/failure for audit
+    const originalRespond = respond;
+    const auditedRespond: typeof respond = (ok, payload, error, meta) => {
+      auditLogMethodCall(req.method, client, ok ? "success" : "failure");
+      originalRespond(ok, payload, error, meta);
+    };
+    await handler({
+      req,
+      params: (req.params ?? {}) as Record<string, unknown>,
+      client,
+      isWebchatConnect,
+      respond: auditedRespond,
+      context,
+    });
+  } else {
+    await handler({
+      req,
+      params: (req.params ?? {}) as Record<string, unknown>,
+      client,
+      isWebchatConnect,
+      respond,
+      context,
+    });
+  }
 }

@@ -92,6 +92,10 @@ const BASE_METHODS = [
   "chat.history",
   "chat.abort",
   "chat.send",
+  // Audit log methods
+  "audit.query",
+  "audit.stats",
+  "audit.prune",
 ];
 
 export function listGatewayMethods(): string[] {

@@ -7,6 +7,7 @@ import {
 } from "../agents/model-selection.js";
 import { resolveAgentSessionDirs } from "../agents/session-dirs.js";
 import { cleanStaleLockFiles } from "../agents/session-write-lock.js";
+import { AuditLogger } from "../audit/audit-logger.js";
 import type { CliDeps } from "../cli/deps.js";
 import type { loadConfig } from "../config/config.js";
 import { resolveStateDir } from "../config/paths.js";
@@ -44,6 +45,16 @@ export async function startGatewaySidecars(params: {
   logChannels: { info: (msg: string) => void; error: (msg: string) => void };
   logBrowser: { error: (msg: string) => void };
 }) {
+  // Initialize audit logging (Phase 1 security foundation)
+  try {
+    const auditRetention = (params.cfg as Record<string, unknown>).security as
+      | { audit?: { retentionDays?: number } }
+      | undefined;
+    AuditLogger.init({ retentionDays: auditRetention?.audit?.retentionDays });
+  } catch (err) {
+    params.log.warn(`audit logger initialization failed: ${String(err)}`);
+  }
+
   try {
     const stateDir = resolveStateDir(process.env);
     const sessionDirs = await resolveAgentSessionDirs(stateDir);
