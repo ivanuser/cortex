@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+// Cortex CLI entrypoint
+// Note: File kept as 'openclaw.mjs' to avoid breaking internal references
+// This serves as the main entry for both 'cortex' and 'openclaw' commands
+
 import module from "node:module";
 
 // https://nodejs.org/api/module.html#module-compile-cache

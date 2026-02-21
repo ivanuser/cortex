@@ -1,19 +1,20 @@
 {
-  "name": "openclaw",
+  "name": "cortex",
   "version": "2026.2.20",
-  "description": "Multi-channel AI gateway with extensible messaging integrations",
+  "description": "Cortex — AI Assistant Command Center. A security-hardened fork of OpenClaw with enhanced UI and simplified architecture.",
   "keywords": [],
-  "homepage": "https://github.com/openclaw/openclaw#readme",
+  "homepage": "https://github.com/ivanuser/cortex#readme",
   "bugs": {
-    "url": "https://github.com/openclaw/openclaw/issues"
+    "url": "https://github.com/ivanuser/cortex/issues"
   },
   "license": "MIT",
   "author": "",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/openclaw/openclaw.git"
+    "url": "git+https://github.com/ivanuser/cortex.git"
   },
   "bin": {
+    "cortex": "openclaw.mjs",
     "openclaw": "openclaw.mjs"
   },
   "directories": {

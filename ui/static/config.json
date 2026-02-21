@@ -1,0 +1,10 @@
+{
+  "gateway": {
+    "url": "",
+    "ws": ""
+  },
+  "branding": {
+    "title": "Cortex",
+    "subtitle": "OpenClaw Command Center"
+  }
+}
