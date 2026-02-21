@@ -321,10 +321,9 @@ export function handleControlUiHttpRequest(
     if (uiPath === ROOT_PREFIX) {
       return "";
     }
-    const assetsIndex = uiPath.indexOf("/assets/");
-    if (assetsIndex >= 0) {
-      return uiPath.slice(assetsIndex + 1);
-    }
+    // Serve files using the full relative path.  The previous `/assets/`
+    // stripping was designed for Vite's flat `assets/` output but breaks
+    // SvelteKit's deeper `_app/immutable/assets/` structure.
     return uiPath.slice(1);
   })();
   const requested = rel && !rel.endsWith("/") ? rel : `${rel}index.html`;

@@ -49,37 +49,44 @@
 
   // When connected, fetch sessions and load history
   $effect(() => {
-    if (conn.state.status === 'connected' && !hasLoadedOnConnect) {
-      hasLoadedOnConnect = true;
-      sessions.fetchSessions();
+    const status = conn.state.status;
+    untrack(() => {
+      if (status === 'connected' && !hasLoadedOnConnect) {
+        hasLoadedOnConnect = true;
+        sessions.fetchSessions();
 
-      // Restore last active session, or fall back to main
-      const sessionToLoad = sessions.activeKey || conn.state.mainSessionKey;
-      if (sessionToLoad) {
-        sessions.setActiveSession(sessionToLoad);
-        msgs.loadHistory(sessionToLoad);
+        // Restore last active session, or fall back to main
+        const sessionToLoad = sessions.activeKey || conn.state.mainSessionKey;
+        if (sessionToLoad) {
+          sessions.setActiveSession(sessionToLoad);
+          msgs.loadHistory(sessionToLoad);
+        }
       }
-    }
-    // Reset flag on disconnect so we reload on reconnect
-    if (conn.state.status === 'disconnected') {
-      hasLoadedOnConnect = false;
-    }
+      // Reset flag on disconnect so we reload on reconnect
+      if (status === 'disconnected') {
+        hasLoadedOnConnect = false;
+      }
+    });
   });
 
   // When active session changes from sidebar, reload history
   $effect(() => {
     const key = sessions.activeKey;
-    if (key && key !== msgs.activeSessionKey && gateway.connected) {
-      msgs.loadHistory(key);
-    }
+    untrack(() => {
+      if (key && key !== msgs.activeSessionKey && gateway.connected) {
+        msgs.loadHistory(key);
+      }
+    });
   });
 
   // Network error handling with toasts
   $effect(() => {
     const status = conn.state.status;
-    if (status === 'error' && conn.state.error) {
-      toasts.error('Connection Error', conn.state.error, 8000);
-    }
+    untrack(() => {
+      if (status === 'error' && conn.state.error) {
+        toasts.error('Connection Error', conn.state.error, 8000);
+      }
+    });
   });
 
   // ─── Browser Notifications ────────────────────

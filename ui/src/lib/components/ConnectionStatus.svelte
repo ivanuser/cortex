@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { getConnection } from '$lib/stores/connection.svelte';
   import { getToasts } from '$lib/stores/toasts.svelte';
   import { gateway } from '$lib/gateway';
@@ -22,35 +23,37 @@
   let connectedAt = $state<number>(0);
 
   // Track connection state changes for reconnection UI
+  // IMPORTANT: All reads/writes to local $state must be inside untrack()
+  // to prevent Svelte 5 effect_update_depth_exceeded infinite loops.
+  // Only conn.state.status should be tracked as a dependency.
   $effect(() => {
     const status = conn.state.status;
     
-    if (status === 'connected') {
-      reconnectAttempts = 0;
-      reconnectCountdown = 0;
-      connectedAt = Date.now();
-      if (countdownInterval) {
-        clearInterval(countdownInterval);
-        countdownInterval = null;
+    untrack(() => {
+      if (status === 'connected') {
+        const wasReconnecting = reconnectAttempts > 0;
+        reconnectAttempts = 0;
+        reconnectCountdown = 0;
+        connectedAt = Date.now();
+        if (countdownInterval) {
+          clearInterval(countdownInterval);
+          countdownInterval = null;
+        }
+        if (wasReconnecting) {
+          toasts.success('Reconnected', 'Connection restored successfully');
+        }
+      } else if (status === 'connecting' && reconnectAttempts > 0) {
+        startCountdown(5);
+      } else if (status === 'error') {
+        reconnectAttempts++;
+        if (conn.state.error) {
+          toasts.error('Connection Error', conn.state.error);
+        }
+      } else if (status === 'disconnected' && reconnectAttempts === 0) {
+        toasts.warning('Disconnected', 'Connection lost, attempting to reconnect...');
+        reconnectAttempts = 1;
       }
-      // Show success toast on reconnection (not initial connection)
-      if (reconnectAttempts > 0) {
-        toasts.success('Reconnected', 'Connection restored successfully');
-      }
-    } else if (status === 'connecting' && reconnectAttempts > 0) {
-      // We're reconnecting
-      startCountdown(5); // 5 second countdown example
-    } else if (status === 'error') {
-      reconnectAttempts++;
-      // Show error toast
-      if (conn.state.error) {
-        toasts.error('Connection Error', conn.state.error);
-      }
-    } else if (status === 'disconnected' && reconnectAttempts === 0) {
-      // Initial disconnect, show warning
-      toasts.warning('Disconnected', 'Connection lost, attempting to reconnect...');
-      reconnectAttempts = 1;
-    }
+    });
   });
 
   // Update uptime display

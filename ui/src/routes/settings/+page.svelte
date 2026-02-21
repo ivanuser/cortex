@@ -63,8 +63,12 @@
 
   // Sync from store on mount
   $effect(() => {
-    if (conn.url && !url) url = conn.url;
-    if (conn.token && !token) token = conn.token;
+    const storeUrl = conn.url;
+    const storeToken = conn.token;
+    untrack(() => {
+      if (storeUrl && !url) url = storeUrl;
+      if (storeToken && !token) token = storeToken;
+    });
   });
 
   function handleSave() {

@@ -24,13 +24,13 @@ export interface CortexConfig {
 
 const DEFAULT_CONFIG: CortexConfig = {
   gateway: {
-    url: '',
-    ws: ''
+    url: "",
+    ws: "",
   },
   branding: {
-    title: 'Cortex',
-    subtitle: 'OpenClaw Command Center'
-  }
+    title: "Cortex",
+    subtitle: "OpenClaw Command Center",
+  },
 };
 
 let cachedConfig: CortexConfig | null = null;
@@ -40,13 +40,13 @@ let cachedConfig: CortexConfig | null = null;
  * https://example.com → wss://example.com
  * http://example.com → ws://example.com
  */
-function deriveWsUrl(httpUrl: string): string {
+function _deriveWsUrl(httpUrl: string): string {
   try {
     const url = new URL(httpUrl);
-    const wsProtocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${wsProtocol}//${url.host}${url.pathname === '/' ? '' : url.pathname}`;
+    const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
+    return `${wsProtocol}//${url.host}${url.pathname === "/" ? "" : url.pathname}`;
   } catch {
-    return '';
+    return "";
   }
 }
 
@@ -55,12 +55,16 @@ function deriveWsUrl(httpUrl: string): string {
  * Called once at app startup. Cached after first load.
  */
 export async function loadConfig(): Promise<CortexConfig> {
-  if (cachedConfig) return cachedConfig;
+  if (cachedConfig) {
+    return cachedConfig;
+  }
 
   try {
-    const resp = await fetch('/__control__/bootstrap.json', { cache: 'no-store' });
+    const resp = await fetch("/__openclaw/control-ui-config.json", { cache: "no-store" });
     if (!resp.ok) {
-      console.warn(`[config] /__control__/bootstrap.json returned ${resp.status}, using defaults`);
+      console.warn(
+        `[config] /__openclaw/control-ui-config.json returned ${resp.status}, using defaults`,
+      );
       cachedConfig = { ...DEFAULT_CONFIG };
       return cachedConfig;
     }
@@ -69,27 +73,27 @@ export async function loadConfig(): Promise<CortexConfig> {
 
     // Map bootstrap fields to Cortex config format
     // Gateway bootstrap provides: basePath, assistantName, assistantAvatar
-    const gatewayUrl = json?.basePath || '';
+    const gatewayUrl = json?.basePath || "";
     cachedConfig = {
       gateway: {
         url: gatewayUrl,
-        ws: ''  // Will be derived from window.location
+        ws: "", // Will be derived from window.location
       },
       branding: {
         title: json?.assistantName || DEFAULT_CONFIG.branding.title,
-        subtitle: 'OpenClaw Command Center'  // Keep default subtitle
-      }
+        subtitle: "OpenClaw Command Center", // Keep default subtitle
+      },
     };
 
     // Since we're running same-origin with the gateway, derive WS from window.location
-    if (typeof window !== 'undefined' && !cachedConfig.gateway.ws) {
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    if (typeof window !== "undefined" && !cachedConfig.gateway.ws) {
+      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       cachedConfig.gateway.ws = `${wsProtocol}//${window.location.host}`;
     }
 
     return cachedConfig;
   } catch (err) {
-    console.warn('[config] Failed to load /__control__/bootstrap.json:', err);
+    console.warn("[config] Failed to load /__control__/bootstrap.json:", err);
     cachedConfig = { ...DEFAULT_CONFIG };
     return cachedConfig;
   }
@@ -106,7 +110,7 @@ export function getConfig(): CortexConfig | null {
  * Get the configured gateway WS URL, or empty string if not configured.
  */
 export function getGatewayWsUrl(): string {
-  return cachedConfig?.gateway?.ws || '';
+  return cachedConfig?.gateway?.ws || "";
 }
 
 /**

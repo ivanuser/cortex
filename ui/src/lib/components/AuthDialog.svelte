@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { getConnection } from '$lib/stores/connection.svelte';
   import { getToasts } from '$lib/stores/toasts.svelte';
   import { getConfig } from '$lib/config';
@@ -23,16 +24,18 @@
 
   // Show dialog automatically if no saved credentials
   $effect(() => {
-    if (typeof window !== 'undefined' && conn.initialized) {
-      const { url, token: savedToken } = conn.loadSettings();
-      if (!url || !savedToken) {
-        // Pre-fill from config.json if available
-        if (!gatewayUrl && configuredWs) {
-          gatewayUrl = configuredWs;
+    const isInitialized = conn.initialized;
+    untrack(() => {
+      if (typeof window !== 'undefined' && isInitialized) {
+        const { url, token: savedToken } = conn.loadSettings();
+        if (!url || !savedToken) {
+          if (!gatewayUrl && configuredWs) {
+            gatewayUrl = configuredWs;
+          }
+          show = true;
         }
-        show = true;
       }
-    }
+    });
   });
 
   async function handleConnect() {

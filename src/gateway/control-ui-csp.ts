@@ -9,7 +9,7 @@ export function buildControlUiCspHeader(): string {
     "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: https: blob:",
-    "font-src 'self' https://fonts.gstatic.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
     "connect-src 'self' ws: wss: https:",
   ].join("; ");
 }
