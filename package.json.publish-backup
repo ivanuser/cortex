@@ -1,17 +1,17 @@
 {
-  "name": "openclaw-cortex",
-  "version": "3.0.0",
-  "description": "Cortex — AI Assistant Command Center. A security-hardened fork of OpenClaw with Cortex UI.",
+  "name": "openclaw",
+  "version": "2026.2.20",
+  "description": "Cortex — AI Assistant Command Center. A security-hardened fork of OpenClaw.",
   "keywords": [],
-  "homepage": "https://github.com/ivanuser/cortex",
+  "homepage": "https://github.com/ivanuser/cortex#readme",
   "bugs": {
     "url": "https://github.com/ivanuser/cortex/issues"
   },
   "license": "MIT",
-  "author": "ivanuser <ivan@honercloud.com>",
+  "author": "",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ivanuser/cortex.git"
+    "url": "git+https://github.com/ivanuser/cortex.git"
   },
   "bin": {
     "cortex": "openclaw.mjs",

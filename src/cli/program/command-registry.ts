@@ -40,6 +40,19 @@ const coreEntries: CoreCliEntry[] = [
   {
     commands: [
       {
+        name: "init",
+        description: "Initialize Cortex as a gateway or node",
+        hasSubcommands: true,
+      },
+    ],
+    register: async ({ program }) => {
+      const mod = await import("./register.init.js");
+      mod.registerInitCommand(program);
+    },
+  },
+  {
+    commands: [
+      {
         name: "setup",
         description: "Initialize local config and agent workspace",
         hasSubcommands: false,
