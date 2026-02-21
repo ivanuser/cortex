@@ -1,9 +1,19 @@
-const CACHE_NAME = "cortex-v2";
-const SHELL_ASSETS = ["/", "/index.html", "/logo.png"];
+const CACHE_NAME = "cortex-v4";
+const SHELL_ASSETS = ["/", "/index.html"];
 
-// Install: pre-cache the app shell
+// Install: pre-cache the app shell (gracefully skip failures)
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_ASSETS)));
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.allSettled(
+        SHELL_ASSETS.map((url) =>
+          cache.add(url).catch(() => {
+            /* skip failed assets */
+          }),
+        ),
+      ),
+    ),
+  );
   self.skipWaiting();
 });
 
