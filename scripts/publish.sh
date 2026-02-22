@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Publish the Cortex fork as openclaw-cortex on npm
-# Temporarily swaps the package name for publishing, then restores it.
+# Publish the Cortex fork as openclaw-cortex
+# Default: publish to GitLab generic package registry (dev iterations)
+# With --npm: also publish to npmjs.com (stable releases)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -9,6 +10,29 @@ cd "$ROOT_DIR"
 
 PKG="package.json"
 BACKUP="package.json.publish-backup"
+GITLAB_PROJECT_ID=98
+GITLAB_HOST="192.168.1.75"
+GITLAB_TOKEN="gitlab_honercloud-4MssKsyjnO53SDkF5oBvVm86MQp1OjEH.01.0w0hj2xv0"
+
+# Parse args
+PUBLISH_NPM=false
+VERSION=""
+for arg in "$@"; do
+  case "$arg" in
+    --npm) PUBLISH_NPM=true ;;
+    *) VERSION="$arg" ;;
+  esac
+done
+
+if [ -z "$VERSION" ]; then
+  echo "Usage: ./scripts/publish.sh <version> [--npm]"
+  echo ""
+  echo "  <version>   Version to publish (e.g. 3.6.0)"
+  echo "  --npm       Also publish to npmjs.com (stable releases only)"
+  echo ""
+  echo "Default: publishes to GitLab package registry only"
+  exit 1
+fi
 
 # Ensure clean state
 if [ -f "$BACKUP" ]; then
@@ -23,14 +47,13 @@ if [ ! -f "dist/index.js" ]; then
 fi
 
 if [ ! -f "dist/control-ui/index.html" ]; then
-  echo "ERROR: dist/control-ui/ not found. Run 'cd ui && pnpm build' first."
+  echo "ERROR: dist/control-ui/ not found. Run 'pnpm ui:build' first."
   exit 1
 fi
 
-# Parse version from args or use default
-VERSION="${1:-3.0.0}"
-
 echo "Publishing openclaw-cortex@${VERSION}"
+echo "  → GitLab registry: always"
+echo "  → npm registry: $([ "$PUBLISH_NPM" = true ] && echo 'YES' || echo 'no (use --npm for stable releases)')"
 echo ""
 
 # Backup original package.json
@@ -51,15 +74,39 @@ fs.writeFileSync('$PKG', JSON.stringify(pkg, null, 2) + '\n');
 "
 
 echo "Package name swapped to openclaw-cortex@${VERSION}"
-echo "Publishing..."
 
-# Publish
-npm publish --access public
+# Pack the tarball
+echo ""
+echo "📦 Packing tarball..."
+TARBALL="openclaw-cortex-${VERSION}.tgz"
+npm pack --quiet 2>&1 | tail -1
+echo "   Packed: ${TARBALL} ($(du -h "$TARBALL" | cut -f1))"
+
+# --- GitLab Package Registry (generic upload via curl) ---
+echo ""
+echo "📦 Uploading to GitLab..."
+UPLOAD_RESPONSE=$(curl -sk \
+  --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+  --upload-file "$TARBALL" \
+  "https://${GITLAB_HOST}/api/v4/projects/${GITLAB_PROJECT_ID}/packages/generic/openclaw-cortex/${VERSION}/${TARBALL}" 2>&1)
+echo "   $UPLOAD_RESPONSE"
+
+# --- npm (only if --npm flag) ---
+if [ "$PUBLISH_NPM" = true ]; then
+  echo ""
+  echo "📦 Publishing to npmjs.com..."
+  npm publish "$TARBALL" --access public --registry "https://registry.npmjs.org/"
+fi
 
 # Restore original package.json
 mv "$BACKUP" "$PKG"
 
+# Clean up tarball
+rm -f "$TARBALL"
+
 echo ""
 echo "✅ Published openclaw-cortex@${VERSION}"
-echo "   Install: npm install -g openclaw-cortex"
-echo "   Commands: cortex, openclaw"
+echo "   GitLab: curl -L https://${GITLAB_HOST}/api/v4/projects/${GITLAB_PROJECT_ID}/packages/generic/openclaw-cortex/${VERSION}/${TARBALL}"
+if [ "$PUBLISH_NPM" = true ]; then
+  echo "   npm:    npm install -g openclaw-cortex@${VERSION}"
+fi

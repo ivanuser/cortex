@@ -852,7 +852,7 @@ export function attachGatewayWsMessageHandler(params: {
           type: "hello-ok",
           protocol: PROTOCOL_VERSION,
           server: {
-            version: resolveRuntimeServiceVersion(process.env) || VERSION,
+            version: VERSION || resolveRuntimeServiceVersion(process.env),
             commit: process.env.GIT_COMMIT,
             host: os.hostname(),
             connId,
