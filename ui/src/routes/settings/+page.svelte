@@ -469,11 +469,11 @@
     <div class="glass rounded-2xl p-6">
       <h2 class="text-lg font-semibold text-text-primary mb-4">About Cortex</h2>
       <div class="space-y-3 text-sm text-text-secondary">
-        <p><strong class="text-text-primary">Version:</strong> 1.0.0</p>
+        <p><strong class="text-text-primary">Version:</strong> {conn.state.serverVersion || 'connecting...'}</p>
         <p><strong class="text-text-primary">Protocol:</strong> OpenClaw Gateway WS v3</p>
         <p><strong class="text-text-primary">Source:</strong>
-          <a href="https://gitlab.honercloud.com/llm/cortex" target="_blank" rel="noopener" class="text-accent-cyan hover:underline">
-            gitlab.honercloud.com/llm/cortex
+          <a href="https://github.com/ivanuser/cortex" target="_blank" rel="noopener" class="text-accent-cyan hover:underline">
+            github.com/ivanuser/cortex
           </a>
         </p>
         <p class="text-text-muted text-xs mt-4">
