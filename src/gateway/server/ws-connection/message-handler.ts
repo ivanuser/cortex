@@ -21,6 +21,7 @@ import { upsertPresence } from "../../../infra/system-presence.js";
 import { loadVoiceWakeConfig } from "../../../infra/voicewake.js";
 import { rawDataToString } from "../../../infra/ws.js";
 import type { createSubsystemLogger } from "../../../logging/subsystem.js";
+import { resolveCallerRole } from "../../../security/authorize.js";
 import { roleScopesAllow } from "../../../shared/operator-scope-compat.js";
 import { isGatewayCliClient, isWebchatClient } from "../../../utils/message-channel.js";
 import { resolveRuntimeServiceVersion, VERSION } from "../../../version.js";
@@ -66,7 +67,6 @@ import {
   refreshGatewayHealthSnapshot,
 } from "../health-state.js";
 import type { GatewayWsClient } from "../ws-types.js";
-import { resolveCallerRole } from "../../../security/authorize.js";
 import { formatGatewayAuthFailureMessage, type AuthProvidedKind } from "./auth-messages.js";
 
 type SubsystemLogger = ReturnType<typeof createSubsystemLogger>;
@@ -788,8 +788,12 @@ export function attachGatewayWsMessageHandler(params: {
         if (device) {
           try {
             const pairedForRole = await getPairedDevice(device.id);
+            // Use securityRole field (Phase 2+), NOT role (which is the connection role "operator"/"node")
+            const deviceSecRole = (pairedForRole as Record<string, unknown>)?.securityRole as
+              | string
+              | undefined;
             resolvedSecurityRole = resolveCallerRole({
-              deviceSecurityRole: pairedForRole?.role,
+              deviceSecurityRole: deviceSecRole,
               tokenRole: deviceToken?.role,
               defaultRole: "admin",
             });
