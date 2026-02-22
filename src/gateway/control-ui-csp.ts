@@ -6,7 +6,7 @@ export function buildControlUiCspHeader(): string {
     "base-uri 'none'",
     "object-src 'none'",
     "frame-ancestors 'none'",
-    "script-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: https: blob:",
     "font-src 'self' data: https://fonts.gstatic.com",
