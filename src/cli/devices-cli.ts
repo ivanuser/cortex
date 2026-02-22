@@ -5,10 +5,12 @@ import {
   approveDevicePairing,
   listDevicePairing,
   summarizeDeviceTokens,
+  updatePairedDeviceMetadata,
   type PairedDevice as InfraPairedDevice,
 } from "../infra/device-pairing.js";
 import { formatTimeAgo } from "../infra/format-time/format-relative.ts";
 import { defaultRuntime } from "../runtime.js";
+import { ROLES, isValidRole } from "../security/roles.js";
 import { renderTable } from "../terminal/table.js";
 import { theme } from "../terminal/theme.js";
 import { GATEWAY_CLIENT_MODES, GATEWAY_CLIENT_NAMES } from "../utils/message-channel.js";
@@ -367,6 +369,7 @@ export function registerDevicesCli(program: Command) {
       .description("Approve a pending device pairing request")
       .argument("[requestId]", "Pending request id")
       .option("--latest", "Approve the most recent pending request", false)
+      .option("--role <role>", `Assign role to device (${ROLES.join(", ")})`)
       .action(async (requestId: string | undefined, opts: DevicesRpcOpts) => {
         let resolvedRequestId = requestId?.trim();
         if (!resolvedRequestId || opts.latest) {
@@ -378,19 +381,35 @@ export function registerDevicesCli(program: Command) {
           defaultRuntime.exit(1);
           return;
         }
+        // Validate role if provided
+        const assignRole = opts.role?.trim();
+        if (assignRole && !isValidRole(assignRole)) {
+          defaultRuntime.error(`Invalid role "${assignRole}". Valid: ${ROLES.join(", ")}`);
+          defaultRuntime.exit(1);
+          return;
+        }
         const result = await approvePairingWithFallback(opts, resolvedRequestId);
         if (!result) {
           defaultRuntime.error("unknown requestId");
           defaultRuntime.exit(1);
           return;
         }
+        // If role was specified, update the device after approval
+        const deviceId = (result as { device?: { deviceId?: string } })?.device?.deviceId;
+        if (assignRole && deviceId) {
+          try {
+            await updatePairedDeviceMetadata(deviceId, { role: assignRole });
+          } catch {
+            // Best-effort — device is already approved
+          }
+        }
         if (opts.json) {
           defaultRuntime.log(JSON.stringify(result, null, 2));
           return;
         }
-        const deviceId = (result as { device?: { deviceId?: string } })?.device?.deviceId;
+        const roleMsg = assignRole ? ` ${theme.muted(`role=${assignRole}`)}` : "";
         defaultRuntime.log(
-          `${theme.success("Approved")} ${theme.command(deviceId ?? "ok")} ${theme.muted(`(${resolvedRequestId})`)}`,
+          `${theme.success("Approved")} ${theme.command(deviceId ?? "ok")} ${theme.muted(`(${resolvedRequestId})`)}${roleMsg}`,
         );
       }),
   );
@@ -448,6 +467,59 @@ export function registerDevicesCli(program: Command) {
           role: required.role,
         });
         defaultRuntime.log(JSON.stringify(result, null, 2));
+      }),
+  );
+
+  devicesCallOpts(
+    devices
+      .command("set-role")
+      .description("Change the role of a paired device")
+      .argument("<deviceId>", "Device ID")
+      .argument("<role>", `Role to assign (${ROLES.join(", ")})`)
+      .action(async (deviceId: string, role: string, opts: DevicesRpcOpts) => {
+        const trimmedDeviceId = deviceId.trim();
+        const trimmedRole = role.trim();
+        if (!trimmedDeviceId) {
+          defaultRuntime.error("deviceId is required");
+          defaultRuntime.exit(1);
+          return;
+        }
+        if (!isValidRole(trimmedRole)) {
+          defaultRuntime.error(`Invalid role "${trimmedRole}". Valid roles: ${ROLES.join(", ")}`);
+          defaultRuntime.exit(1);
+          return;
+        }
+        try {
+          // Try RPC first
+          const result = await callGatewayCli("device.role.set", opts, {
+            deviceId: trimmedDeviceId,
+            role: trimmedRole,
+          });
+          if (opts.json) {
+            defaultRuntime.log(JSON.stringify(result, null, 2));
+          } else {
+            defaultRuntime.log(
+              `${theme.success("✓ Role updated")} ${theme.command(trimmedDeviceId)} → ${theme.heading(trimmedRole)}`,
+            );
+          }
+        } catch {
+          // Fallback to local
+          try {
+            await updatePairedDeviceMetadata(trimmedDeviceId, { role: trimmedRole });
+            if (opts.json) {
+              defaultRuntime.log(
+                JSON.stringify({ deviceId: trimmedDeviceId, role: trimmedRole }, null, 2),
+              );
+            } else {
+              defaultRuntime.log(
+                `${theme.success("✓ Role updated")} ${theme.command(trimmedDeviceId)} → ${theme.heading(trimmedRole)} ${theme.muted("(local)")}`,
+              );
+            }
+          } catch (err) {
+            defaultRuntime.error(String(err));
+            defaultRuntime.exit(1);
+          }
+        }
       }),
   );
 }

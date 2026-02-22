@@ -7,7 +7,9 @@ import {
   revokeDeviceToken,
   rotateDeviceToken,
   summarizeDeviceTokens,
+  updatePairedDeviceMetadata,
 } from "../../infra/device-pairing.js";
+import { isValidRole } from "../../security/roles.js";
 import {
   ErrorCodes,
   errorShape,
@@ -211,5 +213,36 @@ export const deviceHandlers: GatewayRequestHandlers = {
       { deviceId, role: entry.role, revokedAtMs: entry.revokedAtMs ?? Date.now() },
       undefined,
     );
+  },
+  "device.role.set": async ({ params, respond, context }) => {
+    const { deviceId, role } = params as { deviceId?: string; role?: string };
+    const trimmedDeviceId = String(deviceId ?? "").trim();
+    const trimmedRole = String(role ?? "").trim();
+    if (!trimmedDeviceId || !trimmedRole) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "deviceId and role are required"),
+      );
+      return;
+    }
+    if (!isValidRole(trimmedRole)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `Invalid role "${trimmedRole}". Valid: admin, operator, viewer, chat-only`,
+        ),
+      );
+      return;
+    }
+    try {
+      await updatePairedDeviceMetadata(trimmedDeviceId, { role: trimmedRole });
+      context.logGateway.info(`device role updated device=${trimmedDeviceId} role=${trimmedRole}`);
+      respond(true, { deviceId: trimmedDeviceId, role: trimmedRole }, undefined);
+    } catch (err) {
+      respond(false, undefined, errorShape(ErrorCodes.INTERNAL_ERROR, String(err)));
+    }
   },
 };

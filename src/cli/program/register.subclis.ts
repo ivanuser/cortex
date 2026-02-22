@@ -260,6 +260,15 @@ const entries: SubCliEntry[] = [
     },
   },
   {
+    name: "tokens",
+    description: "Manage API tokens (create, list, revoke)",
+    hasSubcommands: true,
+    register: async (program) => {
+      const mod = await import("../tokens-cli.js");
+      mod.registerTokensCli(program);
+    },
+  },
+  {
     name: "security",
     description: "Security tools and local config audits",
     hasSubcommands: true,

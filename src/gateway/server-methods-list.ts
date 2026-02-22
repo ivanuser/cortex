@@ -68,6 +68,7 @@ const BASE_METHODS = [
   "device.pair.remove",
   "device.token.rotate",
   "device.token.revoke",
+  "device.role.set",
   "node.rename",
   "node.list",
   "node.describe",
@@ -96,6 +97,10 @@ const BASE_METHODS = [
   "audit.query",
   "audit.stats",
   "audit.prune",
+  // Token management methods
+  "tokens.create",
+  "tokens.list",
+  "tokens.revoke",
 ];
 
 export function listGatewayMethods(): string[] {

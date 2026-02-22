@@ -25,6 +25,17 @@
   let pairedDevices = $state<Array<Record<string, unknown>>>([]);
   let deviceApprovingId = $state<string | null>(null);
   let deviceRejectingId = $state<string | null>(null);
+  let deviceRoleChanging = $state<string | null>(null);
+  let pendingApproveRole = $state<Record<string, string>>({});
+
+  // ─── Role constants ────────────────────────────
+  const DEVICE_ROLES = ['admin', 'operator', 'viewer', 'chat-only'] as const;
+  const roleBadgeColors: Record<string, string> = {
+    admin: 'bg-accent-pink/20 text-accent-pink border-accent-pink/30',
+    operator: 'bg-accent-purple/20 text-accent-purple border-accent-purple/30',
+    viewer: 'bg-accent-cyan/20 text-accent-cyan border-accent-cyan/30',
+    'chat-only': 'bg-accent-amber/20 text-accent-amber border-accent-amber/30',
+  };
 
   // ─── Detail panel state ────────────────────────
   let detailTab = $state<'info' | 'invoke' | 'allowlist'>('info');
@@ -182,8 +193,17 @@
   async function approveDevice(requestId: string) {
     deviceApprovingId = requestId;
     try {
-      await gateway.call('device.pair.approve', { requestId });
-      toasts.success('Device Approved', 'Device has been paired successfully');
+      const result = await gateway.call<{ device?: { deviceId?: string } }>('device.pair.approve', { requestId });
+      // Set role if user selected one
+      const selectedRole = pendingApproveRole[requestId];
+      if (selectedRole && result?.device?.deviceId) {
+        try {
+          await gateway.call('device.role.set', { deviceId: result.device.deviceId, role: selectedRole });
+        } catch {
+          // Best effort
+        }
+      }
+      toasts.success('Device Approved', `Device has been paired${selectedRole ? ` as ${selectedRole}` : ''}`);
       loadDevices();
     } catch (err) {
       toasts.error('Device Approval Failed', String(err));
@@ -203,6 +223,23 @@
     } finally {
       deviceRejectingId = null;
     }
+  }
+
+  async function setDeviceRole(deviceId: string, role: string) {
+    deviceRoleChanging = deviceId;
+    try {
+      await gateway.call('device.role.set', { deviceId, role });
+      toasts.success('Role Updated', `Device role changed to ${role}`);
+      loadDevices();
+    } catch (err) {
+      toasts.error('Role Update Failed', String(err));
+    } finally {
+      deviceRoleChanging = null;
+    }
+  }
+
+  function getDeviceRole(device: Record<string, unknown>): string {
+    return String(device.role ?? 'operator');
   }
 
   function toggleExpand(nodeId: string) {
@@ -624,6 +661,16 @@
                 </div>
               </div>
               <div class="flex items-center gap-2">
+                <!-- Role selection for approval -->
+                <select
+                  class="px-2 py-1 text-xs rounded-lg bg-bg-input border border-border-default text-text-primary focus:outline-none focus:border-accent-cyan/50"
+                  value={pendingApproveRole[reqId] ?? 'operator'}
+                  onchange={(e) => { pendingApproveRole[reqId] = (e.target as HTMLSelectElement).value; pendingApproveRole = pendingApproveRole; }}
+                >
+                  {#each DEVICE_ROLES as r}
+                    <option value={r}>{r}</option>
+                  {/each}
+                </select>
                 <button
                   onclick={() => approveDevice(reqId)}
                   disabled={deviceApprovingId === reqId}
@@ -638,6 +685,61 @@
                 >
                   {deviceRejectingId === reqId ? 'Rejecting…' : '✗ Reject'}
                 </button>
+              </div>
+            </div>
+          {/each}
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Paired Devices Section -->
+  {#if pairedDevices.length > 0}
+    <div class="flex-shrink-0 mx-4 md:mx-6 mt-4">
+      <div class="p-4 rounded-xl border border-border-default bg-bg-secondary/50">
+        <div class="flex items-center gap-2 mb-3">
+          <svg class="w-5 h-5 text-accent-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <h3 class="text-sm font-semibold text-accent-purple">{pairedDevices.length} Paired Device{pairedDevices.length > 1 ? 's' : ''}</h3>
+        </div>
+        <div class="space-y-2">
+          {#each pairedDevices as device}
+            {@const devId = String(device.deviceId ?? '')}
+            {@const devName = String(device.displayName ?? device.clientId ?? devId)}
+            {@const devRole = getDeviceRole(device)}
+            {@const devIp = String(device.remoteIp ?? '')}
+            {@const badgeClass = roleBadgeColors[devRole] ?? roleBadgeColors['operator']}
+            <div class="flex items-center justify-between p-3 rounded-lg bg-bg-primary/50 border border-border-default">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-accent-purple/20 flex items-center justify-center">
+                  <svg class="w-4 h-4 text-accent-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <p class="text-sm font-medium text-text-primary">{devName}</p>
+                    <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full border {badgeClass}">
+                      {devRole}
+                    </span>
+                  </div>
+                  <p class="text-xs text-text-muted">
+                    {devId.substring(0, 12)}…{#if devIp} · {devIp}{/if}
+                  </p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <select
+                  class="px-2 py-1 text-xs rounded-lg bg-bg-input border border-border-default text-text-primary focus:outline-none focus:border-accent-purple/50 disabled:opacity-50"
+                  value={devRole}
+                  disabled={deviceRoleChanging === devId}
+                  onchange={(e) => setDeviceRole(devId, (e.target as HTMLSelectElement).value)}
+                >
+                  {#each DEVICE_ROLES as r}
+                    <option value={r}>{r}</option>
+                  {/each}
+                </select>
               </div>
             </div>
           {/each}
