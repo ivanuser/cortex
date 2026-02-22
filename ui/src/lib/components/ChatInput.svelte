@@ -171,7 +171,7 @@
           <span class="streaming-dot" style="animation-delay: 0.15s"></span>
           <span class="streaming-dot" style="animation-delay: 0.3s"></span>
         </div>
-        <span class="text-xs text-accent-purple font-medium">Ranaye is responding...</span>
+        <span class="text-xs text-accent-purple font-medium">Assistant is responding...</span>
       </div>
     {/if}
 
