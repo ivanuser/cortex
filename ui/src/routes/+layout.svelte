@@ -12,10 +12,13 @@
   import { loadConfig } from '$lib/config';
   import ToastContainer from '$lib/components/ToastContainer.svelte';
   import AuthDialog from '$lib/components/AuthDialog.svelte';
+  import AccessDenied from '$lib/components/AccessDenied.svelte';
   import AppNav from '$lib/components/AppNav.svelte';
   import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
   import ShortcutHelp from '$lib/components/ShortcutHelp.svelte';
   import SetupWizard from '$lib/components/SetupWizard.svelte';
+  import { canAccessPage, getPageAccessDeniedLabel, isValidRole, type Role } from '$lib/permissions';
+  import { page } from '$app/stores';
 
   const conn = getConnection();
   const sessions = getSessions();
@@ -137,6 +140,17 @@
 
     return unsub;
   });
+
+  // ─── Route-Level Access Control (Phase 3) ─────
+  let currentRole: Role = $derived.by(() => {
+    const sr = conn.state.securityRole;
+    if (sr && isValidRole(sr)) return sr;
+    return 'admin'; // default for backward compat
+  });
+
+  let currentPath = $derived($page.url.pathname);
+  let pageAccessAllowed = $derived(canAccessPage(currentRole, currentPath));
+  let accessDeniedLabel = $derived(getPageAccessDeniedLabel(currentRole, currentPath));
 </script>
 
 <svelte:window onkeydown={(e) => { if (e.key === 'Escape' && mobileNavOpen) mobileNavOpen = false; }} />
@@ -182,7 +196,11 @@
       <span class="text-sm font-bold gradient-text tracking-wider">CORTEX</span>
     </header>
 
-    {@render children()}
+    {#if pageAccessAllowed}
+      {@render children()}
+    {:else}
+      <AccessDenied pageName={accessDeniedLabel ?? 'this page'} role={currentRole} />
+    {/if}
   </div>
 
   <!-- Toast notifications -->

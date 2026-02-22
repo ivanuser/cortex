@@ -18,6 +18,8 @@ export type GatewayClient = {
   connect: ConnectParams;
   connId?: string;
   clientIp?: string;
+  /** Security role from device pairing or API token (admin/operator/viewer/chat-only). */
+  securityRole?: string;
 };
 
 export type RespondFn = (

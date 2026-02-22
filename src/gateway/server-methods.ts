@@ -1,5 +1,7 @@
 import { AuditLogger } from "../audit/audit-logger.js";
 import { loadConfig } from "../config/config.js";
+import { authorize, type CallerContext } from "../security/authorize.js";
+import { isValidRole } from "../security/roles.js";
 import { formatControlPlaneActor, resolveControlPlaneActor } from "./control-plane-audit.js";
 import { consumeControlPlaneWriteBudget } from "./control-plane-rate-limit.js";
 import {
@@ -177,6 +179,28 @@ export async function handleGatewayRequest(
     }
     respond(false, undefined, authError);
     return;
+  }
+
+  // Phase 3: Role-based authorization (admin/operator/viewer/chat-only)
+  // Only applies to operator connections that have a securityRole set.
+  if (client?.securityRole && isValidRole(client.securityRole)) {
+    const callerCtx: CallerContext = {
+      role: client.securityRole,
+      deviceId: client.connect?.device?.id,
+      clientIp: client.clientIp,
+      clientId: client.connect?.client?.id,
+    };
+    const authzResult = authorize(req.method, callerCtx);
+    if (!authzResult.allowed) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, authzResult.reason ?? "forbidden", {
+          details: { code: "FORBIDDEN", securityRole: client.securityRole },
+        }),
+      );
+      return;
+    }
   }
   if (CONTROL_PLANE_WRITE_METHODS.has(req.method)) {
     const budget = consumeControlPlaneWriteBudget({ client });

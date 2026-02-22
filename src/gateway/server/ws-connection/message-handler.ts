@@ -66,6 +66,7 @@ import {
   refreshGatewayHealthSnapshot,
 } from "../health-state.js";
 import type { GatewayWsClient } from "../ws-types.js";
+import { resolveCallerRole } from "../../../security/authorize.js";
 import { formatGatewayAuthFailureMessage, type AuthProvidedKind } from "./auth-messages.js";
 
 type SubsystemLogger = ReturnType<typeof createSubsystemLogger>;
@@ -780,6 +781,29 @@ export function attachGatewayWsMessageHandler(params: {
           ? await ensureDeviceToken({ deviceId: device.id, role, scopes })
           : null;
 
+        // Resolve the security role for authorization (Phase 3)
+        // This is the fine-grained role (admin/operator/viewer/chat-only) from device pairing,
+        // NOT the connection role (operator/node).
+        let resolvedSecurityRole: string | undefined;
+        if (device) {
+          try {
+            const pairedForRole = await getPairedDevice(device.id);
+            resolvedSecurityRole = resolveCallerRole({
+              deviceSecurityRole: pairedForRole?.role,
+              tokenRole: deviceToken?.role,
+              defaultRole: "admin",
+            });
+          } catch {
+            // Fall through to default
+          }
+        }
+        if (!resolvedSecurityRole) {
+          resolvedSecurityRole = resolveCallerRole({
+            tokenRole: deviceToken?.role,
+            defaultRole: "admin",
+          });
+        }
+
         if (role === "node") {
           const cfg = loadConfig();
           const allowlist = resolveNodeCommandAllowlist(cfg, {
@@ -864,10 +888,13 @@ export function attachGatewayWsMessageHandler(params: {
             ? {
                 deviceToken: deviceToken.token,
                 role: deviceToken.role,
+                securityRole: resolvedSecurityRole,
                 scopes: deviceToken.scopes,
                 issuedAtMs: deviceToken.rotatedAtMs ?? deviceToken.createdAtMs,
               }
-            : undefined,
+            : resolvedSecurityRole
+              ? { securityRole: resolvedSecurityRole }
+              : undefined,
           policy: {
             maxPayload: MAX_PAYLOAD_BYTES,
             maxBufferedBytes: MAX_BUFFERED_BYTES,
@@ -884,6 +911,7 @@ export function attachGatewayWsMessageHandler(params: {
           clientIp: reportedClientIp,
           canvasCapability,
           canvasCapabilityExpiresAtMs,
+          securityRole: resolvedSecurityRole,
         };
         setClient(nextClient);
         setHandshakeState("connected");

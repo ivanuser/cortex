@@ -1,8 +1,16 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { getConnection } from '$lib/stores/connection.svelte';
+  import { canAccessPage, isValidRole, type Role } from '$lib/permissions';
 
   const conn = getConnection();
+
+  // Resolve the current user's security role reactively
+  let currentRole: Role = $derived.by(() => {
+    const sr = conn.state.securityRole;
+    if (sr && isValidRole(sr)) return sr;
+    return 'admin'; // default for backward compat
+  });
 
   type NavItem = {
     label: string;
@@ -16,7 +24,7 @@
     items: NavItem[];
   };
 
-  const navGroups: NavGroup[] = [
+  const allNavGroups: NavGroup[] = [
     {
       label: 'Chat',
       items: [
@@ -56,6 +64,16 @@
       ]
     }
   ];
+
+  // Filter nav groups based on current role's permissions
+  let navGroups: NavGroup[] = $derived.by(() => {
+    return allNavGroups
+      .map(group => ({
+        ...group,
+        items: group.items.filter(item => canAccessPage(currentRole, item.href))
+      }))
+      .filter(group => group.items.length > 0);
+  });
 
   let {
     collapsed = $bindable(false),

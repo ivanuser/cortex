@@ -145,6 +145,8 @@ export interface ConnectionState {
   protocol?: number;
   connId?: string;
   mainSessionKey?: string;
+  /** Security role from gateway auth (admin/operator/viewer/chat-only). */
+  securityRole?: string;
 }
 
 // ═══ Event Emitter ════════════════════════════════
@@ -188,7 +190,7 @@ export class GatewayClient {
     maxAttempts: 0 // 0 = infinite
   };
 
-  constructor() {}
+  
 
   // ─── Connection ─────────────────────────────
 
@@ -321,7 +323,7 @@ export class GatewayClient {
       this.connectSent = false;
       this.updateState({ status: 'authenticating' });
       // Fallback: if no challenge event arrives within 750ms, send connect anyway
-      if (this.connectFallbackTimer) clearTimeout(this.connectFallbackTimer);
+      if (this.connectFallbackTimer) {clearTimeout(this.connectFallbackTimer);}
       this.connectFallbackTimer = setTimeout(() => {
         this.connectFallbackTimer = null;
         this.sendConnect();
@@ -448,7 +450,7 @@ export class GatewayClient {
   }
 
   private async sendConnect(): Promise<void> {
-    if (this.connectSent) return;
+    if (this.connectSent) {return;}
     this.connectSent = true;
 
     const role = 'operator';
@@ -539,7 +541,7 @@ export class GatewayClient {
     this.tickIntervalMs = hello.policy.tickIntervalMs;
 
     // Store device auth token if the gateway issued one
-    const authPayload = hello as unknown as { auth?: { deviceToken?: string; role?: string; scopes?: string[] } };
+    const authPayload = hello as unknown as { auth?: { deviceToken?: string; role?: string; securityRole?: string; scopes?: string[] } };
     if (authPayload.auth?.deviceToken && typeof crypto !== 'undefined' && !!crypto.subtle) {
       import('./device-identity').then(({ loadOrCreateDeviceIdentity, storeDeviceAuthToken }) => {
         loadOrCreateDeviceIdentity().then((identity) => {
@@ -553,12 +555,16 @@ export class GatewayClient {
       }).catch(() => { /* ignore */ });
     }
 
+    // Extract security role from auth payload (Phase 3)
+    const securityRole = authPayload.auth?.securityRole ?? 'admin';
+
     this.updateState({
       status: 'connected',
       serverVersion: hello.server.version,
       protocol: hello.protocol,
       connId: hello.server.connId,
       mainSessionKey: hello.snapshot.sessionDefaults?.mainSessionKey,
+      securityRole,
       error: undefined
     });
 
@@ -581,12 +587,12 @@ export class GatewayClient {
   }
 
   private startTickTimer(): void {
-    if (this.tickTimer) clearInterval(this.tickTimer);
+    if (this.tickTimer) {clearInterval(this.tickTimer);}
     this.tickTimer = setInterval(() => this.sendTick(), this.tickIntervalMs);
   }
 
   private scheduleReconnect(): void {
-    if (this.intentionalDisconnect) return;
+    if (this.intentionalDisconnect) {return;}
     if (this.reconnectConfig.maxAttempts > 0 && this.reconnectAttempt >= this.reconnectConfig.maxAttempts) {
       this.updateState({ status: 'error', error: 'Max reconnection attempts reached' });
       return;
