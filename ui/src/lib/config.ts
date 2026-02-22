@@ -29,7 +29,7 @@ const DEFAULT_CONFIG: CortexConfig = {
   },
   branding: {
     title: "Cortex",
-    subtitle: "OpenClaw Command Center",
+    subtitle: "Cortex Command Center",
   },
 };
 
@@ -81,7 +81,7 @@ export async function loadConfig(): Promise<CortexConfig> {
       },
       branding: {
         title: json?.assistantName || DEFAULT_CONFIG.branding.title,
-        subtitle: "OpenClaw Command Center", // Keep default subtitle
+        subtitle: "Cortex Command Center",
       },
     };
 
@@ -93,7 +93,7 @@ export async function loadConfig(): Promise<CortexConfig> {
 
     return cachedConfig;
   } catch (err) {
-    console.warn("[config] Failed to load /__control__/bootstrap.json:", err);
+    console.warn("[config] Failed to load /__openclaw/control-ui-config.json:", err);
     cachedConfig = { ...DEFAULT_CONFIG };
     return cachedConfig;
   }

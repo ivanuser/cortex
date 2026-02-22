@@ -163,7 +163,7 @@
           </svg>
         </div>
         <div>
-          <h2 id="auth-dialog-title" class="text-lg font-semibold gradient-text">Connect to OpenClaw</h2>
+          <h2 id="auth-dialog-title" class="text-lg font-semibold gradient-text">Connect to Gateway</h2>
           <p class="text-sm text-text-muted">Enter your gateway credentials to get started</p>
         </div>
       </div>

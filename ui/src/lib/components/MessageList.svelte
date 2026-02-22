@@ -4,7 +4,7 @@
   import { getSessions } from '$lib/stores/sessions.svelte';
   import MessageBubble from './MessageBubble.svelte';
   import { getDateGroup } from '$lib/utils/time';
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
 
   const msgs = getMessages();
   const conn = getConnection();
@@ -23,19 +23,22 @@
     const currentCount = msgs.list.length;
     void msgs.streamingContent;
 
-    if (autoScroll && scrollContainer) {
-      tick().then(() => {
-        if (scrollContainer) {
-          scrollContainer.scrollTop = scrollContainer.scrollHeight;
-        }
-      });
-      newMessageCount = 0;
-      lastKnownCount = currentCount;
-    } else if (currentCount > lastKnownCount) {
-      // New messages arrived while user is scrolled up
-      newMessageCount += currentCount - lastKnownCount;
-      lastKnownCount = currentCount;
-    }
+    // Use untrack for all $state writes to prevent effect_update_depth_exceeded
+    untrack(() => {
+      if (autoScroll && scrollContainer) {
+        tick().then(() => {
+          if (scrollContainer) {
+            scrollContainer.scrollTop = scrollContainer.scrollHeight;
+          }
+        });
+        newMessageCount = 0;
+        lastKnownCount = currentCount;
+      } else if (currentCount > lastKnownCount) {
+        // New messages arrived while user is scrolled up
+        newMessageCount += currentCount - lastKnownCount;
+        lastKnownCount = currentCount;
+      }
+    });
   });
 
   function handleScroll() {

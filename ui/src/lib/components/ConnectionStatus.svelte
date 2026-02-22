@@ -56,12 +56,13 @@
     });
   });
 
-  // Update uptime display
+  // Update uptime display — only re-run when connection status changes
   $effect(() => {
-    if (conn.state.status === 'connected' && connectedAt > 0) {
+    const status = conn.state.status;
+    const savedConnectedAt = untrack(() => connectedAt);
+    if (status === 'connected' && savedConnectedAt > 0) {
       const timer = setInterval(() => {
-        const elapsed = Date.now() - connectedAt;
-        uptime = formatUptime(elapsed);
+        uptime = formatUptime(Date.now() - savedConnectedAt);
       }, 1000);
       return () => clearInterval(timer);
     }

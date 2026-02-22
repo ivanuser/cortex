@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { renderMarkdownSync, postProcessMarkdown } from '$lib/markdown';
   import type { DisplayMessage } from '$lib/stores/messages.svelte';
   import { formatRelativeTime } from '$lib/utils/time';
@@ -16,8 +17,10 @@
   
   $effect(() => {
     if (!browser) return;
-    userAvatarUrl = localStorage.getItem('cortex-user-avatar');
-    userDisplayName = localStorage.getItem('cortex-user-name') || '';
+    untrack(() => {
+      userAvatarUrl = localStorage.getItem('cortex-user-avatar');
+      userDisplayName = localStorage.getItem('cortex-user-name') || '';
+    });
   });
 
   let { 
@@ -111,19 +114,22 @@
 
   // Process markdown with async post-processing for shiki and mermaid
   $effect(() => {
-    if (content) {
-      const syncHtml = renderMarkdownSync(content);
-      renderedHtml = syncHtml;
-      
-      // Post-process for syntax highlighting and mermaid on client side
-      if (browser) {
-        postProcessMarkdown(syncHtml).then(processedHtml => {
-          renderedHtml = processedHtml;
-        });
+    const c = content; // track content reactively
+    untrack(() => {
+      if (c) {
+        const syncHtml = renderMarkdownSync(c);
+        renderedHtml = syncHtml;
+        
+        // Post-process for syntax highlighting and mermaid on client side
+        if (browser) {
+          postProcessMarkdown(syncHtml).then(processedHtml => {
+            renderedHtml = processedHtml;
+          });
+        }
+      } else {
+        renderedHtml = '';
       }
-    } else {
-      renderedHtml = '';
-    }
+    });
   });
 
   // Get full message text for copying
