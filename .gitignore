@@ -101,3 +101,4 @@ package-lock.json
 apps/ios/LocalSigning.xcconfig
 ui/.svelte-kit
 package.json.publish-backup
+dist/control-ui/
