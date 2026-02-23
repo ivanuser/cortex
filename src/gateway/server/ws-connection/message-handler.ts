@@ -906,9 +906,17 @@ export function attachGatewayWsMessageHandler(params: {
                     { dropIfSlow: true },
                   );
                 } else {
+                  // Local auto-approve: default to admin securityRole
                   logGateway.info(
-                    `device pairing auto-approved device=${approved.device.deviceId} role=${approved.device.role ?? "unknown"}`,
+                    `device pairing auto-approved device=${approved.device.deviceId} securityRole=admin`,
                   );
+                  try {
+                    await updatePairedDeviceMetadata(approved.device.deviceId, {
+                      securityRole: "admin",
+                    });
+                  } catch {
+                    // Best effort
+                  }
                   context.broadcast(
                     "device.pair.resolved",
                     {
@@ -1036,7 +1044,9 @@ export function attachGatewayWsMessageHandler(params: {
               | undefined;
             resolvedSecurityRole = resolveCallerRole({
               deviceSecurityRole: deviceSecRole,
-              tokenRole: deviceToken?.role,
+              // NOTE: deviceToken?.role is the connection-level role ("operator"/"node"),
+              // NOT the security role. Only securityRole from paired device metadata
+              // or ctx_ API tokens should determine authorization level.
               defaultRole: "admin",
             });
           } catch {
@@ -1045,7 +1055,7 @@ export function attachGatewayWsMessageHandler(params: {
         }
         if (!resolvedSecurityRole) {
           resolvedSecurityRole = resolveCallerRole({
-            tokenRole: deviceToken?.role,
+            // Only ctx_ tokens carry meaningful security roles; device tokens don't
             defaultRole: "admin",
           });
         }
