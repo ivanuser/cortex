@@ -1,0 +1,1943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cortex Documentation</title>
+  <style>
+    :root {
+      --bg: #0a0e1a; --bg2: #111827; --card: #1a1f2e; --code-bg: #151b2d;
+      --text: #e2e8f0; --text2: #94a3b8; --muted: #64748b;
+      --accent: #7c4dff; --cyan: #22d3ee; --green: #10b981;
+      --orange: #f59e0b; --red: #ef4444; --border: #1e293b;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px;
+    }
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 280px; background: var(--bg2); border-right: 1px solid var(--border);
+      padding: 20px 12px; position: fixed; top: 0; left: 0; bottom: 0;
+      overflow-y: auto; z-index: 10;
+    }
+    .sidebar-hdr {
+      display: flex; align-items: center; gap: 10px;
+      padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px;
+    }
+    .sidebar-hdr .logo {
+      font-size: 22px; font-weight: 700;
+      background: linear-gradient(135deg, var(--cyan), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .sidebar-hdr .badge {
+      font-size: 11px; padding: 2px 8px; border-radius: 12px;
+      background: var(--accent); color: white; font-weight: 600;
+    }
+    .toc { list-style: none; }
+    .toc li { margin-bottom: 1px; }
+    .toc a {
+      display: block; padding: 5px 10px; color: var(--text2); text-decoration: none;
+      border-radius: 5px; font-size: 13px; transition: all 0.15s;
+    }
+    .toc a:hover { background: var(--card); color: var(--cyan); }
+    .toc .h2 { padding-left: 10px; font-weight: 600; color: var(--text); font-size: 14px; }
+    .toc .h3 { padding-left: 24px; font-size: 12px; }
+    .main {
+      margin-left: 280px; flex: 1; max-width: 880px; padding: 36px 44px 80px;
+    }
+    h1 {
+      font-size: 2.4rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--cyan), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 8px; line-height: 1.2;
+    }
+    h2 {
+      font-size: 1.65rem; font-weight: 700; color: var(--cyan);
+      margin-top: 48px; margin-bottom: 14px; padding-bottom: 6px;
+      border-bottom: 2px solid #7c4dff40;
+    }
+    h3 { font-size: 1.2rem; font-weight: 600; color: var(--text); margin-top: 28px; margin-bottom: 10px; }
+    h4 { font-size: 1.05rem; font-weight: 600; color: var(--accent); margin-top: 20px; margin-bottom: 6px; }
+    p { margin-bottom: 14px; }
+    a { color: var(--cyan); text-decoration: none; border-bottom: 1px solid transparent; transition: 0.15s; }
+    a:hover { border-bottom-color: var(--cyan); }
+    ul, ol { margin-bottom: 14px; padding-left: 22px; }
+    li { margin-bottom: 5px; }
+    li strong { color: var(--cyan); }
+    code {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.88em;
+      background: var(--code-bg); padding: 2px 5px; border-radius: 3px;
+      color: var(--cyan); border: 1px solid var(--border);
+    }
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px 18px; overflow-x: auto; margin-bottom: 18px;
+    }
+    pre code { background: none; border: none; padding: 0; color: var(--text); font-size: 0.84em; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 0.88em; }
+    th {
+      background: var(--card); color: var(--cyan); font-weight: 600;
+      text-align: left; padding: 8px 12px; border: 1px solid var(--border);
+    }
+    td { padding: 7px 12px; border: 1px solid var(--border); }
+    tr:nth-child(even) td { background: var(--bg2); }
+    tr:hover td { background: var(--card); }
+    img {
+      max-width: 100%; border-radius: 10px; border: 2px solid var(--border);
+      margin: 14px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.4); transition: 0.2s;
+    }
+    img:hover { transform: scale(1.01); box-shadow: 0 8px 32px rgba(124,77,255,0.2); border-color: var(--accent); }
+    blockquote {
+      border-left: 4px solid var(--accent); background: var(--card);
+      padding: 14px 18px; margin: 14px 0; border-radius: 0 8px 8px 0;
+    }
+    blockquote p { margin-bottom: 6px; color: var(--text2); }
+    blockquote p:last-child { margin-bottom: 0; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+    .top-btn {
+      position: fixed; bottom: 20px; right: 20px; width: 42px; height: 42px;
+      background: var(--accent); color: white; border: none; border-radius: 50%;
+      font-size: 18px; cursor: pointer; opacity: 0; transition: 0.3s; z-index: 20;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .top-btn.on { opacity: 1; }
+    .top-btn:hover { background: var(--cyan); }
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 20px 16px; }
+      h1 { font-size: 1.8rem; }
+      h2 { font-size: 1.3rem; }
+    }
+    ::-webkit-scrollbar { width: 7px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar"><div class="sidebar-hdr"><span class="logo">🦞 Cortex</span><span class="badge">DOCS</span></div><ul class="toc" id="toc"></ul></nav>
+  <main class="main" id="content">
+<h1>Cortex Documentation Guide</h1>
+<blockquote>
+<p><strong>The comprehensive reference for the Cortex AI Assistant Command Center.</strong></p>
+<p>Cortex v3.10+ · Last updated February 2026</p>
+</blockquote>
+<hr>
+<h2>Table of Contents</h2>
+<ol>
+<li><a href="#1-introduction">Introduction</a></li>
+<li><a href="#2-getting-started">Getting Started</a></li>
+<li><a href="#3-chat">Chat</a></li>
+<li><a href="#4-overview">Overview</a></li>
+<li><a href="#5-channels">Channels</a></li>
+<li><a href="#6-instances">Instances</a></li>
+<li><a href="#7-sessions">Sessions</a></li>
+<li><a href="#8-usage-analytics">Usage Analytics</a></li>
+<li><a href="#9-cron-jobs">Cron Jobs</a></li>
+<li><a href="#10-exec-approvals">Exec Approvals</a></li>
+<li><a href="#11-audit-log">Audit Log</a></li>
+<li><a href="#12-api-tokens">API Tokens</a></li>
+<li><a href="#13-agents">Agents</a></li>
+<li><a href="#14-skills">Skills</a></li>
+<li><a href="#15-nodes">Nodes</a></li>
+<li><a href="#16-memory">Memory</a></li>
+<li><a href="#17-settings">Settings</a></li>
+<li><a href="#18-gateway-configuration">Gateway Configuration</a></li>
+<li><a href="#19-debug-console">Debug Console</a></li>
+<li><a href="#20-logs">Logs</a></li>
+<li><a href="#21-keyboard-shortcuts">Keyboard Shortcuts</a></li>
+<li><a href="#22-security--roles">Security &amp; Roles</a></li>
+<li><a href="#23-configuration-reference">Configuration Reference</a></li>
+<li><a href="#24-cli-reference">CLI Reference</a></li>
+<li><a href="#25-troubleshooting">Troubleshooting</a></li>
+</ol>
+<hr>
+<h2>1. Introduction</h2>
+<h3>What is Cortex?</h3>
+<p><strong>Cortex</strong> is a security-hardened fork of <a href="https://github.com/openclaw/openclaw">OpenClaw</a> — a personal AI assistant command center that runs on your own infrastructure. It provides a unified web UI (the <strong>Cortex UI</strong>) to manage an AI agent gateway that connects to LLM providers (Anthropic Claude, OpenAI GPT, etc.) and messaging channels (Discord, Signal, Telegram, WhatsApp, Slack, IRC, and more).</p>
+<p>Think of it as your AI&#39;s brain and control panel. The gateway does the thinking — routing messages, managing sessions, calling models, executing tools — while the Cortex UI gives you full visibility and control over everything.</p>
+<h3>What Problems Does It Solve?</h3>
+<ul>
+<li><strong>Centralized AI Management</strong>: One interface to control AI interactions across all your messaging platforms</li>
+<li><strong>Security-First Design</strong>: Role-based access control, device pairing with Ed25519 identities, audit logging, and scoped API tokens</li>
+<li><strong>Self-Hosted Privacy</strong>: Your data stays on your infrastructure — no third-party platforms see your conversations</li>
+<li><strong>Multi-Channel Presence</strong>: Your AI assistant can respond on WhatsApp, Discord, Telegram, Slack, Signal, and more — simultaneously</li>
+<li><strong>Distributed Execution</strong>: Offload tool execution (browser automation, file system access, system commands) to remote nodes</li>
+<li><strong>Full Observability</strong>: Live logs, usage analytics, session management, and debug tooling</li>
+</ul>
+<h3>Architecture Overview</h3>
+<p>Cortex follows a <strong>Gateway + Nodes</strong> architecture:</p>
+<pre><code>┌─────────────────┐    ┌──────────────────────────┐    ┌─────────────────┐
+│   Web Browser   │◄──►│        Gateway            │◄──►│   Node Worker   │
+│   (Cortex UI)   │    │  ┌──────────────────────┐ │    │   (headless)    │
+│                 │    │  │  Control Plane        │ │    │                 │
+└─────────────────┘    │  │  • Cortex Web UI      │ │    │  • Exec         │
+                       │  │  • Agent Engine       │ │    │  • Browser      │
+┌─────────────────┐    │  │  • Session Manager    │ │    │  • Camera       │
+│  Discord Bot    │◄──►│  │  • Model Router       │ │    │  • Screen       │
+│  Telegram Bot   │    │  │  • Channel Adapters   │ │    │  • Canvas       │
+│  WhatsApp       │    │  │  • Memory System      │ │    └─────────────────┘
+│  Signal         │    │  │  • Cron Scheduler     │ │           ▲
+│  Slack          │    │  │  • Security Layer     │ │           │
+│  IRC            │    │  └──────────────────────┘ │      WebSocket
+└─────────────────┘    └──────────────────────────┘     Connection
+                              ▲
+                              │
+                        Port 18789
+                   (WebSocket + HTTP)
+</code></pre>
+<p><strong>Gateway (Control Plane):</strong></p>
+<ul>
+<li>Central coordination and routing hub</li>
+<li>Serves the Cortex Web UI</li>
+<li>Manages all LLM provider connections</li>
+<li>Hosts channel adapters (Discord, Telegram, etc.)</li>
+<li>Enforces security policies and RBAC</li>
+<li>Runs the agent engine, memory system, and cron scheduler</li>
+</ul>
+<p><strong>Nodes (Execution Plane):</strong></p>
+<ul>
+<li>Lightweight headless workers that connect to a gateway</li>
+<li>Execute commands on behalf of the gateway (system, browser, camera, etc.)</li>
+<li>No web UI, no admin interface — pure execution</li>
+<li>Auto-reconnect with exponential backoff</li>
+</ul>
+<p><strong>Web Clients:</strong></p>
+<ul>
+<li>The Cortex UI running in any modern browser</li>
+<li>Authenticates via device pairing or API tokens</li>
+<li>Real-time WebSocket connection to the gateway</li>
+</ul>
+<h3>Quick Start</h3>
+<pre><code class="language-bash"># Prerequisites: Node.js ≥ 22
+
+# Install Cortex globally
+npm install -g openclaw-cortex
+
+# Run the onboarding wizard
+cortex onboard
+
+# Start the gateway
+cortex gateway start
+
+# Open the Cortex UI
+# Default: http://localhost:18789
+</code></pre>
+<blockquote>
+<p><strong>Migrating from OpenClaw?</strong> Cortex is a drop-in replacement. Same data directory (<code>~/.openclaw/</code>), same config format, same protocols. See the <a href="../MIGRATION.md">Migration Guide</a> for details.</p>
+</blockquote>
+<hr>
+<h2>2. Getting Started</h2>
+<h3>Installation Methods</h3>
+<h4>npm Package (Recommended)</h4>
+<pre><code class="language-bash">npm install -g openclaw-cortex
+cortex onboard
+</code></pre>
+<p>The <code>onboard</code> wizard walks you through gateway setup, model provider authentication, channel integrations, and security configuration.</p>
+<h4>Docker</h4>
+<pre><code class="language-bash">git clone https://github.com/ivanuser/cortex.git
+cd cortex
+docker-compose up -d
+</code></pre>
+<p>The Docker image exposes port 18789 by default. Map volumes for persistent data:</p>
+<pre><code class="language-yaml">volumes:
+  - ~/.openclaw:/root/.openclaw
+</code></pre>
+<h4>From Source</h4>
+<pre><code class="language-bash">git clone https://github.com/ivanuser/cortex.git
+cd cortex
+npm install
+npm run build
+npm link
+cortex onboard
+</code></pre>
+<h3>First-Run Setup</h3>
+<p>When you first launch Cortex, the onboarding wizard guides you through:</p>
+<ol>
+<li><strong>Gateway Mode</strong>: Local (runs on this machine) or Remote (connects to an existing gateway)</li>
+<li><strong>Model Provider</strong>: Configure API keys for Anthropic, OpenAI, or other providers</li>
+<li><strong>Security</strong>: Set up authentication — gateway token, device pairing, or both</li>
+<li><strong>Channels</strong>: Optionally connect messaging platforms</li>
+<li><strong>Cortex UI</strong>: The web interface is automatically enabled on the gateway</li>
+</ol>
+<p>After onboarding, start the gateway:</p>
+<pre><code class="language-bash"># Foreground (development)
+cortex gateway run
+
+# Background service
+cortex gateway start
+
+# Check status
+cortex gateway status
+</code></pre>
+<h3>Connecting to the Gateway</h3>
+<p>Open your browser and navigate to the gateway URL (default: <code>http://localhost:18789</code>). If the gateway is running on a different machine or behind a reverse proxy, use the appropriate URL.</p>
+<blockquote>
+<p><strong>Tip:</strong> For remote access through Cloudflare Tunnel, nginx, or similar, make sure to add the external URL to <code>gateway.controlUi.allowedOrigins</code> in the config.</p>
+</blockquote>
+<h3>Authentication Methods</h3>
+<p>Cortex supports multiple authentication methods, from zero-config to enterprise-grade:</p>
+<h4>Device Identity (Ed25519 Pairing)</h4>
+<p>The primary authentication method. When a new browser connects:</p>
+<ol>
+<li>The browser generates a unique Ed25519 keypair (the &quot;device identity&quot;)</li>
+<li>The gateway receives a pairing request</li>
+<li>An admin approves the device (via CLI or UI)</li>
+<li>The device is permanently paired with a role assignment</li>
+</ol>
+<pre><code class="language-bash"># List pending pairing requests
+cortex devices list --pending
+
+# Approve a device
+cortex devices approve &lt;request-id&gt;
+
+# Approve with a specific role
+cortex devices approve &lt;request-id&gt; --role operator
+</code></pre>
+<h4>API Tokens</h4>
+<p>For programmatic access or quick authentication without device pairing:</p>
+<pre><code class="language-bash"># Create a token
+cortex tokens create --name &quot;my-token&quot; --role operator --expires 30d
+
+# The token (ctx_...) can be used as a URL parameter or header
+# Example: ws://localhost:18789?token=ctx_abc123...
+</code></pre>
+<p>Tokens are prefixed with <code>ctx_</code> and can have any of the four roles: <code>admin</code>, <code>operator</code>, <code>viewer</code>, <code>chat-only</code>.</p>
+<h4>Pairing Codes</h4>
+<p>Six-digit numeric codes for quick device pairing:</p>
+<pre><code class="language-bash"># Generate a pairing code (valid for 5 minutes by default)
+cortex pair-code --role operator
+# Output: 847291
+</code></pre>
+<p>Enter the code in the Cortex UI when prompted to pair.</p>
+<h4>Invite Links</h4>
+<p>Shareable URLs that allow new devices to self-pair:</p>
+<pre><code class="language-bash"># Create an invite link
+cortex invite create --role operator --uses 5 --expires 7d
+
+# List active invites
+cortex invite list
+
+# Revoke an invite
+cortex invite revoke &lt;invite-id&gt;
+</code></pre>
+<h4>QR Codes</h4>
+<p>The Nodes page can generate QR codes containing embedded invite links for easy mobile/node pairing.</p>
+<h4>LAN Auto-Approve</h4>
+<p>For trusted local networks, enable automatic device approval:</p>
+<pre><code class="language-json">{
+  &quot;gateway&quot;: {
+    &quot;security&quot;: {
+      &quot;lanAutoApprove&quot;: true,
+      &quot;lanAutoApproveRole&quot;: &quot;operator&quot;
+    }
+  }
+}
+</code></pre>
+<blockquote>
+<p><strong>⚠️ Warning:</strong> Only use LAN auto-approve on fully trusted networks. Any device on the LAN can join automatically.</p>
+</blockquote>
+<hr>
+<h2>3. Chat</h2>
+<p>The <strong>Chat</strong> page is the primary interface for interacting with your AI assistant. It uses a responsive three-panel layout optimized for session management and conversation.</p>
+<p><img src="images/01-chat.png" alt="Chat interface showing the three-panel layout with sidebar navigation, session list, and conversation view"></p>
+<h3>Layout</h3>
+<p>The chat interface consists of three panels:</p>
+<table>
+<thead>
+<tr>
+<th>Panel</th>
+<th>Purpose</th>
+<th>Key Features</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Left Sidebar</strong></td>
+<td>Navigation</td>
+<td>App sections, version indicator, help</td>
+</tr>
+<tr>
+<td><strong>Middle Panel</strong></td>
+<td>Session List</td>
+<td>Search, filters, session cards</td>
+</tr>
+<tr>
+<td><strong>Right Panel</strong></td>
+<td>Conversation</td>
+<td>Messages, thinking blocks, input area</td>
+</tr>
+</tbody></table>
+<p>Both the left sidebar and middle panel can be collapsed using the <code>«</code> chevron buttons, giving you a full-width chat experience when needed.</p>
+<h3>Left Sidebar</h3>
+<p>The navigation sidebar provides quick access to all Cortex sections:</p>
+<ul>
+<li><strong>CHAT</strong> section — the main conversation interface</li>
+<li><strong>CONTROL</strong> section — Overview, Channels, Instances, Sessions, Usage, Cron Jobs</li>
+<li><strong>Footer</strong> — Help (<code>?</code>) button and version indicator with connection status (green dot = connected)</li>
+</ul>
+<p>The active page is highlighted with a <strong>teal accent bar</strong> on the left edge and a subtle background tint.</p>
+<h3>Session List (Middle Panel)</h3>
+<p>The middle panel is your session manager:</p>
+<ul>
+<li><strong>Connection Status Banner</strong>: Shows the connection state, gateway version, protocol version, and uptime. A green dot indicates a healthy connection. Click <code>×</code> to dismiss.</li>
+<li><strong>Search Bar</strong>: Instantly filter sessions by name or content</li>
+<li><strong>Filter Tabs</strong>: Quick-filter by session type:<ul>
+<li><strong>All</strong> — show every session</li>
+<li><strong>Main</strong> — primary agent sessions</li>
+<li><strong>Isolated</strong> — standalone sessions with their own context</li>
+<li><strong>Sub</strong> — sub-agent sessions spawned by the main agent</li>
+</ul>
+</li>
+<li><strong>Session Count</strong>: Shows the total number of sessions</li>
+<li><strong>New Session</strong> (<code>+</code>): Create a new session</li>
+<li><strong>Refresh</strong>: Sync the session list with the gateway</li>
+</ul>
+<p>Each <strong>session card</strong> displays:</p>
+<ul>
+<li>Session name (with type indicator emoji)</li>
+<li>Last message preview</li>
+<li>Model badge (e.g., <code>claude-sonnet-4-6</code>)</li>
+<li>Click to open the conversation in the right panel</li>
+</ul>
+<h3>Session Types</h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Main</strong></td>
+<td>The primary agent session</td>
+<td>Default conversations, persistent context</td>
+</tr>
+<tr>
+<td><strong>Isolated</strong></td>
+<td>Independent session with its own context</td>
+<td>Separate tasks, experiments</td>
+</tr>
+<tr>
+<td><strong>Sub-agent</strong></td>
+<td>Spawned by the main agent for subtasks</td>
+<td>Background work, parallel processing</td>
+</tr>
+</tbody></table>
+<h3>Conversation Panel (Right Panel)</h3>
+<p>The right panel displays the active conversation:</p>
+<ul>
+<li><strong>Header</strong>: Session name, message count badge, and current model</li>
+<li><strong>Message Display</strong>: Messages from both you and the assistant with:<ul>
+<li><strong>Timestamps</strong> with relative/absolute time</li>
+<li><strong>Avatars</strong> — colored circles for user and assistant</li>
+<li><strong>Copy button</strong> on hover for any message</li>
+<li><strong>Thinking blocks</strong> — collapsible sections showing the assistant&#39;s reasoning process (with character count)</li>
+<li><strong>Tool calls</strong> — expandable sections showing tool invocations and results</li>
+</ul>
+</li>
+<li><strong>Date Dividers</strong>: &quot;Today&quot;, &quot;Yesterday&quot;, etc. between messages from different days</li>
+</ul>
+<h3>Input Area</h3>
+<p>The input area at the bottom of the conversation panel provides:</p>
+<ul>
+<li><strong>Text Input</strong>: Type your message. Press <code>Enter</code> to send, <code>Shift+Enter</code> for a newline.</li>
+<li><strong>Image Attach Button</strong> (📎): Click to open the file picker for images</li>
+<li><strong>Image Support</strong>: Three ways to add images:<ul>
+<li><strong>Paste</strong> from clipboard (<code>Ctrl+V</code> / <code>Cmd+V</code>)</li>
+<li><strong>Drag and drop</strong> files onto the chat</li>
+<li><strong>File picker</strong> via the attach button</li>
+</ul>
+</li>
+<li><strong>Focus Shortcut</strong>: Press <code>Ctrl+/</code> from anywhere to focus the input</li>
+</ul>
+<blockquote>
+<p><strong>Tip:</strong> The input field supports multiline text. Use <code>Shift+Enter</code> to add newlines without sending the message.</p>
+</blockquote>
+<hr>
+<h2>4. Overview</h2>
+<p>The <strong>Overview</strong> page is your gateway dashboard — a quick health check showing the most important metrics at a glance.</p>
+<p><img src="images/02-overview.png" alt="Overview dashboard showing status cards for gateway health, sessions, models, and quick links"></p>
+<h3>Dashboard Cards</h3>
+<p>The dashboard displays a grid of status cards:</p>
+<table>
+<thead>
+<tr>
+<th>Card</th>
+<th>Description</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>STATUS</strong></td>
+<td>Gateway connection state</td>
+<td>Connected (green), Disconnected (red)</td>
+</tr>
+<tr>
+<td><strong>UPTIME</strong></td>
+<td>Time since gateway started</td>
+<td>Duration or &quot;n/a&quot; if unavailable</td>
+</tr>
+<tr>
+<td><strong>SESSIONS</strong></td>
+<td>Active session count</td>
+<td>Number + main session name</td>
+</tr>
+<tr>
+<td><strong>MODELS</strong></td>
+<td>Available model count</td>
+<td>Total from all configured providers</td>
+</tr>
+<tr>
+<td><strong>INSTANCES</strong></td>
+<td>Connected clients and nodes</td>
+<td>Count with &quot;View all →&quot; link</td>
+</tr>
+<tr>
+<td><strong>CRON</strong></td>
+<td>Cron scheduler status</td>
+<td>Next run time, Enabled/Disabled badge</td>
+</tr>
+<tr>
+<td><strong>AUTH</strong></td>
+<td>Authentication status</td>
+<td>Gateway device ID (truncated), auth mode</td>
+</tr>
+</tbody></table>
+<h3>Status Indicators</h3>
+<ul>
+<li><strong>Green</strong> border/text: Healthy, connected, active</li>
+<li><strong>Yellow/Amber</strong>: Unknown, degraded, or unavailable</li>
+<li><strong>Purple</strong>: Informational metrics (model count)</li>
+</ul>
+<h3>Quick Links</h3>
+<p>Each card links to its corresponding detail page:</p>
+<ul>
+<li><strong>Instances</strong> → &quot;View all →&quot; navigates to the Instances page</li>
+<li><strong>Cron</strong> → &quot;Manage jobs →&quot; navigates to Cron Jobs</li>
+<li><strong>Auth</strong> → &quot;Configure →&quot; navigates to Gateway Configuration</li>
+</ul>
+<h3>Refresh</h3>
+<p>Click the <strong>Refresh</strong> button in the top-right corner to re-fetch all dashboard data from the gateway.</p>
+<hr>
+<h2>5. Channels</h2>
+<p>The <strong>Channels</strong> page manages your messaging platform integrations. Each supported platform appears as a card with status indicators and actions.</p>
+<p><img src="images/03-channels.png" alt="Channels management page showing messaging platform integration cards with status indicators"></p>
+<h3>Supported Channels</h3>
+<table>
+<thead>
+<tr>
+<th>Channel</th>
+<th>Description</th>
+<th>Auth Method</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Discord</strong></td>
+<td>Discord bot integration</td>
+<td>Bot token</td>
+</tr>
+<tr>
+<td><strong>Signal</strong></td>
+<td>Signal messenger</td>
+<td>Linked device (QR)</td>
+</tr>
+<tr>
+<td><strong>Telegram</strong></td>
+<td>Telegram bot</td>
+<td>Bot token</td>
+</tr>
+<tr>
+<td><strong>WhatsApp</strong></td>
+<td>WhatsApp Web</td>
+<td>QR code linking</td>
+</tr>
+<tr>
+<td><strong>Slack</strong></td>
+<td>Slack workspace</td>
+<td>OAuth / Bot token</td>
+</tr>
+<tr>
+<td><strong>IRC</strong></td>
+<td>IRC networks</td>
+<td>Server/nick config</td>
+</tr>
+<tr>
+<td><strong>Google Chat</strong></td>
+<td>Google Workspace</td>
+<td>Service account</td>
+</tr>
+<tr>
+<td><strong>Nextcloud Talk</strong></td>
+<td>Nextcloud chat</td>
+<td>App password</td>
+</tr>
+<tr>
+<td><strong>iMessage</strong></td>
+<td>Apple Messages</td>
+<td>macOS bridge</td>
+</tr>
+</tbody></table>
+<h3>Channel Cards</h3>
+<p>Each channel card displays:</p>
+<ul>
+<li><strong>Avatar</strong>: Platform icon/initial with a colored circle</li>
+<li><strong>Name</strong>: Channel identifier</li>
+<li><strong>Status Badge</strong>: <ul>
+<li>🟢 <strong>CONNECTED</strong> — fully operational</li>
+<li>🔴 <strong>DISCONNECTED</strong> — not running or connection lost</li>
+<li>🟡 <strong>CONFIGURED</strong> — settings present but not connected</li>
+</ul>
+</li>
+<li><strong>Status Properties</strong>:<ul>
+<li><strong>Configured</strong>: Whether the channel has configuration values set</li>
+<li><strong>Running</strong>: Whether the channel adapter process is active</li>
+<li><strong>Connected</strong>: Whether the channel has an active connection to the platform</li>
+</ul>
+</li>
+<li><strong>Details</strong>: Expandable section (<code>▽ Details</code>) with additional channel information</li>
+</ul>
+<h3>Actions</h3>
+<p>Depending on the channel type, different action buttons appear:</p>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Description</th>
+<th>Channels</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Show QR</strong></td>
+<td>Display QR code for device linking</td>
+<td>WhatsApp, Signal</td>
+</tr>
+<tr>
+<td><strong>Relink</strong></td>
+<td>Reset and re-establish connection</td>
+<td>WhatsApp, Signal</td>
+</tr>
+<tr>
+<td><strong>Wait for scan</strong></td>
+<td>Begin QR scan listener</td>
+<td>WhatsApp, Signal</td>
+</tr>
+<tr>
+<td><strong>Probe All</strong></td>
+<td>Test connectivity for all channels</td>
+<td>All</td>
+</tr>
+</tbody></table>
+<p>The <strong>Probe All</strong> button in the toolbar sends a health check to every configured channel and refreshes their status.</p>
+<h3>Summary Stats</h3>
+<p>At the top of the page, inline statistics show:</p>
+<ul>
+<li><strong>Total</strong>: Number of configured channels</li>
+<li><strong>Connected</strong>: Actively connected channels</li>
+<li><strong>Configured</strong>: Channels with saved settings</li>
+</ul>
+<h3>Configuring a Channel</h3>
+<p>Channel configuration is done through the <a href="#18-gateway-configuration">Gateway Configuration</a> page under the <strong>Channels</strong> section. Each channel has its own set of required fields (tokens, API keys, phone numbers, etc.).</p>
+<p>Example channel config (Telegram):</p>
+<pre><code class="language-json">{
+  &quot;channels&quot;: {
+    &quot;telegram&quot;: {
+      &quot;token&quot;: &quot;123456:ABC-DEF...&quot;,
+      &quot;allowedUsers&quot;: [&quot;your_username&quot;]
+    }
+  }
+}
+</code></pre>
+<blockquote>
+<p><strong>Tip:</strong> After configuring a channel in the config editor, click <strong>Apply &amp; Restart</strong> to activate it. Then return to the Channels page to verify the connection status.</p>
+</blockquote>
+<hr>
+<h2>6. Instances</h2>
+<p>The <strong>Instances</strong> page shows all real-time connected clients and nodes — a live view of who and what is connected to your gateway.</p>
+<p><img src="images/04-instances.png" alt="Connected instances page showing gateway and webchat client cards with system information"></p>
+<h3>Instance Cards</h3>
+<p>Each connected instance is displayed as a card with:</p>
+<ul>
+<li><strong>Online Indicator</strong>: Green dot for active connections</li>
+<li><strong>Hostname</strong>: The display name of the connected device</li>
+<li><strong>Connection Type</strong>: How the instance connected (e.g., &quot;self&quot; for the gateway, &quot;connect&quot; for clients)</li>
+<li><strong>System Info</strong>: Operating system, kernel version, and architecture</li>
+<li><strong>Tags</strong>: Role and capability badges:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Tag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>gateway</strong></td>
+<td>The gateway process itself</td>
+</tr>
+<tr>
+<td><strong>webchat</strong></td>
+<td>A Cortex UI browser session</td>
+</tr>
+<tr>
+<td><strong>node</strong></td>
+<td>A connected node worker</td>
+</tr>
+<tr>
+<td><strong>operator</strong></td>
+<td>Device with operator role</td>
+</tr>
+<tr>
+<td><strong>admin</strong></td>
+<td>Device with admin role</td>
+</tr>
+<tr>
+<td><strong>viewer</strong></td>
+<td>Device with viewer role</td>
+</tr>
+<tr>
+<td><strong>v3.10.2</strong></td>
+<td>Version badge</td>
+</tr>
+</tbody></table>
+<ul>
+<li><strong>Scopes</strong>: Number of authorized scopes (e.g., &quot;3 scopes&quot;)</li>
+<li><strong>Details</strong>: Expandable section with full connection metadata</li>
+</ul>
+<h3>Refresh</h3>
+<p>Click <strong>Refresh</strong> to update the instance list. Instances appear and disappear in real-time as devices connect and disconnect.</p>
+<blockquote>
+<p><strong>Note:</strong> The gateway itself always appears as an instance (tagged &quot;self&quot;). This is normal and shows the gateway&#39;s own system information.</p>
+</blockquote>
+<hr>
+<h2>7. Sessions</h2>
+<p>The <strong>Sessions</strong> page is a comprehensive session management dashboard, giving you full control over all active and historical sessions.</p>
+<p><img src="images/05-sessions.png" alt="Sessions management page showing stats bar, session cards with model badges and inline controls"></p>
+<h3>Stats Bar</h3>
+<p>Five summary cards across the top:</p>
+<table>
+<thead>
+<tr>
+<th>Stat</th>
+<th>Description</th>
+<th>Color</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Total</strong></td>
+<td>All sessions</td>
+<td>White</td>
+</tr>
+<tr>
+<td><strong>Main</strong></td>
+<td>Primary agent sessions</td>
+<td>Green</td>
+</tr>
+<tr>
+<td><strong>Isolated</strong></td>
+<td>Standalone sessions</td>
+<td>Cyan</td>
+</tr>
+<tr>
+<td><strong>Sub-agents</strong></td>
+<td>Child sessions</td>
+<td>Yellow</td>
+</tr>
+<tr>
+<td><strong>Tokens</strong></td>
+<td>Total token usage across sessions</td>
+<td>Green</td>
+</tr>
+</tbody></table>
+<h3>Search and Filters</h3>
+<ul>
+<li><strong>Search</strong>: Filter sessions by name or content</li>
+<li><strong>Sort</strong>: Choose sort order — &quot;Activity&quot; (most recent first), &quot;Name&quot;, &quot;Tokens&quot;, &quot;Created&quot;</li>
+<li><strong>View Modes</strong>:<ul>
+<li><strong>List</strong>: Flat list of all sessions</li>
+<li><strong>Tree</strong>: Hierarchical view showing parent-child relationships (main → sub-agents)</li>
+</ul>
+</li>
+<li><strong>Grouping</strong>:<ul>
+<li><strong>Grouped</strong>: Sessions organized by type (main, isolated, sub-agents)</li>
+<li><strong>All</strong>: Flat ungrouped list</li>
+</ul>
+</li>
+<li><strong>Filters Button</strong>: Additional filter options</li>
+</ul>
+<h3>Session Cards</h3>
+<p>Each session card provides:</p>
+<ul>
+<li><strong>Session Name</strong>: With an edit (pencil) icon to rename inline</li>
+<li><strong>Type Badge</strong>: &quot;main&quot;, &quot;isolated&quot;, or &quot;sub&quot; tag</li>
+<li><strong>Toggle Indicators</strong>: &quot;T:off&quot; (thinking visibility), &quot;V:off&quot; (verbose mode)</li>
+<li><strong>Model Badge</strong>: Current model (e.g., <code>claude-sonnet-4-6</code>) with brain icon</li>
+<li><strong>Token Count</strong>: Total tokens used in this session</li>
+<li><strong>Session Key</strong>: The internal identifier (e.g., <code>agent:main:main</code>)</li>
+<li><strong>Timestamp</strong>: Last activity time</li>
+</ul>
+<h3>Inline Controls</h3>
+<p>Each session card has action controls:</p>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Model Dropdown</strong></td>
+<td>Override the model for this session (e.g., switch from Claude Sonnet to Claude Opus)</td>
+</tr>
+<tr>
+<td><strong>Chat</strong></td>
+<td>Jump to this session in the Chat view</td>
+</tr>
+<tr>
+<td><strong>Delete</strong> (🗑)</td>
+<td>Delete the session and its history</td>
+</tr>
+<tr>
+<td><strong>Rename</strong> (✏️)</td>
+<td>Edit the session name inline</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>Tip:</strong> Model override is per-session. If you set a model on a session, it takes priority over the agent&#39;s default model. Clear the override to return to the default.</p>
+</blockquote>
+<hr>
+<h2>8. Usage Analytics</h2>
+<p>The <strong>Usage Analytics</strong> page tracks token consumption, costs, and session activity across your gateway. Essential for monitoring spend and understanding usage patterns.</p>
+<p><img src="images/06-usage.png" alt="Usage analytics page showing token and cost metrics with date range selector"></p>
+<h3>View Toggle</h3>
+<p>Switch between two views:</p>
+<ul>
+<li><strong>Tokens</strong>: Focus on token consumption (input/output breakdown)</li>
+<li><strong>Cost</strong>: Focus on dollar costs per session and over time</li>
+</ul>
+<h3>Date Range Selector</h3>
+<p>Filter analytics by time period:</p>
+<table>
+<thead>
+<tr>
+<th>Preset</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Today</strong></td>
+<td>Current day only</td>
+</tr>
+<tr>
+<td><strong>7d</strong></td>
+<td>Last 7 days</td>
+</tr>
+<tr>
+<td><strong>30d</strong></td>
+<td>Last 30 days</td>
+</tr>
+<tr>
+<td><strong>90d</strong></td>
+<td>Last 90 days</td>
+</tr>
+</tbody></table>
+<p>You can also set custom date ranges using the calendar date pickers.</p>
+<p>The range indicator shows how many sessions fall within the selected period.</p>
+<h3>Metrics Cards</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>TOTAL TOKENS</strong></td>
+<td>Sum of all input + output tokens</td>
+<td>&quot;14.1K&quot; with &quot;10 in · 146 out&quot; breakdown</td>
+</tr>
+<tr>
+<td><strong>TOTAL COST</strong></td>
+<td>Estimated cost in USD</td>
+<td>&quot;$0.05&quot; with per-session average</td>
+</tr>
+<tr>
+<td><strong>SESSIONS</strong></td>
+<td>Number of sessions in the time range</td>
+<td>Session count</td>
+</tr>
+<tr>
+<td><strong>CACHE HIT RATE</strong></td>
+<td>Percentage of prompt cache hits</td>
+<td>Visual bar + percentage</td>
+</tr>
+</tbody></table>
+<h3>Cost Tracking</h3>
+<p>Cost is estimated based on the token pricing for each model used. The analytics page aggregates across all sessions and model providers. The cost breakdown includes:</p>
+<ul>
+<li>Per-session average cost</li>
+<li>Input vs. output token split</li>
+<li>Cache efficiency metrics</li>
+</ul>
+<blockquote>
+<p><strong>Note:</strong> Cost estimates are based on published provider pricing. Actual billing may differ slightly due to rounding, caching credits, or promotional pricing.</p>
+</blockquote>
+<hr>
+<h2>9. Cron Jobs</h2>
+<p>The <strong>Cron Jobs</strong> page lets you schedule recurring tasks for your AI agent — automated wakeups, periodic checks, report generation, or any repeating workflow.</p>
+<p><img src="images/07-cron.png" alt="Cron jobs page showing the scheduler interface with create job button and empty state"></p>
+<h3>Overview</h3>
+<p>Cron jobs are scheduled tasks that run on the gateway. Each job can:</p>
+<ul>
+<li>Send a message to the agent on a schedule</li>
+<li>Trigger a system event at specified intervals</li>
+<li>Run in the main session or in an isolated session</li>
+<li>Use a specific model override</li>
+</ul>
+<h3>Status Indicator</h3>
+<p>The header shows the global cron status:</p>
+<ul>
+<li>🟢 <strong>Active</strong>: The cron scheduler is running</li>
+<li>🔴 <strong>Paused</strong>: Cron is disabled in configuration</li>
+</ul>
+<h3>Creating a Job</h3>
+<p>Click <strong>+ Create Job</strong> to open the job creation form:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Options</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Name</strong></td>
+<td>Human-readable job name</td>
+<td>Free text</td>
+</tr>
+<tr>
+<td><strong>Schedule Type</strong></td>
+<td>How to specify timing</td>
+<td><code>at</code> (one-time), <code>every</code> (interval), <code>cron</code> (expression)</td>
+</tr>
+<tr>
+<td><strong>Schedule</strong></td>
+<td>The timing specification</td>
+<td>&quot;every 30m&quot;, &quot;0 9 * * 1-5&quot;, &quot;at 2024-03-01T09:00&quot;</td>
+</tr>
+<tr>
+<td><strong>Payload Type</strong></td>
+<td>What the job does</td>
+<td><code>agentTurn</code> (send message), <code>systemEvent</code> (trigger event)</td>
+</tr>
+<tr>
+<td><strong>Payload</strong></td>
+<td>The message or event data</td>
+<td>Free text or JSON</td>
+</tr>
+<tr>
+<td><strong>Session Target</strong></td>
+<td>Where to run</td>
+<td><code>main</code> (main session), <code>isolated</code> (new isolated session)</td>
+</tr>
+<tr>
+<td><strong>Model Override</strong></td>
+<td>Optional model for this job</td>
+<td>Any available model</td>
+</tr>
+<tr>
+<td><strong>Delivery</strong></td>
+<td>Channel routing</td>
+<td>Target channel or &quot;last&quot;</td>
+</tr>
+</tbody></table>
+<h3>Schedule Types</h3>
+<pre><code class="language-bash"># Run every 30 minutes
+every 30m
+
+# Run at a specific cron schedule (Mon-Fri at 9 AM)
+0 9 * * 1-5
+
+# Run once at a specific time
+at 2026-03-01T09:00:00Z
+</code></pre>
+<h3>Job Cards</h3>
+<p>Each configured job appears as a card with:</p>
+<ul>
+<li><strong>Job Name</strong>: The human-readable name</li>
+<li><strong>Schedule</strong>: The timing specification</li>
+<li><strong>Status</strong>: Enabled (green toggle) or Disabled</li>
+<li><strong>Next Run</strong>: When the job will fire next</li>
+<li><strong>Actions</strong>:<ul>
+<li><strong>Enable/Disable Toggle</strong>: Pause or resume the job</li>
+<li><strong>Run Now</strong>: Trigger the job immediately</li>
+<li><strong>Edit</strong>: Modify the job configuration</li>
+<li><strong>Delete</strong>: Remove the job</li>
+</ul>
+</li>
+</ul>
+<h3>Configuration</h3>
+<p>Cron can also be configured via the gateway config:</p>
+<pre><code class="language-json">{
+  &quot;cron&quot;: {
+    &quot;enabled&quot;: true,
+    &quot;store&quot;: &quot;~/.openclaw/cron.db&quot;,
+    &quot;maxConcurrentRuns&quot;: 3,
+    &quot;sessionRetention&quot;: &quot;7d&quot;
+  }
+}
+</code></pre>
+<blockquote>
+<p><strong>Tip:</strong> Use <code>agentTurn</code> payload type to send a message as if you typed it. Use <code>systemEvent</code> for internal triggers that the agent handles via system prompt instructions.</p>
+</blockquote>
+<hr>
+<h2>10. Exec Approvals</h2>
+<p>The <strong>Exec Approvals</strong> page manages the command approval system — a security feature that requires human approval before the AI agent can execute certain shell commands.</p>
+<p><img src="images/08-approvals.png" alt="Exec approvals page showing the queue and allowlist tabs for command approval management"></p>
+<h3>Two-Tab Interface</h3>
+<p>The page has two tabs:</p>
+<h4>Queue Tab</h4>
+<p>The <strong>Queue</strong> shows real-time pending command approval requests:</p>
+<ul>
+<li><strong>Pending Approvals</strong>: Commands waiting for human review<ul>
+<li>Each request shows the command the agent wants to run</li>
+<li><strong>Countdown Timer</strong>: Time remaining before the request auto-expires</li>
+<li><strong>Approve</strong> (green): Allow the command to execute</li>
+<li><strong>Deny</strong> (red): Block the command</li>
+</ul>
+</li>
+<li><strong>Recent Decisions</strong>: History of recently approved/denied commands for this session</li>
+</ul>
+<p>When the queue is empty, a green checkmark icon confirms &quot;No pending approval requests&quot; with the message &quot;Requests will appear here in real-time when agents need permission.&quot;</p>
+<h4>Allowlist Tab</h4>
+<p>The <strong>Allowlist</strong> is a structured JSON editor for configuring permanent command allowlists:</p>
+<ul>
+<li>Commands on the allowlist run without approval</li>
+<li>Allowlists are scoped per security level</li>
+<li>Use patterns and wildcards for flexible matching</li>
+</ul>
+<p>Example allowlist configuration:</p>
+<pre><code class="language-json">{
+  &quot;full&quot;: [&quot;*&quot;],
+  &quot;allowlist&quot;: [
+    &quot;ls *&quot;,
+    &quot;cat *&quot;,
+    &quot;grep *&quot;,
+    &quot;git status&quot;,
+    &quot;git log *&quot;,
+    &quot;npm test&quot;,
+    &quot;node *&quot;
+  ],
+  &quot;deny&quot;: [
+    &quot;rm -rf *&quot;,
+    &quot;sudo *&quot;
+  ]
+}
+</code></pre>
+<h3>Security Modes</h3>
+<p>The exec approval system supports three security modes:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>full</strong></td>
+<td>All commands allowed without approval</td>
+</tr>
+<tr>
+<td><strong>allowlist</strong></td>
+<td>Only allowlisted commands run freely; others need approval</td>
+</tr>
+<tr>
+<td><strong>deny</strong></td>
+<td>All commands require approval</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>⚠️ Security Note:</strong> The <code>full</code> mode should only be used in trusted development environments. For production, use <code>allowlist</code> with carefully curated commands.</p>
+</blockquote>
+<hr>
+<h2>11. Audit Log</h2>
+<p>The <strong>Audit Log</strong> page provides a security event timeline — every significant action in your Cortex gateway is recorded and displayed here.</p>
+<p><img src="images/09-audit.png" alt="Audit log showing security events with time range filters and action type columns"></p>
+<h3>Time Range Filters</h3>
+<p>Quick-select buttons filter the log by time window:</p>
+<table>
+<thead>
+<tr>
+<th>Filter</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>1h</strong></td>
+<td>Last hour</td>
+</tr>
+<tr>
+<td><strong>6h</strong></td>
+<td>Last 6 hours</td>
+</tr>
+<tr>
+<td><strong>24h</strong></td>
+<td>Last 24 hours (default)</td>
+</tr>
+<tr>
+<td><strong>7d</strong></td>
+<td>Last 7 days</td>
+</tr>
+<tr>
+<td><strong>30d</strong></td>
+<td>Last 30 days</td>
+</tr>
+<tr>
+<td><strong>All</strong></td>
+<td>All recorded events</td>
+</tr>
+</tbody></table>
+<h3>Action Type Filter</h3>
+<p>The <strong>All Actions</strong> dropdown lets you filter by specific event types:</p>
+<ul>
+<li><code>device.pair.approve</code> — A device pairing was approved</li>
+<li><code>device.pair.reject</code> — A device pairing was rejected</li>
+<li><code>authorize.denied</code> — An action was blocked due to insufficient permissions</li>
+<li><code>token.create</code> — An API token was created</li>
+<li><code>token.revoke</code> — An API token was revoked</li>
+<li><code>config.apply</code> — Gateway configuration was applied</li>
+<li><code>config.set</code> — A configuration value was changed</li>
+<li><code>device.role.set</code> — A device&#39;s role was changed</li>
+</ul>
+<h3>Log Table</h3>
+<p>The audit log displays events in a table with three columns:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>TIME</strong></td>
+<td>Timestamp of the event (e.g., &quot;Feb 23, 04:48:31 AM&quot;)</td>
+</tr>
+<tr>
+<td><strong>ACTION</strong></td>
+<td>The event type in purple monospace text (e.g., <code>device.pair.approve</code>)</td>
+</tr>
+<tr>
+<td><strong>ACTOR</strong></td>
+<td>Who performed the action — either &quot;cli&quot; or a truncated device ID</td>
+</tr>
+</tbody></table>
+<p>Each actor field has a clipboard icon for copying the full device ID.</p>
+<h3>Logged Events</h3>
+<p>The audit system tracks:</p>
+<ul>
+<li><strong>Authentication</strong>: Device pairing (approve/reject), token creation/revocation</li>
+<li><strong>Authorization</strong>: Permission denials with the specific method that was blocked</li>
+<li><strong>Configuration</strong>: Config changes, applies, and restarts</li>
+<li><strong>Session</strong>: Session creation, deletion, compaction</li>
+<li><strong>Admin</strong>: Role changes, device removals, security setting changes</li>
+</ul>
+<blockquote>
+<p><strong>Tip:</strong> Use the audit log to track down &quot;authorize.denied&quot; events when debugging permission issues. The action field shows exactly which method was blocked (e.g., <code>authorize.denied:device.pair.list</code>).</p>
+</blockquote>
+<hr>
+<h2>12. API Tokens</h2>
+<p>The <strong>API Tokens</strong> page lets you create and manage scoped access tokens for programmatic or quick-access authentication.</p>
+<p><img src="images/10-tokens.png" alt="API tokens management page showing token creation and token list with role badges"></p>
+<h3>What Are API Tokens?</h3>
+<p>API tokens provide instant authentication without the device pairing flow. They&#39;re useful for:</p>
+<ul>
+<li>CI/CD pipelines that need gateway access</li>
+<li>Scripts and automation tools</li>
+<li>Quick browser access (paste token in URL)</li>
+<li>Temporary access for collaborators</li>
+</ul>
+<p>All tokens are prefixed with <code>ctx_</code> for easy identification.</p>
+<h3>Creating a Token</h3>
+<p>Click <strong>+ Create Token</strong> to open the creation form:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Options</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Name</strong></td>
+<td>Human-readable label</td>
+<td>Free text (e.g., &quot;CI Pipeline&quot;, &quot;Test Token&quot;)</td>
+</tr>
+<tr>
+<td><strong>Role</strong></td>
+<td>Permission level</td>
+<td><code>admin</code>, <code>operator</code>, <code>viewer</code>, <code>chat-only</code></td>
+</tr>
+<tr>
+<td><strong>Expiration</strong></td>
+<td>When the token expires</td>
+<td>Duration (e.g., &quot;24h&quot;, &quot;7d&quot;, &quot;30d&quot;) or &quot;never&quot;</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>⚠️ Important:</strong> The full token is only shown once at creation time. Copy it immediately — it cannot be retrieved later.</p>
+</blockquote>
+<h3>Token List</h3>
+<p>Each token appears as a card showing:</p>
+<ul>
+<li><strong>Name</strong>: The token&#39;s label (e.g., &quot;Test01&quot;)</li>
+<li><strong>Role Badge</strong>: Color-coded role indicator (e.g., purple &quot;OPERATOR&quot; pill)</li>
+<li><strong>Status</strong>: Green dot for active tokens</li>
+<li><strong>Created Date</strong>: When the token was issued</li>
+<li><strong>Expiry Date</strong>: When the token will expire</li>
+<li><strong>Revoke Button</strong>: Red button to immediately invalidate the token</li>
+</ul>
+<p>The header shows a count badge (e.g., &quot;1 active&quot;) for quick reference.</p>
+<h3>Using Tokens</h3>
+<p>Tokens can be used in several ways:</p>
+<pre><code class="language-bash"># As a URL parameter
+ws://localhost:18789?token=ctx_abc123...
+
+# As a CLI option
+cortex devices list --token ctx_abc123...
+
+# In the Cortex UI connection settings
+# Paste the token in the gateway token field
+</code></pre>
+<h3>Token Security</h3>
+<ul>
+<li>Tokens inherit the permissions of their assigned role</li>
+<li>Revoking a token immediately terminates all sessions using it</li>
+<li>Tokens are stored as hashed values — the gateway never stores the plaintext</li>
+<li>Expired tokens are automatically invalidated</li>
+</ul>
+<hr>
+<h2>13. Agents</h2>
+<p>The <strong>Agents</strong> page manages agent workspaces, identities, tools, and channel bindings. Each agent is an independent AI personality with its own configuration.</p>
+<p><img src="images/11-agents.png" alt="Agents workspace management page showing agent selector sidebar and detail panel with tabs"></p>
+<h3>Agent Selector (Left Sub-Panel)</h3>
+<p>The left panel shows all configured agents:</p>
+<ul>
+<li><strong>Agent Count</strong>: &quot;1 configured&quot; (or more)</li>
+<li><strong>Agent Entry</strong>: Each agent shows its name, ID, and role badges:<ul>
+<li><strong>DEFAULT</strong> badge: The agent that handles unrouted messages</li>
+<li>Click to select and view its details</li>
+</ul>
+</li>
+</ul>
+<h3>Agent Detail Panel (Right Sub-Panel)</h3>
+<p>The detail panel has <strong>six tabs</strong>:</p>
+<h4>Overview Tab</h4>
+<p>Displays workspace paths and identity metadata:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>WORKSPACE</strong></td>
+<td>File system path to the agent&#39;s workspace (e.g., <code>~/.openclaw/workspace</code>)</td>
+</tr>
+<tr>
+<td><strong>PRIMARY MODEL</strong></td>
+<td>The default LLM model for this agent</td>
+</tr>
+<tr>
+<td><strong>IDENTITY NAME</strong></td>
+<td>Display name (e.g., &quot;Assistant&quot;)</td>
+</tr>
+<tr>
+<td><strong>DEFAULT</strong></td>
+<td>Whether this is the default agent</td>
+</tr>
+<tr>
+<td><strong>IDENTITY EMOJI</strong></td>
+<td>Optional emoji identifier</td>
+</tr>
+<tr>
+<td><strong>SKILLS FILTER</strong></td>
+<td>Which skills this agent can use (&quot;all skills&quot; or specific list)</td>
+</tr>
+</tbody></table>
+<h4>Files Tab</h4>
+<p>A workspace file browser showing the agent&#39;s files:</p>
+<ul>
+<li><code>AGENTS.md</code> — Agent behavior instructions</li>
+<li><code>SOUL.md</code> — Personality definition</li>
+<li><code>USER.md</code> — User context</li>
+<li><code>MEMORY.md</code> — Long-term memory</li>
+<li><code>memory/</code> — Daily memory files</li>
+<li>Other workspace files</li>
+</ul>
+<h4>Tools Tab</h4>
+<p>Lists all tools available to this agent:</p>
+<ul>
+<li>Tool name and description</li>
+<li>Source (built-in, skill, plugin)</li>
+<li>Enabled/disabled status</li>
+</ul>
+<h4>Skills Tab</h4>
+<p>Shows skills installed for this specific agent:</p>
+<ul>
+<li>Skill name and source</li>
+<li>Configuration status</li>
+<li>Enable/disable controls</li>
+</ul>
+<h4>Channels Tab</h4>
+<p>Channel bindings — which messaging channels this agent responds on:</p>
+<ul>
+<li>Channel assignment list</li>
+<li>Priority and routing rules</li>
+<li>Binding configuration</li>
+</ul>
+<h4>Cron Jobs Tab</h4>
+<p>Agent-specific scheduled tasks:</p>
+<ul>
+<li>Cron jobs that target this agent</li>
+<li>Schedule and status information</li>
+<li>Quick management controls</li>
+</ul>
+<h3>Multi-Agent Setup</h3>
+<p>Cortex supports multiple agents, each with their own:</p>
+<ul>
+<li>Workspace files and memory</li>
+<li>Model preferences</li>
+<li>Channel bindings</li>
+<li>Skills and tools</li>
+<li>Personality and behavior</li>
+</ul>
+<p>Configure multiple agents in the gateway config:</p>
+<pre><code class="language-json">{
+  &quot;agents&quot;: {
+    &quot;list&quot;: [
+      {
+        &quot;id&quot;: &quot;main&quot;,
+        &quot;identity&quot;: { &quot;name&quot;: &quot;Assistant&quot; },
+        &quot;default&quot;: true
+      },
+      {
+        &quot;id&quot;: &quot;coder&quot;,
+        &quot;identity&quot;: { &quot;name&quot;: &quot;CodeBot&quot;, &quot;emoji&quot;: &quot;🤖&quot; },
+        &quot;model&quot;: &quot;claude-sonnet-4-6&quot;
+      }
+    ]
+  }
+}
+</code></pre>
+<hr>
+<h2>14. Skills</h2>
+<p>The <strong>Skills</strong> page is a library browser for agent skills — modular capability packages that extend what your agent can do.</p>
+<p><img src="images/12-skills.png" alt="Skills library page showing skill stats, search, and skill cards with source badges"></p>
+<h3>What Are Skills?</h3>
+<p>Skills are markdown-based instruction packages that teach the agent how to use specific tools or perform certain tasks. They&#39;re like &quot;training manuals&quot; that get injected into the agent&#39;s system prompt when relevant.</p>
+<h3>Stats Bar</h3>
+<p>Four summary cards:</p>
+<table>
+<thead>
+<tr>
+<th>Stat</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Total</strong></td>
+<td>All available skills</td>
+</tr>
+<tr>
+<td><strong>Bundled</strong></td>
+<td>Skills included with Cortex</td>
+</tr>
+<tr>
+<td><strong>Workspace</strong></td>
+<td>Skills from agent workspace directories</td>
+</tr>
+<tr>
+<td><strong>Managed</strong></td>
+<td>Skills installed via the skill manager</td>
+</tr>
+</tbody></table>
+<h3>Search and Filter</h3>
+<ul>
+<li><strong>Search Input</strong>: Filter skills by name or description</li>
+<li><strong>Source Filter</strong>: Dropdown to filter by source — &quot;All Sources&quot;, &quot;Bundled&quot;, &quot;Workspace&quot;, &quot;Managed&quot;</li>
+</ul>
+<h3>Skill Cards</h3>
+<p>Each skill appears as a card with:</p>
+<ul>
+<li><strong>Name</strong>: Skill identifier (e.g., &quot;1password&quot;, &quot;apple-notes&quot;, &quot;docker&quot;)</li>
+<li><strong>Source Badge</strong>: Green &quot;bundled&quot; pill, cyan &quot;workspace&quot; pill, or yellow &quot;managed&quot; pill</li>
+<li><strong>Description</strong>: What the skill teaches the agent to do</li>
+<li><strong>File Path</strong>: Full path to the skill file on disk</li>
+</ul>
+<h3>Installing Skills</h3>
+<p>Click <strong>+ Install</strong> to add new skills:</p>
+<ul>
+<li>Install from npm packages</li>
+<li>Install from local directories</li>
+<li>Install from Git repositories</li>
+</ul>
+<p>Skills are loaded from these locations:</p>
+<ol>
+<li><strong>Bundled</strong>: Included in the Cortex package (<code>node_modules/openclaw-cortex/skills/</code>)</li>
+<li><strong>Workspace</strong>: Agent workspace <code>skills/</code> directory</li>
+<li><strong>Extra Dirs</strong>: Additional directories specified in config</li>
+</ol>
+<h3>Skill Configuration</h3>
+<pre><code class="language-json">{
+  &quot;skills&quot;: {
+    &quot;allowBundled&quot;: [&quot;docker&quot;, &quot;git&quot;, &quot;ssh&quot;],
+    &quot;load&quot;: {
+      &quot;extraDirs&quot;: [&quot;/opt/custom-skills&quot;],
+      &quot;watch&quot;: true,
+      &quot;watchDebounceMs&quot;: 1000
+    },
+    &quot;limits&quot;: {
+      &quot;maxSkillsInPrompt&quot;: 10,
+      &quot;maxSkillsPromptChars&quot;: 50000
+    }
+  }
+}
+</code></pre>
+<blockquote>
+<p><strong>Tip:</strong> If you have too many bundled skills, use <code>allowBundled</code> to whitelist only the ones you need. This keeps the agent&#39;s system prompt focused and reduces token usage.</p>
+</blockquote>
+<hr>
+<h2>15. Nodes</h2>
+<p>The <strong>Nodes</strong> page manages your node fleet — remote worker machines that execute commands on behalf of the gateway.</p>
+<p><img src="images/13-nodes.png" alt="Node fleet management page showing paired devices, role selectors, and node management toolbar"></p>
+<h3>What Are Nodes?</h3>
+<p>Nodes are headless worker processes that connect to your gateway via WebSocket. They provide execution capabilities that the gateway can delegate to:</p>
+<ul>
+<li><strong>System</strong>: Shell command execution, file system access</li>
+<li><strong>Browser</strong>: Browser automation (Playwright/CDP)</li>
+<li><strong>Camera</strong>: Camera snapshots (on supported hardware)</li>
+<li><strong>Screen</strong>: Screen recording/capture</li>
+<li><strong>Canvas</strong>: Interactive visual rendering (on supported platforms)</li>
+</ul>
+<h3>Toolbar</h3>
+<p>The node fleet toolbar provides:</p>
+<table>
+<thead>
+<tr>
+<th>Button</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Search</strong></td>
+<td>Filter nodes by name or ID</td>
+</tr>
+<tr>
+<td><strong>Grid/List Toggle</strong></td>
+<td>Switch between grid and list view</td>
+</tr>
+<tr>
+<td><strong>QR Pair</strong></td>
+<td>Generate a QR code for quick node pairing</td>
+</tr>
+<tr>
+<td><strong>+ Add Node</strong></td>
+<td>Show installation instructions for new nodes</td>
+</tr>
+<tr>
+<td><strong>Refresh</strong></td>
+<td>Refresh the node list</td>
+</tr>
+</tbody></table>
+<h3>Paired Devices</h3>
+<p>Each paired device appears as a card showing:</p>
+<ul>
+<li><strong>Device Icon</strong>: Teal device indicator</li>
+<li><strong>Name</strong>: Device hostname (e.g., &quot;Cortex&quot;, &quot;AIcreations&quot;)</li>
+<li><strong>Role Badge</strong>: Color-coded role indicator (e.g., green &quot;OPERATOR&quot;)</li>
+<li><strong>Device ID</strong>: Truncated Ed25519 identity hash</li>
+<li><strong>Role Dropdown</strong>: Change the device&#39;s role inline (admin, operator, viewer, chat-only)</li>
+</ul>
+<h3>Adding a Node</h3>
+<p>Click <strong>+ Add Node</strong> to reveal one-liner installation commands:</p>
+<pre><code class="language-bash"># Install the node package
+npm install -g openclaw-cortex
+
+# Connect to the gateway
+cortex node run --host gateway.example.com --port 18789
+
+# Or install as a system service
+cortex node install --host gateway.example.com --port 18789
+cortex node start
+</code></pre>
+<h3>QR Pair</h3>
+<p>Click <strong>QR Pair</strong> to generate a QR code containing an embedded invite link. Scan with a mobile device or another machine&#39;s camera to pair automatically.</p>
+<p>The QR code encodes:</p>
+<ul>
+<li>Gateway URL</li>
+<li>Invite token</li>
+<li>Role assignment</li>
+<li>Expiration</li>
+</ul>
+<h3>Node Detail Panel</h3>
+<p>Click a node card to expand its detail panel with three tabs:</p>
+<table>
+<thead>
+<tr>
+<th>Tab</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Details</strong></td>
+<td>Full system info, capabilities, connection metadata</td>
+</tr>
+<tr>
+<td><strong>Invoke</strong></td>
+<td>Send commands directly to the node</td>
+</tr>
+<tr>
+<td><strong>Exec Allowlist</strong></td>
+<td>Configure which commands this node can run</td>
+</tr>
+</tbody></table>
+<h3>Node Configuration</h3>
+<p>Nodes store their configuration in <code>~/.openclaw/node-host.json</code>:</p>
+<pre><code class="language-json">{
+  &quot;nodeId&quot;: &quot;unique-node-id&quot;,
+  &quot;displayName&quot;: &quot;My Node&quot;,
+  &quot;gateway&quot;: {
+    &quot;host&quot;: &quot;gateway.example.com&quot;,
+    &quot;port&quot;: 18789,
+    &quot;tls&quot;: false
+  }
+}
+</code></pre>
+<hr>
+<h2>16. Memory</h2>
+<p>The <strong>Memory</strong> page provides a dashboard for the agent memory system — a hybrid BM25 + vector retrieval engine that gives your agent persistent, searchable memory.</p>
+<p><img src="images/14-memory.png" alt="Memory system dashboard showing search interface, configuration card, and CLI commands reference"></p>
+<h3>Overview</h3>
+<p>The memory system allows your agent to:</p>
+<ul>
+<li>Remember past conversations and context</li>
+<li>Search through workspace files and documentation</li>
+<li>Retrieve relevant information using hybrid search (keyword BM25 + semantic vector)</li>
+<li>Build long-term knowledge across sessions</li>
+</ul>
+<h3>CLI Only</h3>
+<p>Memory operations are currently <strong>CLI-only</strong> — they cannot be triggered from the web UI. The Memory page provides reference information and configuration status, but actual indexing and searching is done via the command line.</p>
+<blockquote>
+<p><strong>Note:</strong> The &quot;CLI Only&quot; badge indicates that memory management requires gateway shell access. Future versions may add web-based memory management.</p>
+</blockquote>
+<h3>Search Interface</h3>
+<p>The search panel shows:</p>
+<ul>
+<li><strong>Search Input</strong>: With a note that &quot;Memory search requires CLI&quot;</li>
+<li><strong>Results Count</strong>: Configurable number of results (default: 20)</li>
+<li><strong>Search Button</strong>: Triggers a search (requires CLI backend)</li>
+</ul>
+<h3>Configuration Card</h3>
+<p>The configuration card displays current memory engine settings from the gateway config:</p>
+<ul>
+<li>Memory backend (builtin or qmd)</li>
+<li>Search mode (query, search, vsearch)</li>
+<li>Citation mode (auto, on, off)</li>
+<li>Index paths and patterns</li>
+</ul>
+<p>When memory is not configured, it shows &quot;Memory search not configured.&quot;</p>
+<h3>CLI Commands Reference</h3>
+<p>The CLI Commands card provides quick reference for memory management:</p>
+<pre><code class="language-bash"># Check memory system status
+cortex memory status
+
+# Index workspace files for search
+cortex memory index
+
+# Search memory
+cortex memory search &quot;your query here&quot;
+
+# Index with specific agent
+cortex memory index --agent main
+
+# Force re-index all files
+cortex memory index --force
+</code></pre>
+<h3>Memory Configuration</h3>
+<p>Configure memory in the gateway config:</p>
+<pre><code class="language-json">{
+  &quot;memory&quot;: {
+    &quot;backend&quot;: &quot;builtin&quot;,
+    &quot;citations&quot;: &quot;auto&quot;,
+    &quot;qmd&quot;: {
+      &quot;command&quot;: &quot;qmd&quot;,
+      &quot;searchMode&quot;: &quot;search&quot;,
+      &quot;includeDefaultMemory&quot;: true,
+      &quot;paths&quot;: [
+        {
+          &quot;path&quot;: &quot;~/.openclaw/workspace/memory&quot;,
+          &quot;name&quot;: &quot;daily-notes&quot;,
+          &quot;pattern&quot;: &quot;*.md&quot;
+        }
+      ],
+      &quot;sessions&quot;: {
+        &quot;enabled&quot;: true,
+        &quot;exportDir&quot;: &quot;~/.openclaw/agents/main/sessions&quot;,
+        &quot;retentionDays&quot;: 30
+      },
+      &quot;update&quot;: {
+        &quot;interval&quot;: &quot;30m&quot;,
+        &quot;onBoot&quot;: true
+      },
+      &quot;limits&quot;: {
+        &quot;maxResults&quot;: 20,
+        &quot;maxSnippetChars&quot;: 500,
+        &quot;maxInjectedChars&quot;: 10000,
+        &quot;timeoutMs&quot;: 30000
+      }
+    }
+  }
+}
+</code></pre>
+<h3>Memory Files</h3>
+<p>The Memory page also includes a file browser for viewing and editing workspace memory files directly:</p>
+<ul>
+<li><code>MEMORY.md</code> — Curated long-term memories</li>
+<li><code>memory/YYYY-MM-DD.md</code> — Daily memory logs</li>
+<li>Other memory-related workspace files</li>
+</ul>
+<hr>
+<h2>17. Settings</h2>
+<p>The <strong>Settings</strong> page lets you customize the Cortex UI appearance and configure gateway connection details.</p>
+<p><img src="images/15-settings.png" alt="Settings page showing accent color picker with preset swatches and custom hex input"></p>
+<h3>Navigation</h3>
+<p>The Settings page is accessed from the <code>⚙</code> icon or by pressing <code>Ctrl+,</code>. A &quot;← Back to Chat&quot; link at the top returns you to the conversation view.</p>
+<h3>Appearance</h3>
+<h4>Accent Color</h4>
+<p>Customize the UI accent color used throughout the interface:</p>
+<p><strong>Preset Colors</strong> (8 swatches):</p>
+<ol>
+<li>Cyan/Aqua</li>
+<li>Purple/Violet (default)</li>
+<li>Hot Pink/Magenta</li>
+<li>Green</li>
+<li>Yellow/Amber</li>
+<li>Rose/Pink</li>
+<li>Orange/Coral</li>
+<li>Mint/Light Cyan</li>
+</ol>
+<p>A <strong>checkmark (✓)</strong> overlay indicates the currently selected color.</p>
+<p><strong>Custom Color</strong>: Enter any hex color code (e.g., <code>#7c4dff</code>) in the text input. A small preview swatch shows the current color.</p>
+<p>The accent color affects:</p>
+<ul>
+<li>Active navigation highlights</li>
+<li>Buttons and interactive elements</li>
+<li>Links and badges</li>
+<li>Input field focus states</li>
+<li>Status indicators</li>
+</ul>
+<h3>Gateway Connection</h3>
+<p>Configure which gateway the UI connects to:</p>
+<ul>
+<li><strong>Gateway URL</strong>: WebSocket URL (e.g., <code>ws://localhost:18789</code>)</li>
+<li><strong>Token</strong>: API token for authentication (if required)</li>
+</ul>
+<blockquote>
+<p><strong>Tip:</strong> Settings are stored in your browser&#39;s local storage. Clearing browser data will reset them to defaults.</p>
+</blockquote>
+<hr>
+<h2>18. Gateway Configuration</h2>
+<p>The <strong>Gateway Configuration</strong> page is a full-featured configuration editor for your Cortex gateway. It provides both a structured form view and a raw JSON editor.</p>
+<p><img src="images/16-config.png" alt="Gateway configuration editor showing form view with category buttons and config sections"></p>
+<h3>View Modes</h3>
+<p>Two editing modes are available, toggled at the top:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Description</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Form</strong></td>
+<td>Structured visual editor with categorized sections</td>
+<td>Day-to-day config changes</td>
+</tr>
+<tr>
+<td><strong>Raw JSON</strong></td>
+<td>Direct JSON text editor</td>
+<td>Bulk edits, copy/paste, advanced users</td>
+</tr>
+</tbody></table>
+<h3>Form View</h3>
+<p>The form view organizes configuration into <strong>category buttons</strong> — clickable pills that filter the config to a specific section:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Settings</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Meta</strong></td>
+<td>Config metadata, version tracking</td>
+</tr>
+<tr>
+<td><strong>Env</strong></td>
+<td>Environment variables, shell env</td>
+</tr>
+<tr>
+<td><strong>Wizard</strong></td>
+<td>Onboarding wizard state</td>
+</tr>
+<tr>
+<td><strong>Diagnostics</strong></td>
+<td>OpenTelemetry, cache tracing</td>
+</tr>
+<tr>
+<td><strong>Logging</strong></td>
+<td>Log levels, file paths, redaction</td>
+</tr>
+<tr>
+<td><strong>Update</strong></td>
+<td>Update channel (stable/beta/dev)</td>
+</tr>
+<tr>
+<td><strong>Browser</strong></td>
+<td>Browser automation settings, CDP, profiles</td>
+</tr>
+<tr>
+<td><strong>UI</strong></td>
+<td>UI customization (seam color, assistant name/avatar)</td>
+</tr>
+<tr>
+<td><strong>Auth</strong></td>
+<td>Authentication profiles, provider auth, cooldowns</td>
+</tr>
+<tr>
+<td><strong>Models</strong></td>
+<td>Model provider configuration</td>
+</tr>
+<tr>
+<td><strong>Node Host</strong></td>
+<td>Node browser proxy settings</td>
+</tr>
+<tr>
+<td><strong>Agents</strong></td>
+<td>Agent definitions, identities, models</td>
+</tr>
+<tr>
+<td><strong>Tools</strong></td>
+<td>Tool configuration and limits</td>
+</tr>
+<tr>
+<td><strong>Bindings</strong></td>
+<td>Channel-to-agent routing</td>
+</tr>
+<tr>
+<td><strong>Broadcast</strong></td>
+<td>Multi-agent message broadcasting</td>
+</tr>
+<tr>
+<td><strong>Audio</strong></td>
+<td>Voice/TTS settings</td>
+</tr>
+<tr>
+<td><strong>Media</strong></td>
+<td>Media handling options</td>
+</tr>
+<tr>
+<td><strong>Messages</strong></td>
+<td>Message formatting and limits</td>
+</tr>
+<tr>
+<td><strong>Commands</strong></td>
+<td>Command execution settings</td>
+</tr>
+<tr>
+<td><strong>Approvals</strong></td>
+<td>Exec approval configuration</td>
+</tr>
+<tr>
+<td><strong>Session</strong></td>
+<td>Session management settings</td>
+</tr>
+<tr>
+<td><strong>Cron</strong></td>
+<td>Cron scheduler settings</td>
+</tr>
+<tr>
+<td><strong>Hooks</strong></td>
+<td>Webhook configuration</td>
+</tr>
+<tr>
+<td><strong>Web</strong></td>
+<td>WebSocket settings, heartbeat, reconnect</td>
+</tr>
+<tr>
+<td><strong>Channels</strong></td>
+<td>Messaging platform configuration</td>
+</tr>
+<tr>
+<td><strong>Discovery</strong></td>
+<td>mDNS and wide-area discovery</td>
+</tr>
+<tr>
+<td><strong>Canvas Host</strong></td>
+<td>Canvas rendering server</td>
+</tr>
+<tr>
+<td><strong>Talk</strong></td>
+<td>Voice/TTS provider settings</td>
+</tr>
+<tr>
+<td><strong>Gateway</strong></td>
+<td>Core gateway settings (port, bind, TLS, security)</td>
+</tr>
+<tr>
+<td><strong>Memory</strong></td>
+<td>Memory system configuration</td>
+</tr>
+<tr>
+<td><strong>Skills</strong></td>
+<td>Skill loading and limits</td>
+</tr>
+<tr>
+<td><strong>Plugins</strong></td>
+<td>Plugin management</td>
+</tr>
+</tbody></table>
+<h3>Search</h3>
+<p>The <strong>Search config keys</strong> input filters all configuration fields across all categories. Type a keyword to find the relevant setting quickly.</p>
+<h3>Config Status</h3>
+<p>Each section shows a status indicator:</p>
+<ul>
+<li>✅ <strong>configured</strong> (green): Section has custom values set</li>
+<li>The config <strong>hash</strong> is displayed for version tracking</li>
+</ul>
+<h3>Action Buttons</h3>
+<p>Three action buttons at the bottom of the page:</p>
+<table>
+<thead>
+<tr>
+<th>Button</th>
+<th>Description</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Save</strong></td>
+<td>Save changes to disk without restarting</td>
+<td>Config file updated, no service restart</td>
+</tr>
+<tr>
+<td><strong>Apply &amp; Restart</strong></td>
+<td>Save and restart the gateway to apply changes</td>
+<td>Full restart, all connections temporarily drop</td>
+</tr>
+<tr>
+<td><strong>Update Gateway</strong></td>
+<td>Check for and install Cortex updates</td>
+<td>Downloads and installs the latest version</td>
+</tr>
+</tbody></table>
+<h3>Schema Version</h3>
+<p>The header shows the current schema version (e.g., &quot;schema 3.10.2&quot;) to help identify config compatibility.</p>
+<blockquote>
+<p><strong>⚠️ Warning:</strong> Clicking <strong>Apply &amp; Restart</strong> will briefly disconnect all clients and channels while the gateway restarts. Active conversations will resume automatically after reconnection.</p>
+</blockquote>
+<hr>
+<h2>19. Debug Console</h2>
+<p>The <strong>Debug Console</strong> provides a manual RPC interface for sending raw gateway methods — essential for testing, debugging, and advanced troubleshooting.</p>
+<p><img src="images/17-debug.png" alt="Debug console showing RPC method input, JSON params textarea, and execute button"></p>
+<h3>Manual RPC Console</h3>
+<p>The debug console card contains:</p>
+<ul>
+<li><strong>Method Input</strong>: Enter any gateway RPC method name (e.g., <code>status</code>, <code>health</code>, <code>sessions.list</code>, <code>config.set</code>)</li>
+<li><strong>Params (JSON) Textarea</strong>: Enter method parameters as JSON (defaults to <code>{}</code>)</li>
+<li><strong>Execute Button</strong>: Send the request (<code>Ctrl+Enter</code> keyboard shortcut)</li>
+<li><strong>Response Display</strong>: Shows the raw JSON response from the gateway</li>
+</ul>
+<h3>Common Methods</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Description</th>
+<th>Example Params</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>status</code></td>
+<td>Gateway status summary</td>
+<td><code>{}</code></td>
+</tr>
+<tr>
+<td><code>health</code></td>
+<td>Health check with channel status</td>
+<td><code>{}</code></td>
+</tr>
+<tr>
+<td><code>sessions.list</code></td>
+<td>List all sessions</td>
+<td><code>{}</code></td>
+</tr>
+<tr>
+<td><code>models.list</code></td>
+<td>List available models</td>
+<td><code>{}</code></td>
+</tr>
+<tr>
+<td><code>config.set</code></td>
+<td>Set a config value</td>
+<td><code>{&quot;path&quot;: &quot;logging.level&quot;, &quot;value&quot;: &quot;debug&quot;}</code></td>
+</tr>
+<tr>
+<td><code>cron.list</code></td>
+<td>List cron jobs</td>
+<td><code>{}</code></td>
+</tr>
+<tr>
+<td><code>audit.query</code></td>
+<td>Query audit log</td>
+<td><code>{&quot;limit&quot;: 10}</code></td>
+</tr>
+<tr>
+<td><code>device.pair.list</code></td>
+<td>List paired devices</td>
+<td><code>{}</code></td>
+</tr>
+<tr>
+<td><code>logs.tail</code></td>
+<td>Tail gateway logs</td>
+<td><code>{&quot;limit&quot;: 50}</code></td>
+</tr>
+</tbody></table>
+<h3>Use Cases</h3>
+<ul>
+<li><strong>Testing RPC methods</strong> before building automation around them</li>
+<li><strong>Debugging permissions</strong> — see exactly what error
+  </main>
+</div>
+<button class="top-btn" id="top" onclick="scrollTo({top:0,behavior:'smooth'})">↑</button>
+<script>
+const toc=document.getElementById('toc');
+document.querySelectorAll('#content h2,#content h3').forEach((h,i)=>{
+  if(!h.id)h.id='s'+i;
+  const li=document.createElement('li');
+  const a=document.createElement('a');
+  a.href='#'+h.id;a.textContent=h.textContent;
+  a.className=h.tagName.toLowerCase();
+  li.appendChild(a);toc.appendChild(li);
+});
+const b=document.getElementById('top');
+addEventListener('scroll',()=>b.classList.toggle('on',scrollY>300));
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+pages:
+  stage: deploy
+  script:
+    - echo "Deploying pre-built pages..."
+    - ls -la public/
+    - ls -la public/images/ | head -5
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
