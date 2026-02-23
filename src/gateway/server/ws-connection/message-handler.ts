@@ -669,7 +669,115 @@ export function attachGatewayWsMessageHandler(params: {
           return;
         }
 
-        const skipPairing = (allowControlUiBypass && sharedAuthOk) || Boolean(ctxTokenValidation);
+        // ─── Invite code / pairing code auto-approval ────────
+        let inviteOrCodeRole: string | null = null;
+
+        if (connectParams.auth?.invite && device && devicePublicKey) {
+          const inviteCode = String(connectParams.auth.invite).trim();
+          if (inviteCode) {
+            try {
+              const inviteStore = InviteStore.init();
+              const validation = inviteStore.validateInvite(inviteCode);
+              if (validation.valid) {
+                inviteOrCodeRole = validation.role;
+                inviteStore.useInvite(inviteCode);
+                logGateway.info(
+                  `invite code accepted: device=${device.id} role=${validation.role}`,
+                );
+                const pairing = await requestDevicePairing({
+                  deviceId: device.id,
+                  publicKey: devicePublicKey,
+                  displayName: connectParams.client.displayName,
+                  platform: connectParams.client.platform,
+                  clientId: connectParams.client.id,
+                  clientMode: connectParams.client.mode,
+                  role,
+                  scopes,
+                  remoteIp: reportedClientIp,
+                  silent: true,
+                });
+                const approved = await approveDevicePairing(pairing.request.requestId);
+                if (approved) {
+                  await updatePairedDeviceMetadata(device.id, {
+                    displayName: connectParams.client.displayName,
+                    platform: connectParams.client.platform,
+                    clientId: connectParams.client.id,
+                    clientMode: connectParams.client.mode,
+                    role,
+                    scopes,
+                    remoteIp: reportedClientIp,
+                    securityRole: validation.role,
+                  });
+                  const ctx = buildRequestContext();
+                  ctx.broadcast(
+                    "device.pair.resolved",
+                    {
+                      requestId: pairing.request.requestId,
+                      deviceId: approved.device.deviceId,
+                      decision: "approved",
+                      ts: Date.now(),
+                    },
+                    { dropIfSlow: true },
+                  );
+                }
+              }
+            } catch (err) {
+              logGateway.warn(`invite validation error: ${String(err)}`);
+            }
+          }
+        }
+
+        if (!inviteOrCodeRole && connectParams.auth?.pairingCode && device && devicePublicKey) {
+          const pCode = String(connectParams.auth.pairingCode).trim();
+          if (pCode) {
+            const codeResult = consumePairingCode(pCode);
+            if (codeResult.valid) {
+              inviteOrCodeRole = codeResult.role;
+              logGateway.info(`pairing code accepted: device=${device.id} role=${codeResult.role}`);
+              const pairing = await requestDevicePairing({
+                deviceId: device.id,
+                publicKey: devicePublicKey,
+                displayName: connectParams.client.displayName,
+                platform: connectParams.client.platform,
+                clientId: connectParams.client.id,
+                clientMode: connectParams.client.mode,
+                role,
+                scopes,
+                remoteIp: reportedClientIp,
+                silent: true,
+              });
+              const approved = await approveDevicePairing(pairing.request.requestId);
+              if (approved) {
+                await updatePairedDeviceMetadata(device.id, {
+                  displayName: connectParams.client.displayName,
+                  platform: connectParams.client.platform,
+                  clientId: connectParams.client.id,
+                  clientMode: connectParams.client.mode,
+                  role,
+                  scopes,
+                  remoteIp: reportedClientIp,
+                  securityRole: codeResult.role,
+                });
+                const ctx = buildRequestContext();
+                ctx.broadcast(
+                  "device.pair.resolved",
+                  {
+                    requestId: pairing.request.requestId,
+                    deviceId: approved.device.deviceId,
+                    decision: "approved",
+                    ts: Date.now(),
+                  },
+                  { dropIfSlow: true },
+                );
+              }
+            }
+          }
+        }
+
+        const skipPairing =
+          (allowControlUiBypass && sharedAuthOk) ||
+          Boolean(ctxTokenValidation) ||
+          Boolean(inviteOrCodeRole);
         if (device && devicePublicKey && !skipPairing) {
           const formatAuditList = (items: string[] | undefined): string => {
             if (!items || items.length === 0) {
@@ -940,6 +1048,11 @@ export function attachGatewayWsMessageHandler(params: {
             tokenRole: deviceToken?.role,
             defaultRole: "admin",
           });
+        }
+
+        // Invite code or pairing code role takes priority
+        if (inviteOrCodeRole) {
+          resolvedSecurityRole = inviteOrCodeRole;
         }
 
         if (role === "node") {
