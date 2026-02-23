@@ -1123,6 +1123,7 @@ export function attachGatewayWsMessageHandler(params: {
           canvasHostUrl && canvasCapability
             ? (buildCanvasScopedHostUrl(canvasHostUrl, canvasCapability) ?? canvasHostUrl)
             : canvasHostUrl;
+        const resolvedAuthMode = ctxTokenValidation ? ("token" as const) : ("device" as const);
         const helloOk = {
           type: "hello-ok",
           protocol: PROTOCOL_VERSION,
@@ -1155,7 +1156,6 @@ export function attachGatewayWsMessageHandler(params: {
         };
 
         clearHandshakeTimer();
-        const resolvedAuthMode = ctxTokenValidation ? ("token" as const) : ("device" as const);
         const nextClient: GatewayWsClient = {
           socket,
           connect: connectParams,
