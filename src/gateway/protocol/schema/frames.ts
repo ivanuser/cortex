@@ -57,6 +57,8 @@ export const ConnectParamsSchema = Type.Object(
         {
           token: Type.Optional(Type.String()),
           password: Type.Optional(Type.String()),
+          invite: Type.Optional(Type.String()),
+          pairingCode: Type.Optional(Type.String()),
         },
         { additionalProperties: false },
       ),

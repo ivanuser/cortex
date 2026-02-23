@@ -571,6 +571,13 @@ export const OpenClawSchema = z
           })
           .strict()
           .optional(),
+        security: z
+          .object({
+            lanAutoApprove: z.boolean().optional(),
+            lanAutoApproveRole: z.string().optional(),
+          })
+          .strict()
+          .optional(),
       })
       .strict()
       .optional(),

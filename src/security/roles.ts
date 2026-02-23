@@ -186,6 +186,15 @@ const METHOD_PERMISSION_MAP: Record<string, Permission> = {
   "tokens.create": "config.manage",
   "tokens.list": "config.manage",
   "tokens.revoke": "config.manage",
+
+  // Invite management (admin only — maps to device.pair.manage)
+  "invite.create": "device.pair.manage",
+  "invite.list": "device.pair.manage",
+  "invite.revoke": "device.pair.manage",
+
+  // Pairing codes (admin only — maps to device.pair.manage)
+  "pair.code.generate": "device.pair.manage",
+  "pair.code.validate": "device.pair.manage",
 };
 
 /**

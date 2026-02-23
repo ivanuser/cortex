@@ -276,6 +276,22 @@ export type GatewayToolsConfig = {
   allow?: string[];
 };
 
+export type GatewaySecurityConfig = {
+  /**
+   * Automatically approve device pairing requests from private/LAN IP addresses.
+   * When enabled, devices connecting from RFC1918 private ranges (10.x, 172.16-31.x, 192.168.x),
+   * IPv6 link-local (fe80::), and IPv6 unique-local (fc00::/fd00::) are auto-approved.
+   * Default: false.
+   */
+  lanAutoApprove?: boolean;
+  /**
+   * The security role assigned to LAN auto-approved devices.
+   * Valid roles: admin, operator, viewer, chat-only.
+   * Default: "operator".
+   */
+  lanAutoApproveRole?: string;
+};
+
 export type GatewayConfig = {
   /** Single multiplexed port for Gateway WS + HTTP (default: 18789). */
   port?: number;
@@ -312,6 +328,8 @@ export type GatewayConfig = {
   trustedProxies?: string[];
   /** Tool access restrictions for HTTP /tools/invoke endpoint. */
   tools?: GatewayToolsConfig;
+  /** Security settings for device pairing and access control. */
+  security?: GatewaySecurityConfig;
   /**
    * Channel health monitor interval in minutes.
    * Periodically checks channel health and restarts unhealthy channels.

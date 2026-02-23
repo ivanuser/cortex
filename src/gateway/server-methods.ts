@@ -22,9 +22,11 @@ import { cronHandlers } from "./server-methods/cron.js";
 import { deviceHandlers } from "./server-methods/devices.js";
 import { execApprovalsHandlers } from "./server-methods/exec-approvals.js";
 import { healthHandlers } from "./server-methods/health.js";
+import { inviteHandlers } from "./server-methods/invites.js";
 import { logsHandlers } from "./server-methods/logs.js";
 import { modelsHandlers } from "./server-methods/models.js";
 import { nodeHandlers } from "./server-methods/nodes.js";
+import { pairingCodeHandlers } from "./server-methods/pairing-codes.js";
 import { pushHandlers } from "./server-methods/push.js";
 import { sendHandlers } from "./server-methods/send.js";
 import { sessionsHandlers } from "./server-methods/sessions.js";
@@ -164,6 +166,8 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...browserHandlers,
   ...auditHandlers,
   ...tokenHandlers,
+  ...inviteHandlers,
+  ...pairingCodeHandlers,
 };
 
 export async function handleGatewayRequest(

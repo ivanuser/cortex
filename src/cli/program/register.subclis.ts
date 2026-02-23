@@ -269,6 +269,24 @@ const entries: SubCliEntry[] = [
     },
   },
   {
+    name: "invite",
+    description: "Manage invite links (create, list, revoke)",
+    hasSubcommands: true,
+    register: async (program) => {
+      const mod = await import("../invite-cli.js");
+      mod.registerInviteCli(program);
+    },
+  },
+  {
+    name: "pair-code",
+    description: "Generate a 6-digit pairing code for quick device setup",
+    hasSubcommands: false,
+    register: async (program) => {
+      const mod = await import("../pair-code-cli.js");
+      mod.registerPairCodeCli(program);
+    },
+  },
+  {
     name: "security",
     description: "Security tools and local config audits",
     hasSubcommands: true,

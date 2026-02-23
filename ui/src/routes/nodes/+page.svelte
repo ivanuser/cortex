@@ -4,6 +4,8 @@
   import { getConnection } from '$lib/stores/connection.svelte';
   import { getToasts } from '$lib/stores/toasts.svelte';
   import { formatRelativeTime } from '$lib/utils/time';
+  import { getGatewayWsUrl } from '$lib/config';
+  import QRPairModal from '$lib/components/QRPairModal.svelte';
 
   const conn = getConnection();
   const toasts = getToasts();
@@ -17,6 +19,7 @@
   let expandedNodeId = $state<string | null>(null);
   let searchQuery = $state('');
   let showAddNode = $state(false);
+  let showQRPair = $state(false);
   let approvingId = $state<string | null>(null);
   let rejectingId = $state<string | null>(null);
 
@@ -36,6 +39,22 @@
     viewer: 'bg-accent-cyan/20 text-accent-cyan border-accent-cyan/30',
     'chat-only': 'bg-accent-amber/20 text-accent-amber border-accent-amber/30',
   };
+
+  // ─── Invite link state ──────────────────────────
+  let showInviteForm = $state(false);
+  let invites = $state<Array<Record<string, unknown>>>([]);
+  let inviteRole = $state('operator');
+  let inviteExpires = $state('24h');
+  let inviteMaxUses = $state(0);
+  let inviteCreating = $state(false);
+  let lastCreatedInvite = $state<string | null>(null);
+
+  // ─── Pairing code state ────────────────────────
+  let generatedPairingCode = $state<string | null>(null);
+  let pairingCodeRole = $state('operator');
+  let pairingCodeExpiry = $state<number>(0);
+  let pairingCodeTimer: ReturnType<typeof setInterval> | null = null;
+  let pairingCodeGenerating = $state(false);
 
   // ─── Detail panel state ────────────────────────
   let detailTab = $state<'info' | 'invoke' | 'allowlist'>('info');
@@ -93,6 +112,19 @@
       description: 'Visual canvas rendering and UI display'
     }
   };
+
+  // ─── Gateway URL for QR ─────────────────────────
+  let gatewayWsUrl = $derived.by(() => {
+    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('cortex:gatewayUrl') : null;
+    if (stored) return stored;
+    const configUrl = getGatewayWsUrl();
+    if (configUrl) return configUrl;
+    if (typeof window !== 'undefined') {
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${wsProtocol}//${window.location.host}`;
+    }
+    return '';
+  });
 
   // ─── Derived ───────────────────────────────────
   let filteredNodes = $derived.by(() => {
@@ -240,6 +272,93 @@
 
   function getDeviceRole(device: Record<string, unknown>): string {
     return String(device.role ?? 'operator');
+  }
+
+  // ─── Invite link actions ────────────────────────
+  async function loadInvites() {
+    if (!gateway.connected) return;
+    try {
+      const res = await gateway.call<unknown>('invite.list', {});
+      invites = Array.isArray(res) ? res as Array<Record<string, unknown>> : [];
+    } catch {
+      invites = [];
+    }
+  }
+
+  async function createInvite() {
+    if (!gateway.connected || inviteCreating) return;
+    inviteCreating = true;
+    lastCreatedInvite = null;
+    try {
+      const params: Record<string, unknown> = { role: inviteRole };
+      if (inviteExpires.trim()) params.expiresIn = inviteExpires.trim();
+      if (inviteMaxUses > 0) params.maxUses = inviteMaxUses;
+      const res = await gateway.call<{ code?: string }>('invite.create', params);
+      lastCreatedInvite = res.code ?? null;
+      toasts.success('Invite Created', `Invite code generated for role: ${inviteRole}`);
+      loadInvites();
+    } catch (err) {
+      toasts.error('Failed to create invite', String(err));
+    } finally {
+      inviteCreating = false;
+    }
+  }
+
+  async function revokeInvite(code: string) {
+    try {
+      await gateway.call('invite.revoke', { code });
+      toasts.info('Invite Revoked', 'Invite has been revoked');
+      loadInvites();
+    } catch (err) {
+      toasts.error('Revoke Failed', String(err));
+    }
+  }
+
+  function getInviteUrl(code: string): string {
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}?invite=${code}`;
+    }
+    return `?invite=${code}`;
+  }
+
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text).then(() => {
+      toasts.success('Copied!', 'Copied to clipboard');
+    }).catch(() => {
+      toasts.error('Copy Failed', 'Could not copy to clipboard');
+    });
+  }
+
+  // ─── Pairing code actions ──────────────────────
+  function stopPairingCodeTimer() {
+    if (pairingCodeTimer) {
+      clearInterval(pairingCodeTimer);
+      pairingCodeTimer = null;
+    }
+  }
+
+  async function generateNewPairingCode() {
+    if (!gateway.connected || pairingCodeGenerating) return;
+    pairingCodeGenerating = true;
+    stopPairingCodeTimer();
+    try {
+      const res = await gateway.call<{ code?: string; expiresIn?: number; role?: string }>('pair.code.generate', { role: pairingCodeRole });
+      generatedPairingCode = res.code ?? null;
+      const expiresInMs = res.expiresIn ?? 300000;
+      pairingCodeExpiry = Math.floor(expiresInMs / 1000);
+      toasts.success('Pairing Code', `Code generated: ${res.code}`);
+      pairingCodeTimer = setInterval(() => {
+        pairingCodeExpiry--;
+        if (pairingCodeExpiry <= 0) {
+          stopPairingCodeTimer();
+          generatedPairingCode = null;
+        }
+      }, 1000);
+    } catch (err) {
+      toasts.error('Failed to generate code', String(err));
+    } finally {
+      pairingCodeGenerating = false;
+    }
   }
 
   function toggleExpand(nodeId: string) {
@@ -408,7 +527,7 @@
   // ─── Effects ───────────────────────────────────
   $effect(() => {
     if (conn.state.status === 'connected') {
-      untrack(() => { loadNodes(); loadDevices(); });
+      untrack(() => { loadNodes(); loadDevices(); loadInvites(); });
     }
   });
 
@@ -502,6 +621,18 @@
             </svg>
           </button>
         </div>
+
+        <!-- QR Pair -->
+        <button
+          onclick={() => showQRPair = true}
+          class="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent-cyan/10 border border-accent-cyan/30 rounded-lg text-accent-cyan hover:bg-accent-cyan/20 hover:border-accent-cyan/50 transition-all"
+          title="Generate QR code for device pairing"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+          </svg>
+          QR Pair
+        </button>
 
         <!-- Add Node -->
         <button
@@ -710,6 +841,7 @@
             {@const devRole = getDeviceRole(device)}
             {@const devIp = String(device.remoteIp ?? '')}
             {@const badgeClass = roleBadgeColors[devRole] ?? roleBadgeColors['operator']}
+            {@const isLanAutoApproved = String(device.approveReason ?? '') === 'lan-auto-approve'}
             <div class="flex items-center justify-between p-3 rounded-lg bg-bg-primary/50 border border-border-default">
               <div class="flex items-center gap-3">
                 <div class="w-8 h-8 rounded-lg bg-accent-purple/20 flex items-center justify-center">
@@ -723,6 +855,11 @@
                     <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full border {badgeClass}">
                       {devRole}
                     </span>
+                    {#if isLanAutoApproved}
+                      <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-accent-green/15 text-accent-green border border-accent-green/20" title="Auto-approved from local network">
+                        LAN auto-approved
+                      </span>
+                    {/if}
                   </div>
                   <p class="text-xs text-text-muted">
                     {devId.substring(0, 12)}…{#if devIp} · {devIp}{/if}
@@ -745,6 +882,125 @@
           {/each}
         </div>
       </div>
+    </div>
+  {/if}
+
+  <!-- Invite Links & Pairing Codes -->
+  {#if conn.state.status === 'connected'}
+    <div class="flex-shrink-0 mx-4 md:mx-6 mt-4">
+      <div class="flex gap-3 flex-wrap">
+        <button onclick={generateNewPairingCode} disabled={pairingCodeGenerating}
+          class="flex items-center gap-2 px-3 py-2 text-sm rounded-lg bg-accent-purple/20 text-accent-purple border border-accent-purple/30 hover:bg-accent-purple/30 transition-all disabled:opacity-50">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>
+          {pairingCodeGenerating ? 'Generating…' : 'Generate Pairing Code'}
+        </button>
+        <button onclick={() => showInviteForm = !showInviteForm}
+          class="flex items-center gap-2 px-3 py-2 text-sm rounded-lg bg-accent-green/20 text-accent-green border border-accent-green/30 hover:bg-accent-green/30 transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+          Create Invite Link
+        </button>
+      </div>
+
+      {#if generatedPairingCode}
+        <div class="mt-3 p-4 rounded-xl border border-accent-purple/30 bg-accent-purple/5">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-semibold uppercase tracking-wider text-accent-purple">Pairing Code</span>
+                <span class="px-2 py-0.5 text-[10px] rounded-full bg-accent-purple/20 text-accent-purple border border-accent-purple/30">{pairingCodeExpiry}s remaining</span>
+              </div>
+              <div class="text-3xl font-mono font-bold text-text-primary tracking-[0.3em] mt-1">{generatedPairingCode}</div>
+              <p class="text-xs text-text-muted mt-1">Enter this code on the connecting device</p>
+            </div>
+            <button onclick={() => { stopPairingCodeTimer(); generatedPairingCode = null; }} class="text-xs text-text-muted hover:text-accent-red transition-colors">Dismiss</button>
+          </div>
+        </div>
+      {/if}
+
+      {#if showInviteForm}
+        <div class="mt-3 p-4 rounded-xl border border-accent-green/30 bg-accent-green/5">
+          <h3 class="text-sm font-semibold text-accent-green mb-3">Create Invite Link</h3>
+          <div class="grid grid-cols-3 gap-3 mb-3">
+            <div>
+              <label class="text-xs text-text-muted block mb-1">Role</label>
+              <select bind:value={inviteRole} class="w-full px-2 py-1.5 text-xs rounded-lg bg-bg-input border border-border-default text-text-primary focus:outline-none focus:border-accent-green/50">
+                {#each DEVICE_ROLES as r}<option value={r}>{r}</option>{/each}
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-text-muted block mb-1">Expires In</label>
+              <select bind:value={inviteExpires} class="w-full px-2 py-1.5 text-xs rounded-lg bg-bg-input border border-border-default text-text-primary focus:outline-none focus:border-accent-green/50">
+                <option value="1h">1 hour</option><option value="24h">24 hours</option><option value="7d">7 days</option><option value="30d">30 days</option><option value="">Never</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-text-muted block mb-1">Max Uses</label>
+              <input type="number" bind:value={inviteMaxUses} min="0" placeholder="0 = unlimited"
+                class="w-full px-2 py-1.5 text-xs rounded-lg bg-bg-input border border-border-default text-text-primary focus:outline-none focus:border-accent-green/50" />
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick={createInvite} disabled={inviteCreating}
+              class="px-3 py-1.5 text-xs font-medium rounded-lg bg-accent-green/20 text-accent-green border border-accent-green/30 hover:bg-accent-green/30 transition-colors disabled:opacity-50">
+              {inviteCreating ? 'Creating…' : '✓ Create'}</button>
+            <button onclick={() => { showInviteForm = false; lastCreatedInvite = null; }}
+              class="px-3 py-1.5 text-xs rounded-lg border border-border-default text-text-muted hover:text-text-primary transition-colors">Cancel</button>
+          </div>
+          {#if lastCreatedInvite}
+            <div class="mt-3 p-3 rounded-lg bg-bg-primary/50 border border-accent-green/20">
+              <p class="text-xs text-text-muted mb-1">Invite Code:</p>
+              <div class="flex items-center gap-2">
+                <code class="flex-1 text-xs font-mono text-accent-green bg-bg-tertiary px-2 py-1 rounded break-all">{lastCreatedInvite}</code>
+                <button onclick={() => copyToClipboard(lastCreatedInvite!)} class="px-2 py-1 text-xs rounded bg-bg-tertiary border border-border-default text-text-muted hover:text-accent-cyan transition-colors" title="Copy code">📋</button>
+              </div>
+              <p class="text-xs text-text-muted mt-2">Invite URL:</p>
+              <div class="flex items-center gap-2">
+                <code class="flex-1 text-[10px] font-mono text-accent-cyan bg-bg-tertiary px-2 py-1 rounded break-all">{getInviteUrl(lastCreatedInvite)}</code>
+                <button onclick={() => copyToClipboard(getInviteUrl(lastCreatedInvite!))} class="px-2 py-1 text-xs rounded bg-bg-tertiary border border-border-default text-text-muted hover:text-accent-cyan transition-colors" title="Copy URL">📋</button>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      {#if invites.length > 0}
+        <div class="mt-3 p-4 rounded-xl border border-border-default bg-bg-secondary/50">
+          <h3 class="text-sm font-semibold text-text-secondary mb-3">Active Invites <span class="text-xs text-text-muted font-normal ml-1">({invites.length})</span></h3>
+          <div class="space-y-2">
+            {#each invites as inv}
+              {@const invCode = String(inv.code ?? '')}
+              {@const invRoleVal = String(inv.role ?? 'operator')}
+              {@const invValid = Boolean(inv.valid)}
+              {@const invRevoked = Boolean(inv.revoked)}
+              {@const invUsedCount = Number(inv.used_count ?? 0)}
+              {@const invMaxUsesVal = inv.max_uses != null ? Number(inv.max_uses) : null}
+              {@const badgeClass = roleBadgeColors[invRoleVal] ?? roleBadgeColors['operator']}
+              <div class="flex items-center justify-between p-2.5 rounded-lg bg-bg-primary/50 border border-border-default {!invValid ? 'opacity-60' : ''}">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-2 h-2 rounded-full flex-shrink-0 {invValid ? 'bg-accent-green' : invRevoked ? 'bg-red-500' : 'bg-text-muted'}"></div>
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                      <code class="text-xs font-mono text-text-primary truncate">{invCode.slice(0, 16)}…</code>
+                      <span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full border {badgeClass}">{invRoleVal}</span>
+                    </div>
+                    <p class="text-[10px] text-text-muted mt-0.5">
+                      {invUsedCount} use{invUsedCount !== 1 ? 's' : ''}{invMaxUsesVal != null ? ` / ${invMaxUsesVal}` : ''}
+                      {#if inv.expires_at} · expires {new Date(String(inv.expires_at)).toLocaleDateString()}{/if}
+                      {#if invRevoked} · <span class="text-red-400">revoked</span>{:else if !invValid} · <span class="text-text-muted">expired</span>{/if}
+                    </p>
+                  </div>
+                </div>
+                {#if invValid}
+                  <div class="flex items-center gap-1.5 flex-shrink-0">
+                    <button onclick={() => copyToClipboard(getInviteUrl(invCode))} class="px-2 py-1 text-[10px] rounded bg-bg-tertiary border border-border-default text-text-muted hover:text-accent-cyan transition-colors" title="Copy invite URL">📋 URL</button>
+                    <button onclick={() => revokeInvite(invCode)} class="px-2 py-1 text-[10px] rounded bg-accent-red/10 text-accent-red border border-accent-red/20 hover:bg-accent-red/20 transition-colors">Revoke</button>
+                  </div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
     </div>
   {/if}
 
@@ -1212,3 +1468,6 @@
     {/if}
   </div>
 </div>
+
+<!-- QR Pair Modal -->
+<QRPairModal bind:show={showQRPair} gatewayWsUrl={gatewayWsUrl} />

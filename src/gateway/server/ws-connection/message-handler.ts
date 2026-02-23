@@ -1,6 +1,7 @@
 import type { IncomingMessage } from "node:http";
 import os from "node:os";
 import type { WebSocket } from "ws";
+import { AuditLogger } from "../../../audit/audit-logger.js";
 import { loadConfig } from "../../../config/config.js";
 import {
   deriveDeviceIdFromPublicKey,
@@ -22,6 +23,9 @@ import { loadVoiceWakeConfig } from "../../../infra/voicewake.js";
 import { rawDataToString } from "../../../infra/ws.js";
 import type { createSubsystemLogger } from "../../../logging/subsystem.js";
 import { resolveCallerRole } from "../../../security/authorize.js";
+import { InviteStore } from "../../../security/invites.js";
+import { consumePairingCode } from "../../../security/pairing-codes.js";
+import { TokenStore } from "../../../security/tokens.js";
 import { roleScopesAllow } from "../../../shared/operator-scope-compat.js";
 import { isGatewayCliClient, isWebchatClient } from "../../../utils/message-channel.js";
 import { resolveRuntimeServiceVersion, VERSION } from "../../../version.js";
@@ -38,8 +42,13 @@ import {
   mintCanvasCapabilityToken,
 } from "../../canvas-capability.js";
 import { buildDeviceAuthPayload } from "../../device-auth.js";
-import { isLoopbackAddress, isTrustedProxyAddress, resolveGatewayClientIp } from "../../net.js";
-import { resolveHostName } from "../../net.js";
+import {
+  isLoopbackAddress,
+  isPrivateOrLoopbackAddress,
+  isTrustedProxyAddress,
+  resolveGatewayClientIp,
+  resolveHostName,
+} from "../../net.js";
 import { resolveNodeCommandAllowlist } from "../../node-command-policy.js";
 import { checkBrowserOrigin } from "../../origin-check.js";
 import { GATEWAY_CLIENT_IDS } from "../../protocol/client-info.js";
@@ -338,6 +347,35 @@ export function attachGatewayWsMessageHandler(params: {
         const hasTokenAuth = Boolean(connectParams.auth?.token);
         const hasPasswordAuth = Boolean(connectParams.auth?.password);
         const hasSharedAuth = hasTokenAuth || hasPasswordAuth;
+
+        // ── ctx_ API token authentication (Issue #20) ──────────────────
+        // If the client provides a ctx_ prefixed token (from the token store),
+        // validate it directly and bypass device identity + pairing entirely.
+        const ctxTokenRaw = connectParams.auth?.token;
+        const isCtxToken = typeof ctxTokenRaw === "string" && ctxTokenRaw.startsWith("ctx_");
+        let ctxTokenValidation: {
+          role: string;
+          scopes: string[];
+          name: string;
+          id: number;
+        } | null = null;
+        if (isCtxToken && ctxTokenRaw) {
+          try {
+            const tokenStore = TokenStore.init();
+            ctxTokenValidation = tokenStore.validate(ctxTokenRaw);
+            if (ctxTokenValidation) {
+              logGateway.info(
+                `ctx_ token auth succeeded conn=${connId} tokenName=${ctxTokenValidation.name} role=${ctxTokenValidation.role} client=${clientLabel}`,
+              );
+            } else {
+              logGateway.warn(
+                `ctx_ token auth failed (invalid/expired/revoked) conn=${connId} client=${clientLabel}`,
+              );
+            }
+          } catch (err) {
+            logGateway.warn(`ctx_ token validation error: ${String(err)}`);
+          }
+        }
         const allowInsecureControlUi =
           isControlUi && configSnapshot.gateway?.controlUi?.allowInsecureAuth === true;
         const disableControlUiDeviceAuth =
@@ -423,13 +461,13 @@ export function attachGatewayWsMessageHandler(params: {
           close(1008, truncateCloseReason(authMessage));
         };
         if (!device) {
-          if (scopes.length > 0 && !allowControlUiBypass) {
+          if (scopes.length > 0 && !allowControlUiBypass && !ctxTokenValidation) {
             scopes = [];
             connectParams.scopes = scopes;
           }
-          const canSkipDevice = sharedAuthOk;
+          const canSkipDevice = sharedAuthOk || Boolean(ctxTokenValidation);
 
-          if (isControlUi && !allowControlUiBypass) {
+          if (isControlUi && !allowControlUiBypass && !ctxTokenValidation) {
             const errorMessage = "control ui requires HTTPS or localhost (secure context)";
             markHandshakeFailure("control-ui-insecure-auth", {
               insecureAuthConfigured: allowInsecureControlUi,
@@ -439,7 +477,7 @@ export function attachGatewayWsMessageHandler(params: {
             return;
           }
 
-          // Allow shared-secret authenticated connections (e.g., control-ui) to skip device identity
+          // Allow shared-secret or ctx_ token authenticated connections to skip device identity
           if (!canSkipDevice) {
             if (!authOk && hasSharedAuth) {
               rejectUnauthorized(authResult);
@@ -591,6 +629,12 @@ export function attachGatewayWsMessageHandler(params: {
           }
         }
 
+        // ctx_ API token auth — mark as authenticated if valid
+        if (!authOk && ctxTokenValidation) {
+          authOk = true;
+          authMethod = "api-token";
+        }
+
         if (!authOk && connectParams.auth?.token && device) {
           if (rateLimiter) {
             const deviceRateCheck = rateLimiter.check(clientIp, AUTH_RATE_LIMIT_SCOPE_DEVICE_TOKEN);
@@ -625,7 +669,7 @@ export function attachGatewayWsMessageHandler(params: {
           return;
         }
 
-        const skipPairing = allowControlUiBypass && sharedAuthOk;
+        const skipPairing = (allowControlUiBypass && sharedAuthOk) || Boolean(ctxTokenValidation);
         if (device && devicePublicKey && !skipPairing) {
           const formatAuditList = (items: string[] | undefined): string => {
             if (!items || items.length === 0) {
@@ -655,6 +699,14 @@ export function attachGatewayWsMessageHandler(params: {
           const requirePairing = async (
             reason: "not-paired" | "role-upgrade" | "scope-upgrade",
           ) => {
+            // Issue #23: Check LAN auto-approve config
+            const securityConfig = configSnapshot.gateway?.security;
+            const lanAutoApproveEnabled = securityConfig?.lanAutoApprove === true;
+            const isLanAutoApprove =
+              lanAutoApproveEnabled &&
+              reason === "not-paired" &&
+              isPrivateOrLoopbackAddress(reportedClientIp ?? clientIp);
+
             const pairing = await requestDevicePairing({
               deviceId: device.id,
               publicKey: devicePublicKey,
@@ -665,25 +717,101 @@ export function attachGatewayWsMessageHandler(params: {
               role,
               scopes,
               remoteIp: reportedClientIp,
-              silent: isLocalClient && reason === "not-paired",
+              silent: (isLocalClient && reason === "not-paired") || isLanAutoApprove,
             });
             const context = buildRequestContext();
             if (pairing.request.silent === true) {
               const approved = await approveDevicePairing(pairing.request.requestId);
               if (approved) {
-                logGateway.info(
-                  `device pairing auto-approved device=${approved.device.deviceId} role=${approved.device.role ?? "unknown"}`,
-                );
-                context.broadcast(
-                  "device.pair.resolved",
-                  {
-                    requestId: pairing.request.requestId,
-                    deviceId: approved.device.deviceId,
-                    decision: "approved",
-                    ts: Date.now(),
-                  },
-                  { dropIfSlow: true },
-                );
+                // Issue #23: LAN auto-approve — set role from config and audit log
+                if (isLanAutoApprove) {
+                  const lanRole = securityConfig?.lanAutoApproveRole || "operator";
+                  logGateway.info(
+                    `device pairing lan-auto-approved device=${approved.device.deviceId} role=${lanRole} ip=${reportedClientIp ?? "unknown"}`,
+                  );
+                  try {
+                    await updatePairedDeviceMetadata(approved.device.deviceId, {
+                      securityRole: lanRole,
+                      approveReason: "lan-auto-approve",
+                    });
+                  } catch {
+                    // Best effort — device is already approved
+                  }
+                  try {
+                    AuditLogger.getInstance().log({
+                      actor_type: "device",
+                      actor_id: approved.device.deviceId,
+                      action: "device.pair.lan-auto-approve",
+                      resource: approved.device.deviceId,
+                      ip: reportedClientIp,
+                      result: "success",
+                      details: JSON.stringify({
+                        reason: "lan-auto-approve",
+                        role: lanRole,
+                        clientId: connectParams.client.id,
+                        displayName: connectParams.client.displayName,
+                      }),
+                    });
+                  } catch {
+                    // Never crash from audit logging
+                  }
+                  context.broadcast(
+                    "device.pair.resolved",
+                    {
+                      requestId: pairing.request.requestId,
+                      deviceId: approved.device.deviceId,
+                      decision: "approved",
+                      reason: "lan-auto-approve",
+                      ts: Date.now(),
+                    },
+                    { dropIfSlow: true },
+                  );
+                  // Issue #19: First device gets admin securityRole automatically
+                } else if (pairing.firstDevice) {
+                  logGateway.info(
+                    `first device auto-approved as admin device=${approved.device.deviceId} client=${clientLabel}`,
+                  );
+                  await updatePairedDeviceMetadata(approved.device.deviceId, {
+                    securityRole: "admin",
+                  });
+                  try {
+                    AuditLogger.getInstance().log({
+                      actor_type: "device",
+                      actor_id: approved.device.deviceId,
+                      action: "device.first-device-auto-approved",
+                      resource: approved.device.deviceId,
+                      details: `First device auto-approved as admin. client=${connectParams.client.id} ip=${reportedClientIp ?? "unknown"}`,
+                      ip: reportedClientIp,
+                      result: "success",
+                    });
+                  } catch {
+                    // Never crash from audit logging
+                  }
+                  context.broadcast(
+                    "device.pair.resolved",
+                    {
+                      requestId: pairing.request.requestId,
+                      deviceId: approved.device.deviceId,
+                      decision: "approved",
+                      ts: Date.now(),
+                    },
+                    { dropIfSlow: true },
+                  );
+                } else {
+                  logGateway.info(
+                    `device pairing auto-approved device=${approved.device.deviceId} role=${approved.device.role ?? "unknown"}`,
+                  );
+                  context.broadcast(
+                    "device.pair.resolved",
+                    {
+                      requestId: pairing.request.requestId,
+                      deviceId: approved.device.deviceId,
+                      decision: "approved",
+                      ts: Date.now(),
+                    },
+                    { dropIfSlow: true },
+                  );
+                }
               }
             } else if (pairing.created) {
               context.broadcast("device.pair.requested", pairing.request, { dropIfSlow: true });
@@ -785,7 +913,13 @@ export function attachGatewayWsMessageHandler(params: {
         // This is the fine-grained role (admin/operator/viewer/chat-only) from device pairing,
         // NOT the connection role (operator/node).
         let resolvedSecurityRole: string | undefined;
-        if (device) {
+        if (ctxTokenValidation) {
+          // ctx_ API token — role comes directly from the token
+          resolvedSecurityRole = resolveCallerRole({
+            tokenRole: ctxTokenValidation.role,
+            defaultRole: "admin",
+          });
+        } else if (device) {
           try {
             const pairedForRole = await getPairedDevice(device.id);
             // Use securityRole field (Phase 2+), NOT role (which is the connection role "operator"/"node")
@@ -895,10 +1029,11 @@ export function attachGatewayWsMessageHandler(params: {
                 securityRole: resolvedSecurityRole,
                 scopes: deviceToken.scopes,
                 issuedAtMs: deviceToken.rotatedAtMs ?? deviceToken.createdAtMs,
+                authMode: resolvedAuthMode,
               }
             : resolvedSecurityRole
-              ? { securityRole: resolvedSecurityRole }
-              : undefined,
+              ? { securityRole: resolvedSecurityRole, authMode: resolvedAuthMode }
+              : { authMode: resolvedAuthMode },
           policy: {
             maxPayload: MAX_PAYLOAD_BYTES,
             maxBufferedBytes: MAX_BUFFERED_BYTES,
@@ -907,6 +1042,7 @@ export function attachGatewayWsMessageHandler(params: {
         };
 
         clearHandshakeTimer();
+        const resolvedAuthMode = ctxTokenValidation ? ("token" as const) : ("device" as const);
         const nextClient: GatewayWsClient = {
           socket,
           connect: connectParams,
@@ -916,6 +1052,7 @@ export function attachGatewayWsMessageHandler(params: {
           canvasCapability,
           canvasCapabilityExpiresAtMs,
           securityRole: resolvedSecurityRole,
+          authMode: resolvedAuthMode,
         };
         setClient(nextClient);
         setHandshakeState("connected");

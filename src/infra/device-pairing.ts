@@ -59,6 +59,10 @@ export type PairedDevice = {
   approvedScopes?: string[];
   remoteIp?: string;
   tokens?: Record<string, DeviceAuthToken>;
+  /** Fine-grained security role (admin/operator/viewer/chat-only). */
+  securityRole?: string;
+  /** Reason for approval (e.g. "lan-auto-approve"). */
+  approveReason?: string;
   createdAtMs: number;
   approvedAtMs: number;
 };
@@ -272,6 +276,8 @@ export async function requestDevicePairing(
   status: "pending";
   request: DevicePairingPendingRequest;
   created: boolean;
+  /** True when this is the very first device (auto-approved as admin). */
+  firstDevice?: boolean;
 }> {
   return await withLock(async () => {
     const state = await loadState(baseDir);
@@ -279,15 +285,28 @@ export async function requestDevicePairing(
     if (!deviceId) {
       throw new Error("deviceId required");
     }
+
+    // Issue #19: Auto-approve first device on fresh install
+    const isFirstDevice = Object.keys(state.pairedByDeviceId).length === 0;
+
     const isRepair = Boolean(state.pairedByDeviceId[deviceId]);
     const existing = Object.values(state.pendingById).find(
       (pending) => pending.deviceId === deviceId,
     );
     if (existing) {
       const merged = mergePendingDevicePairingRequest(existing, req, isRepair);
+      // Force silent for first device so auto-approval triggers
+      if (isFirstDevice) {
+        merged.silent = true;
+      }
       state.pendingById[existing.requestId] = merged;
       await persistState(state, baseDir);
-      return { status: "pending" as const, request: merged, created: false };
+      return {
+        status: "pending" as const,
+        request: merged,
+        created: false,
+        firstDevice: isFirstDevice,
+      };
     }
 
     const request: DevicePairingPendingRequest = {
@@ -302,13 +321,14 @@ export async function requestDevicePairing(
       roles: req.role ? [req.role] : undefined,
       scopes: req.scopes,
       remoteIp: req.remoteIp,
-      silent: req.silent,
+      // Force silent (auto-approve) for the very first device
+      silent: req.silent || isFirstDevice,
       isRepair,
       ts: Date.now(),
     };
     state.pendingById[request.requestId] = request;
     await persistState(state, baseDir);
-    return { status: "pending" as const, request, created: true };
+    return { status: "pending" as const, request, created: true, firstDevice: isFirstDevice };
   });
 }
 

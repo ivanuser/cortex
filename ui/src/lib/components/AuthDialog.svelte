@@ -16,10 +16,12 @@
   // Default URL: saved settings → config.json → empty
   const configuredWs = conn.getConfiguredWsUrl();
   let gatewayUrl = $state(configuredWs || '');
-  let token = $state('');
+  // Pre-fill token from localStorage if stored (ctx_ token)
+  const storedCtxToken = typeof window !== 'undefined' ? localStorage.getItem('cortex:authToken') ?? '' : '';
+  let token = $state(storedCtxToken);
   let isConnecting = $state(false);
   let error = $state('');
-  let showAdvanced = $state(false);
+  let showAdvanced = $state(Boolean(storedCtxToken));
   let pairingPending = $state(false);
 
   // Show dialog automatically if no saved credentials
@@ -55,7 +57,14 @@
 
     try {
       // Use a placeholder token if none provided — device identity will handle auth
-      const authToken = token.trim() || '__device_auth__';
+      const rawToken = token.trim();
+      const authToken = rawToken || '__device_auth__';
+      
+      // Store ctx_ token in localStorage for gateway.ts to pick up
+      if (rawToken.startsWith('ctx_')) {
+        localStorage.setItem('cortex:authToken', rawToken);
+      }
+      
       conn.connect(gatewayUrl.trim(), authToken);
       
       // Wait for connection result
