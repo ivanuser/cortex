@@ -586,7 +586,7 @@ cortex invite revoke &lt;invite-id&gt;
 <ul>
 <li><strong>Avatar</strong>: Platform icon/initial with a colored circle</li>
 <li><strong>Name</strong>: Channel identifier</li>
-<li><strong>Status Badge</strong>: <ul>
+<li><strong>Status Badge</strong>:<ul>
 <li>🟢 <strong>CONNECTED</strong> — fully operational</li>
 <li>🔴 <strong>DISCONNECTED</strong> — not running or connection lost</li>
 <li>🟡 <strong>CONFIGURED</strong> — settings present but not connected</li>
@@ -1023,19 +1023,8 @@ at 2026-03-01T09:00:00Z
 <p>Example allowlist configuration:</p>
 <pre><code class="language-json">{
   &quot;full&quot;: [&quot;*&quot;],
-  &quot;allowlist&quot;: [
-    &quot;ls *&quot;,
-    &quot;cat *&quot;,
-    &quot;grep *&quot;,
-    &quot;git status&quot;,
-    &quot;git log *&quot;,
-    &quot;npm test&quot;,
-    &quot;node *&quot;
-  ],
-  &quot;deny&quot;: [
-    &quot;rm -rf *&quot;,
-    &quot;sudo *&quot;
-  ]
+  &quot;allowlist&quot;: [&quot;ls *&quot;, &quot;cat *&quot;, &quot;grep *&quot;, &quot;git status&quot;, &quot;git log *&quot;, &quot;npm test&quot;, &quot;node *&quot;],
+  &quot;deny&quot;: [&quot;rm -rf *&quot;, &quot;sudo *&quot;]
 }
 </code></pre>
 <h3>Security Modes</h3>
@@ -1922,7 +1911,8 @@ cortex memory index --force
 <h3>Use Cases</h3>
 <ul>
 <li><strong>Testing RPC methods</strong> before building automation around them</li>
-<li><strong>Debugging permissions</strong> — see exactly what error
+<li><strong>Debugging permissions</strong> — see exactly what error a method returns for a given role</li>
+<li><
   </main>
 </div>
 <button class="top-btn" id="top" onclick="scrollTo({top:0,behavior:'smooth'})">↑</button>

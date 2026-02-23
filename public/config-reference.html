@@ -1,0 +1,2666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cortex Configuration Reference</title>
+  <style>
+    :root {
+      --bg: #0a0e1a; --bg2: #111827; --card: #1a1f2e; --code-bg: #151b2d;
+      --text: #e2e8f0; --text2: #94a3b8; --muted: #64748b;
+      --accent: #7c4dff; --cyan: #22d3ee; --green: #10b981;
+      --orange: #f59e0b; --red: #ef4444; --border: #1e293b;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px;
+    }
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 280px; background: var(--bg2); border-right: 1px solid var(--border);
+      padding: 20px 12px; position: fixed; top: 0; left: 0; bottom: 0;
+      overflow-y: auto; z-index: 10;
+    }
+    .sidebar-hdr {
+      display: flex; align-items: center; gap: 10px;
+      padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px;
+    }
+    .sidebar-hdr .logo {
+      font-size: 22px; font-weight: 700;
+      background: linear-gradient(135deg, var(--cyan), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .sidebar-hdr .badge {
+      font-size: 11px; padding: 2px 8px; border-radius: 12px;
+      background: var(--accent); color: white; font-weight: 600;
+    }
+    .back-link {
+      display: block; padding: 8px 10px; margin-bottom: 12px;
+      color: var(--cyan); text-decoration: none; font-size: 14px;
+      border-radius: 5px; transition: 0.15s;
+    }
+    .back-link:hover { background: var(--card); }
+    .toc { list-style: none; }
+    .toc li { margin-bottom: 1px; }
+    .toc a {
+      display: block; padding: 5px 10px; color: var(--text2); text-decoration: none;
+      border-radius: 5px; font-size: 13px; transition: all 0.15s;
+    }
+    .toc a:hover { background: var(--card); color: var(--cyan); }
+    .toc .h2 { padding-left: 10px; font-weight: 600; color: var(--text); font-size: 14px; }
+    .toc .h3 { padding-left: 24px; font-size: 12px; }
+    .main {
+      margin-left: 280px; flex: 1; max-width: 880px; padding: 36px 44px 80px;
+    }
+    h1 {
+      font-size: 2.4rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--cyan), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 8px; line-height: 1.2;
+    }
+    h2 {
+      font-size: 1.65rem; font-weight: 700; color: var(--cyan);
+      margin-top: 48px; margin-bottom: 14px; padding-bottom: 6px;
+      border-bottom: 2px solid #7c4dff40;
+    }
+    h3 { font-size: 1.2rem; font-weight: 600; color: var(--text); margin-top: 28px; margin-bottom: 10px; }
+    h4 { font-size: 1.05rem; font-weight: 600; color: var(--accent); margin-top: 20px; margin-bottom: 6px; }
+    p { margin-bottom: 14px; }
+    a { color: var(--cyan); text-decoration: none; border-bottom: 1px solid transparent; transition: 0.15s; }
+    a:hover { border-bottom-color: var(--cyan); }
+    ul, ol { margin-bottom: 14px; padding-left: 22px; }
+    li { margin-bottom: 5px; }
+    li strong { color: var(--cyan); }
+    code {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.88em;
+      background: var(--code-bg); padding: 2px 5px; border-radius: 3px;
+      color: var(--cyan); border: 1px solid var(--border);
+    }
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px 18px; overflow-x: auto; margin-bottom: 18px;
+    }
+    pre code { background: none; border: none; padding: 0; color: var(--text); font-size: 0.84em; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 0.88em; }
+    th {
+      background: var(--card); color: var(--cyan); font-weight: 600;
+      text-align: left; padding: 8px 12px; border: 1px solid var(--border);
+    }
+    td { padding: 7px 12px; border: 1px solid var(--border); }
+    tr:nth-child(even) td { background: var(--bg2); }
+    tr:hover td { background: var(--card); }
+    img {
+      max-width: 100%; border-radius: 10px; border: 2px solid var(--border);
+      margin: 14px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.4); transition: 0.2s;
+    }
+    blockquote {
+      border-left: 4px solid var(--accent); background: var(--card);
+      padding: 14px 18px; margin: 14px 0; border-radius: 0 8px 8px 0;
+    }
+    blockquote p { margin-bottom: 6px; color: var(--text2); }
+    blockquote p:last-child { margin-bottom: 0; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+    .top-btn {
+      position: fixed; bottom: 20px; right: 20px; width: 42px; height: 42px;
+      background: var(--accent); color: white; border: none; border-radius: 50%;
+      font-size: 18px; cursor: pointer; opacity: 0; transition: 0.3s; z-index: 20;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .top-btn.on { opacity: 1; }
+    .top-btn:hover { background: var(--cyan); }
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 20px 16px; }
+    }
+    ::-webkit-scrollbar { width: 7px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar">
+    <div class="sidebar-hdr"><span class="logo">🦞 Cortex</span><span class="badge">CONFIG</span></div>
+    <a class="back-link" href="index.html">← Back to Main Guide</a>
+    <ul class="toc" id="toc"></ul>
+  </nav>
+  <main class="main" id="content">
+<h1>OpenClaw Configuration Reference</h1>
+<blockquote>
+<p><strong>Complete reference for every configuration section in <code>~/.openclaw/openclaw.json</code>.</strong></p>
+<p>Edit via the <strong>Gateway Config</strong> UI page (Form mode or Raw JSON), or directly in the JSON file.
+Changes require <strong>Apply &amp; Restart</strong> to take effect.</p>
+</blockquote>
+<hr>
+<h2>Table of Contents</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Section</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><a href="#1-meta">Meta</a></td>
+<td>Version tracking metadata</td>
+</tr>
+<tr>
+<td>2</td>
+<td><a href="#2-env">Env</a></td>
+<td>Environment variables and shell env</td>
+</tr>
+<tr>
+<td>3</td>
+<td><a href="#3-wizard">Wizard</a></td>
+<td>Setup wizard state</td>
+</tr>
+<tr>
+<td>4</td>
+<td><a href="#4-diagnostics">Diagnostics</a></td>
+<td>OpenTelemetry, cache tracing, debug flags</td>
+</tr>
+<tr>
+<td>5</td>
+<td><a href="#5-logging">Logging</a></td>
+<td>Log levels, files, console output</td>
+</tr>
+<tr>
+<td>6</td>
+<td><a href="#6-update">Update</a></td>
+<td>Auto-update channel and behavior</td>
+</tr>
+<tr>
+<td>7</td>
+<td><a href="#7-browser">Browser</a></td>
+<td>Browser control, CDP, profiles, SSRF</td>
+</tr>
+<tr>
+<td>8</td>
+<td><a href="#8-ui">UI</a></td>
+<td>Web UI appearance and assistant identity</td>
+</tr>
+<tr>
+<td>9</td>
+<td><a href="#9-auth">Auth</a></td>
+<td>API key profiles, failover, cooldowns</td>
+</tr>
+<tr>
+<td>10</td>
+<td><a href="#10-models">Models</a></td>
+<td>LLM providers, custom endpoints, model definitions</td>
+</tr>
+<tr>
+<td>11</td>
+<td><a href="#11-node-host">Node Host</a></td>
+<td>Node hosting and browser proxy</td>
+</tr>
+<tr>
+<td>12</td>
+<td><a href="#12-agents">Agents</a></td>
+<td>Agent list, defaults, identity, heartbeat, sandbox</td>
+</tr>
+<tr>
+<td>13</td>
+<td><a href="#13-tools">Tools</a></td>
+<td>Tool policies, exec, web search/fetch, media understanding</td>
+</tr>
+<tr>
+<td>14</td>
+<td><a href="#14-bindings">Bindings</a></td>
+<td>Channel-to-agent routing</td>
+</tr>
+<tr>
+<td>15</td>
+<td><a href="#15-broadcast">Broadcast</a></td>
+<td>Multi-agent broadcast configuration</td>
+</tr>
+<tr>
+<td>16</td>
+<td><a href="#16-audio">Audio</a></td>
+<td>Audio transcription</td>
+</tr>
+<tr>
+<td>17</td>
+<td><a href="#17-media">Media</a></td>
+<td>Media handling settings</td>
+</tr>
+<tr>
+<td>18</td>
+<td><a href="#18-messages">Messages</a></td>
+<td>Message processing, queuing, reactions, TTS</td>
+</tr>
+<tr>
+<td>19</td>
+<td><a href="#19-commands">Commands</a></td>
+<td>Slash commands and chat command access</td>
+</tr>
+<tr>
+<td>20</td>
+<td><a href="#20-approvals">Approvals</a></td>
+<td>Exec approval forwarding</td>
+</tr>
+<tr>
+<td>21</td>
+<td><a href="#21-session">Session</a></td>
+<td>Session scope, reset, maintenance</td>
+</tr>
+<tr>
+<td>22</td>
+<td><a href="#22-cron">Cron</a></td>
+<td>Scheduled job configuration</td>
+</tr>
+<tr>
+<td>23</td>
+<td><a href="#23-hooks">Hooks</a></td>
+<td>Webhook endpoints and Gmail integration</td>
+</tr>
+<tr>
+<td>24</td>
+<td><a href="#24-web">Web</a></td>
+<td>WebChat/WebSocket client settings</td>
+</tr>
+<tr>
+<td>25</td>
+<td><a href="#25-channels">Channels</a></td>
+<td>Channel plugins (Discord, Telegram, WhatsApp, Slack, Signal, IRC, iMessage, MS Teams, Google Chat, BlueBubbles)</td>
+</tr>
+<tr>
+<td>26</td>
+<td><a href="#26-discovery">Discovery</a></td>
+<td>mDNS and wide-area service discovery</td>
+</tr>
+<tr>
+<td>27</td>
+<td><a href="#27-canvas-host">Canvas Host</a></td>
+<td>Canvas hosting for rich UI</td>
+</tr>
+<tr>
+<td>28</td>
+<td><a href="#28-talk">Talk</a></td>
+<td>Voice/talk mode settings</td>
+</tr>
+<tr>
+<td>29</td>
+<td><a href="#29-gateway">Gateway</a></td>
+<td>Core server: port, bind, TLS, auth, Control UI, reload, security</td>
+</tr>
+<tr>
+<td>30</td>
+<td><a href="#30-memory">Memory</a></td>
+<td>Memory backend (builtin or QMD)</td>
+</tr>
+<tr>
+<td>31</td>
+<td><a href="#31-skills">Skills</a></td>
+<td>Skill loading, limits, per-skill config</td>
+</tr>
+<tr>
+<td>32</td>
+<td><a href="#32-plugins">Plugins</a></td>
+<td>Plugin system, slots, install records</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>1. Meta</h2>
+<p><strong>What it is:</strong> Automatic metadata tracking for the config file itself. You rarely edit these manually — OpenClaw sets them when it writes the config.</p>
+<p><strong>When you need it:</strong> Debugging config version mismatches or tracking when the config was last modified.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>meta.lastTouchedVersion</code></td>
+<td>string</td>
+<td>—</td>
+<td>Auto-set to the OpenClaw version that last wrote the config</td>
+</tr>
+<tr>
+<td><code>meta.lastTouchedAt</code></td>
+<td>string</td>
+<td>—</td>
+<td>ISO timestamp of the last config write (auto-set)</td>
+</tr>
+</tbody></table>
+<pre><code class="language-json">{
+  &quot;meta&quot;: {
+    &quot;lastTouchedVersion&quot;: &quot;0.42.0&quot;,
+    &quot;lastTouchedAt&quot;: &quot;2025-01-15T10:30:00.000Z&quot;
+  }
+}
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> These fields are auto-managed. You generally don&#39;t need to touch them.</p>
+</blockquote>
+<hr>
+<h2>2. Env</h2>
+<p><strong>What it is:</strong> Environment variable injection for the gateway process and agent exec runs. You can define custom variables or enable shell environment loading.</p>
+<p><strong>When you need it:</strong> Passing API keys via environment, setting PATH overrides, or injecting custom env vars into agent exec runs without modifying shell profiles.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>env.shellEnv.enabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Load variables from the user&#39;s shell environment on startup</td>
+</tr>
+<tr>
+<td><code>env.shellEnv.timeoutMs</code></td>
+<td>number</td>
+<td>—</td>
+<td>Timeout for shell env loading (ms)</td>
+</tr>
+<tr>
+<td><code>env.vars</code></td>
+<td>object</td>
+<td>—</td>
+<td>Key-value map of environment variables to inject</td>
+</tr>
+</tbody></table>
+<pre><code class="language-json">{
+  &quot;env&quot;: {
+    &quot;shellEnv&quot;: {
+      &quot;enabled&quot;: true,
+      &quot;timeoutMs&quot;: 5000
+    },
+    &quot;vars&quot;: {
+      &quot;OPENAI_API_KEY&quot;: &quot;sk-...&quot;,
+      &quot;CUSTOM_PATH&quot;: &quot;/opt/bin&quot;
+    }
+  }
+}
+</code></pre>
+<blockquote>
+<p><strong>Tip:</strong> The <code>env</code> object also accepts arbitrary string keys at the top level (catchall), but <code>shellEnv</code> and <code>vars</code> are the structured settings.</p>
+</blockquote>
+<hr>
+<h2>3. Wizard</h2>
+<p><strong>What it is:</strong> Tracks the state of the setup wizard — when it last ran, which version, and which mode.</p>
+<p><strong>When you need it:</strong> You don&#39;t edit this manually. OpenClaw updates it after running the setup wizard.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>wizard.lastRunAt</code></td>
+<td>string</td>
+<td>—</td>
+<td>ISO timestamp of last wizard run</td>
+</tr>
+<tr>
+<td><code>wizard.lastRunVersion</code></td>
+<td>string</td>
+<td>—</td>
+<td>OpenClaw version at wizard run time</td>
+</tr>
+<tr>
+<td><code>wizard.lastRunCommit</code></td>
+<td>string</td>
+<td>—</td>
+<td>Git commit hash at wizard run time</td>
+</tr>
+<tr>
+<td><code>wizard.lastRunCommand</code></td>
+<td>string</td>
+<td>—</td>
+<td>Command used for the wizard run</td>
+</tr>
+<tr>
+<td><code>wizard.lastRunMode</code></td>
+<td>string</td>
+<td>—</td>
+<td><code>&quot;local&quot;</code> or <code>&quot;remote&quot;</code></td>
+</tr>
+</tbody></table>
+<pre><code class="language-json">{
+  &quot;wizard&quot;: {
+    &quot;lastRunAt&quot;: &quot;2025-01-10T08:00:00Z&quot;,
+    &quot;lastRunVersion&quot;: &quot;0.42.0&quot;,
+    &quot;lastRunMode&quot;: &quot;local&quot;
+  }
+}
+</code></pre>
+<hr>
+<h2>4. Diagnostics</h2>
+<p><strong>What it is:</strong> Controls diagnostic logging, OpenTelemetry export, and cache tracing for debugging.</p>
+<p><strong>When you need it:</strong> Troubleshooting agent behavior, sending traces to Jaeger/Grafana, or debugging cache behavior in embedded agent runs.</p>
+<h3>Core Diagnostics</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>diagnostics.enabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Master toggle for diagnostics</td>
+</tr>
+<tr>
+<td><code>diagnostics.flags</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Enable targeted diagnostic logs by flag (e.g., <code>[&quot;telegram.http&quot;]</code>). Supports wildcards like <code>&quot;telegram.*&quot;</code> or <code>&quot;*&quot;</code></td>
+</tr>
+</tbody></table>
+<h3>OpenTelemetry (OTEL)</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>diagnostics.otel.enabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable OpenTelemetry export</td>
+</tr>
+<tr>
+<td><code>diagnostics.otel.endpoint</code></td>
+<td>string</td>
+<td>—</td>
+<td>OTEL collector endpoint URL</td>
+</tr>
+<tr>
+<td><code>diagnostics.otel.protocol</code></td>
+<td>string</td>
+<td>—</td>
+<td><code>&quot;http/protobuf&quot;</code> or <code>&quot;grpc&quot;</code></td>
+</tr>
+<tr>
+<td><code>diagnostics.otel.headers</code></td>
+<td>object</td>
+<td>—</td>
+<td>Extra headers for the OTEL exporter</td>
+</tr>
+<tr>
+<td><code>diagnostics.otel.serviceName</code></td>
+<td>string</td>
+<td>—</td>
+<td>Service name reported to OTEL</td>
+</tr>
+<tr>
+<td><code>diagnostics.otel.traces</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable trace export</td>
+</tr>
+<tr>
+<td><code>diagnostics.otel.metrics</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable metrics export</td>
+</tr>
+<tr>
+<td><code>diagnostics.otel.logs</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable log export</td>
+</tr>
+<tr>
+<td><code>diagnostics.otel.sampleRate</code></td>
+<td>number</td>
+<td>—</td>
+<td>Trace sample rate (0.0–1.0)</td>
+</tr>
+<tr>
+<td><code>diagnostics.otel.flushIntervalMs</code></td>
+<td>number</td>
+<td>—</td>
+<td>Flush interval in milliseconds</td>
+</tr>
+</tbody></table>
+<h3>Cache Trace</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>diagnostics.cacheTrace.enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Log cache trace snapshots for embedded agent runs</td>
+</tr>
+<tr>
+<td><code>diagnostics.cacheTrace.filePath</code></td>
+<td>string</td>
+<td><code>$OPENCLAW_STATE_DIR/logs/cache-trace.jsonl</code></td>
+<td>JSONL output path</td>
+</tr>
+<tr>
+<td><code>diagnostics.cacheTrace.includeMessages</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Include full message payloads</td>
+</tr>
+<tr>
+<td><code>diagnostics.cacheTrace.includePrompt</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Include prompt text</td>
+</tr>
+<tr>
+<td><code>diagnostics.cacheTrace.includeSystem</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Include system prompt</td>
+</tr>
+</tbody></table>
+<pre><code class="language-json">{
+  &quot;diagnostics&quot;: {
+    &quot;enabled&quot;: true,
+    &quot;flags&quot;: [&quot;telegram.*&quot;],
+    &quot;otel&quot;: {
+      &quot;enabled&quot;: true,
+      &quot;endpoint&quot;: &quot;http://localhost:4318&quot;,
+      &quot;protocol&quot;: &quot;http/protobuf&quot;,
+      &quot;serviceName&quot;: &quot;openclaw-gateway&quot;,
+      &quot;traces&quot;: true,
+      &quot;metrics&quot;: true,
+      &quot;sampleRate&quot;: 0.5
+    },
+    &quot;cacheTrace&quot;: {
+      &quot;enabled&quot;: false
+    }
+  }
+}
+</code></pre>
+<blockquote>
+<p><strong>Tip:</strong> Use <code>diagnostics.flags</code> with wildcards for targeted debugging without enabling full trace export.</p>
+</blockquote>
+<hr>
+<h2>5. Logging</h2>
+<p><strong>What it is:</strong> Controls log levels, output destinations, formatting, and sensitive data redaction.</p>
+<p><strong>When you need it:</strong> Adjusting verbosity for troubleshooting, writing logs to a file, or ensuring sensitive data (API keys, tokens) is redacted.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>logging.level</code></td>
+<td>string</td>
+<td><code>&quot;info&quot;</code></td>
+<td>File log level: <code>&quot;silent&quot;</code>, <code>&quot;fatal&quot;</code>, <code>&quot;error&quot;</code>, <code>&quot;warn&quot;</code>, <code>&quot;info&quot;</code>, <code>&quot;debug&quot;</code>, <code>&quot;trace&quot;</code></td>
+</tr>
+<tr>
+<td><code>logging.file</code></td>
+<td>string</td>
+<td>—</td>
+<td>Path to log file</td>
+</tr>
+<tr>
+<td><code>logging.consoleLevel</code></td>
+<td>string</td>
+<td>—</td>
+<td>Console output level (same options as <code>level</code>)</td>
+</tr>
+<tr>
+<td><code>logging.consoleStyle</code></td>
+<td>string</td>
+<td><code>&quot;pretty&quot;</code></td>
+<td>Console format: <code>&quot;pretty&quot;</code>, <code>&quot;compact&quot;</code>, <code>&quot;json&quot;</code></td>
+</tr>
+<tr>
+<td><code>logging.redactSensitive</code></td>
+<td>string</td>
+<td>—</td>
+<td>Redaction mode: <code>&quot;off&quot;</code> or <code>&quot;tools&quot;</code> (redact sensitive values in tool output)</td>
+</tr>
+<tr>
+<td><code>logging.redactPatterns</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Additional regex patterns to redact from logs</td>
+</tr>
+</tbody></table>
+<pre><code class="language-json">{
+  &quot;logging&quot;: {
+    &quot;level&quot;: &quot;info&quot;,
+    &quot;file&quot;: &quot;/var/log/openclaw/gateway.log&quot;,
+    &quot;consoleLevel&quot;: &quot;warn&quot;,
+    &quot;consoleStyle&quot;: &quot;pretty&quot;,
+    &quot;redactSensitive&quot;: &quot;tools&quot;,
+    &quot;redactPatterns&quot;: [&quot;password&quot;, &quot;secret&quot;]
+  }
+}
+</code></pre>
+<blockquote>
+<p><strong>Tip:</strong> Use <code>&quot;json&quot;</code> console style for machine-parsable output when piping to log aggregators. Use <code>&quot;trace&quot;</code> level only for deep debugging — it&#39;s very verbose.</p>
+</blockquote>
+<hr>
+<h2>6. Update</h2>
+<p><strong>What it is:</strong> Controls auto-update behavior — which release channel to track and whether to check for updates on startup.</p>
+<p><strong>When you need it:</strong> Switching between stable, beta, and dev releases, or disabling startup update checks for air-gapped environments.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>update.channel</code></td>
+<td>string</td>
+<td><code>&quot;stable&quot;</code></td>
+<td>Update channel: <code>&quot;stable&quot;</code>, <code>&quot;beta&quot;</code>, or <code>&quot;dev&quot;</code></td>
+</tr>
+<tr>
+<td><code>update.checkOnStart</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Check for npm updates when the gateway starts</td>
+</tr>
+</tbody></table>
+<pre><code class="language-json">{
+  &quot;update&quot;: {
+    &quot;channel&quot;: &quot;stable&quot;,
+    &quot;checkOnStart&quot;: true
+  }
+}
+</code></pre>
+<hr>
+<h2>7. Browser</h2>
+<p><strong>What it is:</strong> Controls the built-in browser automation system — Playwright/CDP management, browser profiles, SSRF protection, and snapshot defaults.</p>
+<p><strong>When you need it:</strong> Enabling browser-based tools for web scraping, configuring multiple browser profiles (e.g., one for automation, one via Chrome extension), or restricting which hosts the browser can access.</p>
+<h3>Core Settings</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>browser.enabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable browser control</td>
+</tr>
+<tr>
+<td><code>browser.evaluateEnabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Allow JavaScript evaluation in the browser</td>
+</tr>
+<tr>
+<td><code>browser.cdpUrl</code></td>
+<td>string</td>
+<td>—</td>
+<td>Default CDP (Chrome DevTools Protocol) URL</td>
+</tr>
+<tr>
+<td><code>browser.remoteCdpTimeoutMs</code></td>
+<td>number</td>
+<td>—</td>
+<td>Timeout for remote CDP connections (ms)</td>
+</tr>
+<tr>
+<td><code>browser.remoteCdpHandshakeTimeoutMs</code></td>
+<td>number</td>
+<td>—</td>
+<td>Timeout for remote CDP handshake (ms)</td>
+</tr>
+<tr>
+<td><code>browser.color</code></td>
+<td>string</td>
+<td>—</td>
+<td>Default highlight color for browser interactions</td>
+</tr>
+<tr>
+<td><code>browser.executablePath</code></td>
+<td>string</td>
+<td>—</td>
+<td>Path to browser executable</td>
+</tr>
+<tr>
+<td><code>browser.headless</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Run browser in headless mode</td>
+</tr>
+<tr>
+<td><code>browser.noSandbox</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Disable Chromium sandbox (needed in some Docker setups)</td>
+</tr>
+<tr>
+<td><code>browser.attachOnly</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Only attach to existing browser instances, never launch</td>
+</tr>
+<tr>
+<td><code>browser.defaultProfile</code></td>
+<td>string</td>
+<td>—</td>
+<td>Default browser profile name</td>
+</tr>
+</tbody></table>
+<h3>Snapshot Defaults</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>browser.snapshotDefaults.mode</code></td>
+<td>string</td>
+<td>—</td>
+<td>Snapshot mode: <code>&quot;efficient&quot;</code></td>
+</tr>
+</tbody></table>
+<h3>SSRF Policy</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>browser.ssrfPolicy.allowPrivateNetwork</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Allow navigation to private/internal IPs</td>
+</tr>
+<tr>
+<td><code>browser.ssrfPolicy.allowedHostnames</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Hostnames explicitly allowed despite SSRF restrictions</td>
+</tr>
+<tr>
+<td><code>browser.ssrfPolicy.hostnameAllowlist</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Alias for allowedHostnames</td>
+</tr>
+</tbody></table>
+<h3>Browser Profiles</h3>
+<p>Profiles let you define multiple browser instances with different CDP ports, drivers, and highlight colors. Profile names must be alphanumeric with hyphens only.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>browser.profiles.&lt;name&gt;.cdpPort</code></td>
+<td>number</td>
+<td>—</td>
+<td>CDP port for this profile (1–65535)</td>
+</tr>
+<tr>
+<td><code>browser.profiles.&lt;name&gt;.cdpUrl</code></td>
+<td>string</td>
+<td>—</td>
+<td>CDP URL for this profile (alternative to cdpPort)</td>
+</tr>
+<tr>
+<td><code>browser.profiles.&lt;name&gt;.driver</code></td>
+<td>string</td>
+<td>—</td>
+<td>Driver: <code>&quot;clawd&quot;</code> (built-in) or <code>&quot;extension&quot;</code> (Chrome relay)</td>
+</tr>
+<tr>
+<td><code>browser.profiles.&lt;name&gt;.color</code></td>
+<td>string</td>
+<td>—</td>
+<td>Hex highlight color for this profile (e.g., <code>&quot;#00bcd4&quot;</code>)</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>Note:</strong> Each profile must set either <code>cdpPort</code> or <code>cdpUrl</code>.</p>
+</blockquote>
+<pre><code class="language-json">{
+  &quot;browser&quot;: {
+    &quot;enabled&quot;: true,
+    &quot;headless&quot;: true,
+    &quot;noSandbox&quot;: true,
+    &quot;evaluateEnabled&quot;: false,
+    &quot;defaultProfile&quot;: &quot;openclaw&quot;,
+    &quot;profiles&quot;: {
+      &quot;openclaw&quot;: {
+        &quot;cdpPort&quot;: 18792,
+        &quot;driver&quot;: &quot;clawd&quot;,
+        &quot;color&quot;: &quot;#00bcd4&quot;
+      },
+      &quot;chrome&quot;: {
+        &quot;cdpPort&quot;: 9222,
+        &quot;driver&quot;: &quot;extension&quot;,
+        &quot;color&quot;: &quot;#ff5722&quot;
+      }
+    },
+    &quot;ssrfPolicy&quot;: {
+      &quot;allowPrivateNetwork&quot;: false
+    }
+  }
+}
+</code></pre>
+<blockquote>
+<p><strong>⚠️ Warning:</strong> Setting <code>evaluateEnabled: true</code> allows the agent to execute arbitrary JavaScript in the browser. Only enable this if you trust the agent fully.</p>
+</blockquote>
+<hr>
+<h2>8. UI</h2>
+<p><strong>What it is:</strong> Controls the appearance of the OpenClaw web interface — accent color and assistant identity shown in WebChat.</p>
+<p><strong>When you need it:</strong> Customizing the look and feel of the Control UI or WebChat interface.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ui.seamColor</code></td>
+<td>string</td>
+<td>—</td>
+<td>Hex accent color for the UI (e.g., <code>&quot;#7c4dff&quot;</code>)</td>
+</tr>
+<tr>
+<td><code>ui.assistant.name</code></td>
+<td>string</td>
+<td>—</td>
+<td>Assistant display name (max 50 chars)</td>
+</tr>
+<tr>
+<td><code>ui.assistant.avatar</code></td>
+<td>string</td>
+<td>—</td>
+<td>Assistant avatar URL or path (max 200 chars)</td>
+</tr>
+</tbody></table>
+<pre><code class="language-json">{
+  &quot;ui&quot;: {
+    &quot;seamColor&quot;: &quot;#7c4dff&quot;,
+    &quot;assistant&quot;: {
+      &quot;name&quot;: &quot;Cortex&quot;,
+      &quot;avatar&quot;: &quot;https://example.com/avatar.png&quot;
+    }
+  }
+}
+</code></pre>
+<hr>
+<h2>9. Auth</h2>
+<p><strong>What it is:</strong> Manages API authentication profiles for LLM providers. Profiles define how OpenClaw authenticates with each provider, and the <code>order</code> field controls failover priority.</p>
+<p><strong>When you need it:</strong> Setting up multiple API keys (personal + work), configuring automatic failover between providers, or managing billing backoff when credits run low.</p>
+<h3>Auth Profiles</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>auth.profiles.&lt;name&gt;.provider</code></td>
+<td>string</td>
+<td>—</td>
+<td>Provider name (e.g., <code>&quot;anthropic&quot;</code>, <code>&quot;openai&quot;</code>, <code>&quot;google&quot;</code>)</td>
+</tr>
+<tr>
+<td><code>auth.profiles.&lt;name&gt;.mode</code></td>
+<td>string</td>
+<td>—</td>
+<td>Auth mode: <code>&quot;api_key&quot;</code>, <code>&quot;oauth&quot;</code>, or <code>&quot;token&quot;</code></td>
+</tr>
+<tr>
+<td><code>auth.profiles.&lt;name&gt;.email</code></td>
+<td>string</td>
+<td>—</td>
+<td>Optional associated email</td>
+</tr>
+</tbody></table>
+<h3>Profile Order</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>auth.order.&lt;provider&gt;</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Ordered profile IDs for each provider (first = primary, rest = failover)</td>
+</tr>
+</tbody></table>
+<h3>Cooldowns</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>auth.cooldowns.billingBackoffHours</code></td>
+<td>number</td>
+<td><code>5</code></td>
+<td>Base backoff (hours) after billing/credit errors</td>
+</tr>
+<tr>
+<td><code>auth.cooldowns.billingBackoffHoursByProvider</code></td>
+<td>object</td>
+<td>—</td>
+<td>Per-provider overrides for billing backoff (hours)</td>
+</tr>
+<tr>
+<td><code>auth.cooldowns.billingMaxHours</code></td>
+<td>number</td>
+<td><code>24</code></td>
+<td>Cap (hours) for billing backoff</td>
+</tr>
+<tr>
+<td><code>auth.cooldowns.failureWindowHours</code></td>
+<td>number</td>
+<td><code>24</code></td>
+<td>Failure window (hours) for backoff counters</td>
+</tr>
+</tbody></table>
+<pre><code class="language-json">{
+  &quot;auth&quot;: {
+    &quot;profiles&quot;: {
+      &quot;anthropic-main&quot;: {
+        &quot;provider&quot;: &quot;anthropic&quot;,
+        &quot;mode&quot;: &quot;api_key&quot;
+      },
+      &quot;openai-backup&quot;: {
+        &quot;provider&quot;: &quot;openai&quot;,
+        &quot;mode&quot;: &quot;api_key&quot;
+      }
+    },
+    &quot;order&quot;: {
+      &quot;anthropic&quot;: [&quot;anthropic-main&quot;],
+      &quot;openai&quot;: [&quot;openai-backup&quot;]
+    },
+    &quot;cooldowns&quot;: {
+      &quot;billingBackoffHours&quot;: 5,
+      &quot;billingMaxHours&quot;: 24,
+      &quot;failureWindowHours&quot;: 24
+    }
+  }
+}
+</code></pre>
+<blockquote>
+<p><strong>Tip:</strong> With multiple profiles per provider, OpenClaw automatically fails over when one profile hits billing limits. The <code>order</code> array determines priority.</p>
+</blockquote>
+<hr>
+<h2>10. Models</h2>
+<p><strong>What it is:</strong> Defines LLM provider endpoints, API keys, and custom model definitions. This is where you configure OpenAI, Anthropic, Google, Ollama, AWS Bedrock, and any OpenAI-compatible endpoint.</p>
+<p><strong>When you need it:</strong> Adding new model providers, configuring custom base URLs (proxies, local models), defining model cost/capability metadata, or setting up Bedrock auto-discovery.</p>
+<h3>Top-Level</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>models.mode</code></td>
+<td>string</td>
+<td><code>&quot;merge&quot;</code></td>
+<td><code>&quot;merge&quot;</code> extends built-in providers; <code>&quot;replace&quot;</code> uses only your definitions</td>
+</tr>
+</tbody></table>
+<h3>Providers</h3>
+<p>Each key under <code>models.providers</code> is a provider ID (e.g., <code>&quot;openai&quot;</code>, <code>&quot;anthropic&quot;</code>, <code>&quot;ollama&quot;</code>, or any custom name).</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>models.providers.&lt;id&gt;.baseUrl</code></td>
+<td>string</td>
+<td><strong>required</strong></td>
+<td>API base URL for this provider</td>
+</tr>
+<tr>
+<td><code>models.providers.&lt;id&gt;.apiKey</code></td>
+<td>string</td>
+<td>—</td>
+<td>API key (⚠️ sensitive)</td>
+</tr>
+<tr>
+<td><code>models.providers.&lt;id&gt;.auth</code></td>
+<td>string</td>
+<td>—</td>
+<td>Auth method: <code>&quot;api-key&quot;</code>, <code>&quot;aws-sdk&quot;</code>, <code>&quot;oauth&quot;</code>, <code>&quot;token&quot;</code></td>
+</tr>
+<tr>
+<td><code>models.providers.&lt;id&gt;.api</code></td>
+<td>string</td>
+<td>—</td>
+<td>API type: <code>&quot;openai-completions&quot;</code>, <code>&quot;openai-responses&quot;</code>, <code>&quot;anthropic-messages&quot;</code>, <code>&quot;google-generative-ai&quot;</code>, <code>&quot;github-copilot&quot;</code>, <code>&quot;bedrock-converse-stream&quot;</code>, <code>&quot;ollama&quot;</code></td>
+</tr>
+<tr>
+<td><code>models.providers.&lt;id&gt;.headers</code></td>
+<td>object</td>
+<td>—</td>
+<td>Extra HTTP headers for all requests to this provider</td>
+</tr>
+<tr>
+<td><code>models.providers.&lt;id&gt;.authHeader</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Whether to send the API key in the Authorization header</td>
+</tr>
+<tr>
+<td><code>models.providers.&lt;id&gt;.models</code></td>
+<td>array</td>
+<td><strong>required</strong></td>
+<td>Array of model definitions (see below)</td>
+</tr>
+</tbody></table>
+<h3>Model Definitions</h3>
+<p>Each entry in the <code>models</code> array defines a model available from the provider:</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>string</td>
+<td><strong>required</strong></td>
+<td>Model ID (e.g., <code>&quot;claude-sonnet-4-20250514&quot;</code>)</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td><strong>required</strong></td>
+<td>Human-readable name</td>
+</tr>
+<tr>
+<td><code>api</code></td>
+<td>string</td>
+<td>—</td>
+<td>Override the provider-level API type for this model</td>
+</tr>
+<tr>
+<td><code>reasoning</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Whether this is a reasoning/thinking model</td>
+</tr>
+<tr>
+<td><code>input</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Input modalities: <code>[&quot;text&quot;]</code> or <code>[&quot;text&quot;, &quot;image&quot;]</code></td>
+</tr>
+<tr>
+<td><code>cost.input</code></td>
+<td>number</td>
+<td>—</td>
+<td>Cost per million input tokens (USD)</td>
+</tr>
+<tr>
+<td><code>cost.output</code></td>
+<td>number</td>
+<td>—</td>
+<td>Cost per million output tokens (USD)</td>
+</tr>
+<tr>
+<td><code>cost.cacheRead</code></td>
+<td>number</td>
+<td>—</td>
+<td>Cost per million cached read tokens</td>
+</tr>
+<tr>
+<td><code>cost.cacheWrite</code></td>
+<td>number</td>
+<td>—</td>
+<td>Cost per million cached write tokens</td>
+</tr>
+<tr>
+<td><code>contextWindow</code></td>
+<td>number</td>
+<td>—</td>
+<td>Context window size in tokens</td>
+</tr>
+<tr>
+<td><code>maxTokens</code></td>
+<td>number</td>
+<td>—</td>
+<td>Max output tokens</td>
+</tr>
+<tr>
+<td><code>headers</code></td>
+<td>object</td>
+<td>—</td>
+<td>Extra headers for this specific model</td>
+</tr>
+<tr>
+<td><code>compat</code></td>
+<td>object</td>
+<td>—</td>
+<td>Compatibility flags (see below)</td>
+</tr>
+</tbody></table>
+<h3>Model Compatibility Flags</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>compat.supportsStore</code></td>
+<td>boolean</td>
+<td>Whether the model supports the <code>store</code> parameter</td>
+</tr>
+<tr>
+<td><code>compat.supportsDeveloperRole</code></td>
+<td>boolean</td>
+<td>Whether the model supports the <code>developer</code> role</td>
+</tr>
+<tr>
+<td><code>compat.supportsReasoningEffort</code></td>
+<td>boolean</td>
+<td>Whether the model supports reasoning effort control</td>
+</tr>
+<tr>
+<td><code>compat.supportsUsageInStreaming</code></td>
+<td>boolean</td>
+<td>Whether usage stats are included in streaming responses</td>
+</tr>
+<tr>
+<td><code>compat.supportsStrictMode</code></td>
+<td>boolean</td>
+<td>Whether the model supports strict mode for tool schemas</td>
+</tr>
+<tr>
+<td><code>compat.maxTokensField</code></td>
+<td>string</td>
+<td>Which field to use: <code>&quot;max_completion_tokens&quot;</code> or <code>&quot;max_tokens&quot;</code></td>
+</tr>
+<tr>
+<td><code>compat.thinkingFormat</code></td>
+<td>string</td>
+<td>Thinking format: <code>&quot;openai&quot;</code>, <code>&quot;zai&quot;</code>, or <code>&quot;qwen&quot;</code></td>
+</tr>
+<tr>
+<td><code>compat.requiresToolResultName</code></td>
+<td>boolean</td>
+<td>Whether tool results must include the <code>name</code> field</td>
+</tr>
+<tr>
+<td><code>compat.requiresAssistantAfterToolResult</code></td>
+<td>boolean</td>
+<td>Whether an assistant message is required after tool results</td>
+</tr>
+<tr>
+<td><code>compat.requiresThinkingAsText</code></td>
+<td>boolean</td>
+<td>Whether thinking content must be sent as text blocks</td>
+</tr>
+<tr>
+<td><code>compat.requiresMistralToolIds</code></td>
+<td>boolean</td>
+<td>Whether Mistral-style tool call IDs are required</td>
+</tr>
+</tbody></table>
+<h3>Bedrock Discovery</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>models.bedrockDiscovery.enabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable AWS Bedrock model auto-discovery</td>
+</tr>
+<tr>
+<td><code>models.bedrockDiscovery.region</code></td>
+<td>string</td>
+<td>—</td>
+<td>AWS region for discovery</td>
+</tr>
+<tr>
+<td><code>models.bedrockDiscovery.providerFilter</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Filter discovered models by provider</td>
+</tr>
+<tr>
+<td><code>models.bedrockDiscovery.refreshInterval</code></td>
+<td>number</td>
+<td>—</td>
+<td>Refresh interval (ms) for re-discovery</td>
+</tr>
+<tr>
+<td><code>models.bedrockDiscovery.defaultContextWindow</code></td>
+<td>number</td>
+<td>—</td>
+<td>Default context window for discovered models</td>
+</tr>
+<tr>
+<td><code>models.bedrockDiscovery.defaultMaxTokens</code></td>
+<td>number</td>
+<td>—</td>
+<td>Default max tokens for discovered models</td>
+</tr>
+</tbody></table>
+<pre><code class="language-json">{
+  &quot;models&quot;: {
+    &quot;mode&quot;: &quot;merge&quot;,
+    &quot;providers&quot;: {
+      &quot;ollama&quot;: {
+        &quot;baseUrl&quot;: &quot;http://192.168.1.167:11434&quot;,
+        &quot;api&quot;: &quot;ollama&quot;,
+        &quot;models&quot;: [
+          {
+            &quot;id&quot;: &quot;llama3.1:70b&quot;,
+            &quot;name&quot;: &quot;Llama 3.1 70B&quot;,
+            &quot;input&quot;: [&quot;text&quot;],
+            &quot;contextWindow&quot;: 131072
+          }
+        ]
+      },
+      &quot;custom-openai&quot;: {
+        &quot;baseUrl&quot;: &quot;https://api.openai.com/v1&quot;,
+        &quot;apiKey&quot;: &quot;sk-...&quot;,
+        &quot;api&quot;: &quot;openai-completions&quot;,
+        &quot;models&quot;: [
+          {
+            &quot;id&quot;: &quot;gpt-4o&quot;,
+            &quot;name&quot;: &quot;GPT-4o&quot;,
+            &quot;input&quot;: [&quot;text&quot;, &quot;image&quot;],
+            &quot;contextWindow&quot;: 128000,
+            &quot;maxTokens&quot;: 16384,
+            &quot;cost&quot;: { &quot;input&quot;: 2.5, &quot;output&quot;: 10.0 }
+          }
+        ]
+      }
+    },
+    &quot;bedrockDiscovery&quot;: {
+      &quot;enabled&quot;: true,
+      &quot;region&quot;: &quot;us-east-1&quot;
+    }
+  }
+}
+</code></pre>
+<blockquote>
+<p><strong>Tip:</strong> Use <code>&quot;mode&quot;: &quot;merge&quot;</code> (default) to add custom providers alongside the built-in catalog. Use <code>&quot;replace&quot;</code> only if you want full control over the model list.</p>
+</blockquote>
+<hr>
+<h2>11. Node Host</h2>
+<p><strong>What it is:</strong> Controls settings for when this machine acts as a node host — specifically the browser proxy feature that exposes local browser control to the gateway.</p>
+<p><strong>When you need it:</strong> Running OpenClaw on a separate node and wanting to share browser access back to the gateway.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>nodeHost.browserProxy.enabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Expose the local browser control server via node proxy</td>
+</tr>
+<tr>
+<td><code>nodeHost.browserProxy.allowProfiles</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Optional allowlist of browser profile names to expose</td>
+</tr>
+</tbody></table>
+<pre><code class="language-json">{
+  &quot;nodeHost&quot;: {
+    &quot;browserProxy&quot;: {
+      &quot;enabled&quot;: true,
+      &quot;allowProfiles&quot;: [&quot;openclaw&quot;]
+    }
+  }
+}
+</code></pre>
+<hr>
+<h2>12. Agents</h2>
+<p><strong>What it is:</strong> The core agent configuration — defines the agent list, default settings, models, heartbeat, identity, memory search, sandbox, and more.</p>
+<p><strong>When you need it:</strong> Always — this is where you define your agents, set the default model, configure workspace paths, heartbeat behavior, and per-agent overrides.</p>
+<h3>Agent Defaults</h3>
+<p>These defaults apply to all agents unless overridden at the agent level.</p>
+<h4>Model &amp; Workspace</h4>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>agents.defaults.model.primary</code></td>
+<td>string</td>
+<td>—</td>
+<td>Primary model (provider/model format)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.model.fallbacks</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Ordered fallback models</td>
+</tr>
+<tr>
+<td><code>agents.defaults.imageModel.primary</code></td>
+<td>string</td>
+<td>—</td>
+<td>Image-capable model for vision tasks</td>
+</tr>
+<tr>
+<td><code>agents.defaults.imageModel.fallbacks</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Fallback image models</td>
+</tr>
+<tr>
+<td><code>agents.defaults.models</code></td>
+<td>object</td>
+<td>—</td>
+<td>Configured model catalog with aliases and params</td>
+</tr>
+<tr>
+<td><code>agents.defaults.workspace</code></td>
+<td>string</td>
+<td>—</td>
+<td>Default workspace directory for agents</td>
+</tr>
+<tr>
+<td><code>agents.defaults.repoRoot</code></td>
+<td>string</td>
+<td>—</td>
+<td>Repository root shown in system prompt (overrides auto-detect)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.skipBootstrap</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Skip loading workspace bootstrap files (AGENTS.md, etc.)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.bootstrapMaxChars</code></td>
+<td>number</td>
+<td><code>20000</code></td>
+<td>Max chars per bootstrap file injected into system prompt</td>
+</tr>
+<tr>
+<td><code>agents.defaults.bootstrapTotalMaxChars</code></td>
+<td>number</td>
+<td><code>150000</code></td>
+<td>Max total chars across all bootstrap files</td>
+</tr>
+</tbody></table>
+<h4>Timezone &amp; Envelope</h4>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>agents.defaults.userTimezone</code></td>
+<td>string</td>
+<td>—</td>
+<td>User timezone (IANA format, e.g., <code>&quot;America/New_York&quot;</code>)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.timeFormat</code></td>
+<td>string</td>
+<td><code>&quot;auto&quot;</code></td>
+<td>Time format: <code>&quot;auto&quot;</code>, <code>&quot;12&quot;</code>, or <code>&quot;24&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.envelopeTimezone</code></td>
+<td>string</td>
+<td>—</td>
+<td>Timezone for message envelopes (<code>&quot;utc&quot;</code>, <code>&quot;local&quot;</code>, <code>&quot;user&quot;</code>, or IANA string)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.envelopeTimestamp</code></td>
+<td>string</td>
+<td>—</td>
+<td>Include timestamps in envelopes: <code>&quot;on&quot;</code> or <code>&quot;off&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.envelopeElapsed</code></td>
+<td>string</td>
+<td>—</td>
+<td>Include elapsed time in envelopes: <code>&quot;on&quot;</code> or <code>&quot;off&quot;</code></td>
+</tr>
+</tbody></table>
+<h4>Context &amp; Compaction</h4>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>agents.defaults.contextTokens</code></td>
+<td>number</td>
+<td>—</td>
+<td>Token budget for context window</td>
+</tr>
+<tr>
+<td><code>agents.defaults.compaction.mode</code></td>
+<td>string</td>
+<td><code>&quot;default&quot;</code></td>
+<td>Compaction mode: <code>&quot;default&quot;</code> or <code>&quot;safeguard&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.compaction.reserveTokens</code></td>
+<td>number</td>
+<td>—</td>
+<td>Tokens to reserve for response</td>
+</tr>
+<tr>
+<td><code>agents.defaults.compaction.keepRecentTokens</code></td>
+<td>number</td>
+<td>—</td>
+<td>Recent tokens to always keep</td>
+</tr>
+<tr>
+<td><code>agents.defaults.compaction.reserveTokensFloor</code></td>
+<td>number</td>
+<td>—</td>
+<td>Minimum reserved tokens</td>
+</tr>
+<tr>
+<td><code>agents.defaults.compaction.maxHistoryShare</code></td>
+<td>number</td>
+<td>—</td>
+<td>Max share of context for history (0.1–0.9)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.compaction.memoryFlush.enabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable memory flush on compaction</td>
+</tr>
+<tr>
+<td><code>agents.defaults.compaction.memoryFlush.softThresholdTokens</code></td>
+<td>number</td>
+<td>—</td>
+<td>Token threshold for soft flush</td>
+</tr>
+<tr>
+<td><code>agents.defaults.compaction.memoryFlush.prompt</code></td>
+<td>string</td>
+<td>—</td>
+<td>Custom prompt for memory flush</td>
+</tr>
+<tr>
+<td><code>agents.defaults.compaction.memoryFlush.systemPrompt</code></td>
+<td>string</td>
+<td>—</td>
+<td>Custom system prompt for flush</td>
+</tr>
+</tbody></table>
+<h4>Context Pruning</h4>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>agents.defaults.contextPruning.mode</code></td>
+<td>string</td>
+<td><code>&quot;off&quot;</code></td>
+<td><code>&quot;off&quot;</code> or <code>&quot;cache-ttl&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.contextPruning.ttl</code></td>
+<td>string</td>
+<td>—</td>
+<td>TTL duration for cached context</td>
+</tr>
+<tr>
+<td><code>agents.defaults.contextPruning.keepLastAssistants</code></td>
+<td>number</td>
+<td>—</td>
+<td>Number of recent assistant messages to always keep</td>
+</tr>
+<tr>
+<td><code>agents.defaults.contextPruning.softTrimRatio</code></td>
+<td>number</td>
+<td>—</td>
+<td>Ratio threshold for soft trimming (0–1)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.contextPruning.hardClearRatio</code></td>
+<td>number</td>
+<td>—</td>
+<td>Ratio threshold for hard clearing (0–1)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.contextPruning.minPrunableToolChars</code></td>
+<td>number</td>
+<td>—</td>
+<td>Minimum chars in tool result to be prunable</td>
+</tr>
+</tbody></table>
+<h4>Behavior Defaults</h4>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>agents.defaults.thinkingDefault</code></td>
+<td>string</td>
+<td>—</td>
+<td>Default thinking level: <code>&quot;off&quot;</code>, <code>&quot;minimal&quot;</code>, <code>&quot;low&quot;</code>, <code>&quot;medium&quot;</code>, <code>&quot;high&quot;</code>, <code>&quot;xhigh&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.verboseDefault</code></td>
+<td>string</td>
+<td>—</td>
+<td>Default verbose mode: <code>&quot;off&quot;</code>, <code>&quot;on&quot;</code>, <code>&quot;full&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.elevatedDefault</code></td>
+<td>string</td>
+<td>—</td>
+<td>Default elevated exec mode: <code>&quot;off&quot;</code>, <code>&quot;on&quot;</code>, <code>&quot;ask&quot;</code>, <code>&quot;full&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.blockStreamingDefault</code></td>
+<td>string</td>
+<td>—</td>
+<td>Default block streaming: <code>&quot;off&quot;</code> or <code>&quot;on&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.blockStreamingBreak</code></td>
+<td>string</td>
+<td>—</td>
+<td>Block break point: <code>&quot;text_end&quot;</code> or <code>&quot;message_end&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.humanDelay.mode</code></td>
+<td>string</td>
+<td>—</td>
+<td>Delay style: <code>&quot;off&quot;</code>, <code>&quot;natural&quot;</code>, <code>&quot;custom&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.humanDelay.minMs</code></td>
+<td>number</td>
+<td><code>800</code></td>
+<td>Minimum delay (ms) for custom mode</td>
+</tr>
+<tr>
+<td><code>agents.defaults.humanDelay.maxMs</code></td>
+<td>number</td>
+<td><code>2500</code></td>
+<td>Maximum delay (ms) for custom mode</td>
+</tr>
+<tr>
+<td><code>agents.defaults.timeoutSeconds</code></td>
+<td>number</td>
+<td>—</td>
+<td>Default timeout for agent responses</td>
+</tr>
+<tr>
+<td><code>agents.defaults.mediaMaxMb</code></td>
+<td>number</td>
+<td>—</td>
+<td>Max media attachment size in MB</td>
+</tr>
+<tr>
+<td><code>agents.defaults.imageMaxDimensionPx</code></td>
+<td>number</td>
+<td><code>1200</code></td>
+<td>Max image side length in pixels</td>
+</tr>
+<tr>
+<td><code>agents.defaults.typingIntervalSeconds</code></td>
+<td>number</td>
+<td>—</td>
+<td>How often to send typing indicators</td>
+</tr>
+<tr>
+<td><code>agents.defaults.typingMode</code></td>
+<td>string</td>
+<td>—</td>
+<td>When to show typing: <code>&quot;never&quot;</code>, <code>&quot;instant&quot;</code>, <code>&quot;thinking&quot;</code>, <code>&quot;message&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.maxConcurrent</code></td>
+<td>number</td>
+<td>—</td>
+<td>Max concurrent agent runs</td>
+</tr>
+</tbody></table>
+<h4>Heartbeat</h4>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>agents.defaults.heartbeat.every</code></td>
+<td>string</td>
+<td>—</td>
+<td>Heartbeat interval (duration string, e.g., <code>&quot;30m&quot;</code>, <code>&quot;1h&quot;</code>)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.heartbeat.activeHours.start</code></td>
+<td>string</td>
+<td>—</td>
+<td>Active hours start (24h format, e.g., <code>&quot;08:00&quot;</code>)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.heartbeat.activeHours.end</code></td>
+<td>string</td>
+<td>—</td>
+<td>Active hours end (e.g., <code>&quot;23:00&quot;</code>)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.heartbeat.activeHours.timezone</code></td>
+<td>string</td>
+<td>—</td>
+<td>Timezone for active hours</td>
+</tr>
+<tr>
+<td><code>agents.defaults.heartbeat.model</code></td>
+<td>string</td>
+<td>—</td>
+<td>Model to use for heartbeat runs</td>
+</tr>
+<tr>
+<td><code>agents.defaults.heartbeat.session</code></td>
+<td>string</td>
+<td>—</td>
+<td>Session key for heartbeat</td>
+</tr>
+<tr>
+<td><code>agents.defaults.heartbeat.includeReasoning</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Include reasoning output in heartbeat</td>
+</tr>
+<tr>
+<td><code>agents.defaults.heartbeat.target</code></td>
+<td>string</td>
+<td>—</td>
+<td>Delivery target channel</td>
+</tr>
+<tr>
+<td><code>agents.defaults.heartbeat.to</code></td>
+<td>string</td>
+<td>—</td>
+<td>Delivery target peer</td>
+</tr>
+<tr>
+<td><code>agents.defaults.heartbeat.accountId</code></td>
+<td>string</td>
+<td>—</td>
+<td>Account ID for delivery</td>
+</tr>
+<tr>
+<td><code>agents.defaults.heartbeat.prompt</code></td>
+<td>string</td>
+<td>—</td>
+<td>Custom heartbeat prompt</td>
+</tr>
+<tr>
+<td><code>agents.defaults.heartbeat.ackMaxChars</code></td>
+<td>number</td>
+<td>—</td>
+<td>Max chars for heartbeat ack messages (0 = suppress)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.heartbeat.suppressToolErrorWarnings</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Suppress tool error warnings during heartbeat</td>
+</tr>
+</tbody></table>
+<h4>Subagents</h4>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>agents.defaults.subagents.maxConcurrent</code></td>
+<td>number</td>
+<td>—</td>
+<td>Max concurrent sub-agents</td>
+</tr>
+<tr>
+<td><code>agents.defaults.subagents.maxSpawnDepth</code></td>
+<td>number</td>
+<td><code>1</code></td>
+<td>Maximum nesting depth (1–5)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.subagents.maxChildrenPerAgent</code></td>
+<td>number</td>
+<td><code>5</code></td>
+<td>Max active children per agent session (1–20)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.subagents.archiveAfterMinutes</code></td>
+<td>number</td>
+<td>—</td>
+<td>Auto-archive sub-agents after N minutes</td>
+</tr>
+<tr>
+<td><code>agents.defaults.subagents.model</code></td>
+<td>string/object</td>
+<td>—</td>
+<td>Model override for sub-agents</td>
+</tr>
+<tr>
+<td><code>agents.defaults.subagents.thinking</code></td>
+<td>string</td>
+<td>—</td>
+<td>Thinking level override for sub-agents</td>
+</tr>
+</tbody></table>
+<h4>Memory Search (per-agent)</h4>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>agents.defaults.memorySearch.enabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable vector search over memory files</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.sources</code></td>
+<td>string[]</td>
+<td><code>[&quot;memory&quot;]</code></td>
+<td>Sources to index: <code>&quot;memory&quot;</code>, <code>&quot;sessions&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.extraPaths</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Extra paths to include in search index</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.provider</code></td>
+<td>string</td>
+<td>—</td>
+<td>Embedding provider: <code>&quot;openai&quot;</code>, <code>&quot;local&quot;</code>, <code>&quot;gemini&quot;</code>, <code>&quot;voyage&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.model</code></td>
+<td>string</td>
+<td>—</td>
+<td>Embedding model name</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.fallback</code></td>
+<td>string</td>
+<td>—</td>
+<td>Fallback provider: <code>&quot;openai&quot;</code>, <code>&quot;gemini&quot;</code>, <code>&quot;local&quot;</code>, <code>&quot;voyage&quot;</code>, <code>&quot;none&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.remote.baseUrl</code></td>
+<td>string</td>
+<td>—</td>
+<td>Custom base URL for remote embeddings</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.remote.apiKey</code></td>
+<td>string</td>
+<td>—</td>
+<td>API key for remote embedding provider (⚠️ sensitive)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.store.path</code></td>
+<td>string</td>
+<td>—</td>
+<td>SQLite index path</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.store.vector.enabled</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Enable sqlite-vec extension for vector search</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.store.vector.extensionPath</code></td>
+<td>string</td>
+<td>—</td>
+<td>Override path to sqlite-vec library</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.chunking.tokens</code></td>
+<td>number</td>
+<td>—</td>
+<td>Tokens per chunk</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.chunking.overlap</code></td>
+<td>number</td>
+<td>—</td>
+<td>Overlap tokens between chunks</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.query.maxResults</code></td>
+<td>number</td>
+<td>—</td>
+<td>Max search results</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.query.minScore</code></td>
+<td>number</td>
+<td>—</td>
+<td>Minimum similarity score (0–1)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.query.hybrid.enabled</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Enable hybrid BM25 + vector search</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.query.hybrid.vectorWeight</code></td>
+<td>number</td>
+<td>—</td>
+<td>Vector similarity weight (0–1)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.query.hybrid.textWeight</code></td>
+<td>number</td>
+<td>—</td>
+<td>BM25 text relevance weight (0–1)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.query.hybrid.mmr.enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable MMR re-ranking to reduce duplicates</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.query.hybrid.mmr.lambda</code></td>
+<td>number</td>
+<td><code>0.7</code></td>
+<td>MMR balance (0=diversity, 1=relevance)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.query.hybrid.temporalDecay.enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable recency decay</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.query.hybrid.temporalDecay.halfLifeDays</code></td>
+<td>number</td>
+<td><code>30</code></td>
+<td>Half-life in days</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.cache.enabled</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Cache chunk embeddings</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.sync.onSessionStart</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Reindex on session start</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.sync.onSearch</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Lazy reindex on search</td>
+</tr>
+<tr>
+<td><code>agents.defaults.memorySearch.sync.watch</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Watch memory files for changes</td>
+</tr>
+</tbody></table>
+<h4>Sandbox</h4>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>agents.defaults.sandbox.mode</code></td>
+<td>string</td>
+<td>—</td>
+<td>Sandbox mode: <code>&quot;off&quot;</code>, <code>&quot;non-main&quot;</code>, <code>&quot;all&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.sandbox.workspaceAccess</code></td>
+<td>string</td>
+<td>—</td>
+<td>Workspace access: <code>&quot;none&quot;</code>, <code>&quot;ro&quot;</code>, <code>&quot;rw&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.sandbox.scope</code></td>
+<td>string</td>
+<td>—</td>
+<td>Scope: <code>&quot;session&quot;</code>, <code>&quot;agent&quot;</code>, <code>&quot;shared&quot;</code></td>
+</tr>
+<tr>
+<td><code>agents.defaults.sandbox.docker.image</code></td>
+<td>string</td>
+<td>—</td>
+<td>Docker image for sandbox containers</td>
+</tr>
+<tr>
+<td><code>agents.defaults.sandbox.docker.network</code></td>
+<td>string</td>
+<td>—</td>
+<td>Docker network (not <code>&quot;host&quot;</code> — blocked for security)</td>
+</tr>
+<tr>
+<td><code>agents.defaults.sandbox.docker.memory</code></td>
+<td>string/number</td>
+<td>—</td>
+<td>Memory limit</td>
+</tr>
+<tr>
+<td><code>agents.defaults.sandbox.docker.cpus</code></td>
+<td>number</td>
+<td>—</td>
+<td>CPU limit</td>
+</tr>
+<tr>
+<td><code>agents.defaults.sandbox.browser.enabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable browser in sandbox containers</td>
+</tr>
+</tbody></table>
+<h3>Agent List</h3>
+<p>Each entry in <code>agents.list</code> defines an individual agent:</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>agents.list[].id</code></td>
+<td>string</td>
+<td><strong>required</strong></td>
+<td>Unique agent ID</td>
+</tr>
+<tr>
+<td><code>agents.list[].default</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Whether this is the default agent</td>
+</tr>
+<tr>
+<td><code>agents.list[].name</code></td>
+<td>string</td>
+<td>—</td>
+<td>Display name</td>
+</tr>
+<tr>
+<td><code>agents.list[].workspace</code></td>
+<td>string</td>
+<td>—</td>
+<td>Override workspace directory</td>
+</tr>
+<tr>
+<td><code>agents.list[].agentDir</code></td>
+<td>string</td>
+<td>—</td>
+<td>Custom agent data directory</td>
+</tr>
+<tr>
+<td><code>agents.list[].model</code></td>
+<td>string/object</td>
+<td>—</td>
+<td>Model override (string or <code>{primary, fallbacks}</code>)</td>
+</tr>
+<tr>
+<td><code>agents.list[].skills</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Skill allowlist (omit = all, empty = none)</td>
+</tr>
+<tr>
+<td><code>agents.list[].identity.name</code></td>
+<td>string</td>
+<td>—</td>
+<td>Agent&#39;s display name</td>
+</tr>
+<tr>
+<td><code>agents.list[].identity.theme</code></td>
+<td>string</td>
+<td>—</td>
+<td>Agent&#39;s theme</td>
+</tr>
+<tr>
+<td><code>agents.list[].identity.emoji</code></td>
+<td>string</td>
+<td>—</td>
+<td>Agent&#39;s emoji</td>
+</tr>
+<tr>
+<td><code>agents.list[].identity.avatar</code></td>
+<td>string</td>
+<td>—</td>
+<td>Avatar path, URL, or data URI</td>
+</tr>
+<tr>
+<td><code>agents.list[].heartbeat</code></td>
+<td>object</td>
+<td>—</td>
+<td>Per-agent heartbeat override (same schema as defaults)</td>
+</tr>
+<tr>
+<td><code>agents.list[].memorySearch</code></td>
+<td>object</td>
+<td>—</td>
+<td>Per-agent memory search override</td>
+</tr>
+<tr>
+<td><code>agents.list[].tools</code></td>
+<td>object</td>
+<td>—</td>
+<td>Per-agent tool policy override</td>
+</tr>
+<tr>
+<td><code>agents.list[].sandbox</code></td>
+<td>object</td>
+<td>—</td>
+<td>Per-agent sandbox override</td>
+</tr>
+<tr>
+<td><code>agents.list[].groupChat</code></td>
+<td>object</td>
+<td>—</td>
+<td>Group chat settings (mentionPatterns, historyLimit)</td>
+</tr>
+<tr>
+<td><code>agents.list[].subagents</code></td>
+<td>object</td>
+<td>—</td>
+<td>Per-agent subagent settings</td>
+</tr>
+<tr>
+<td><code>agents.list[].humanDelay</code></td>
+<td>object</td>
+<td>—</td>
+<td>Per-agent human delay settings</td>
+</tr>
+</tbody></table>
+<pre><code class="language-json">{
+  &quot;agents&quot;: {
+    &quot;defaults&quot;: {
+      &quot;model&quot;: { &quot;primary&quot;: &quot;anthropic/claude-sonnet-4-20250514&quot; },
+      &quot;workspace&quot;: &quot;/home/user&quot;,
+      &quot;userTimezone&quot;: &quot;America/Denver&quot;,
+      &quot;thinkingDefault&quot;: &quot;high&quot;,
+      &quot;memorySearch&quot;: {
+        &quot;enabled&quot;: true,
+        &quot;provider&quot;: &quot;openai&quot;
+      },
+      &quot;heartbeat&quot;: {
+        &quot;every&quot;: &quot;30m&quot;,
+        &quot;activeHours&quot;: { &quot;start&quot;: &quot;08:00&quot;, &quot;end&quot;: &quot;23:00&quot;, &quot;timezone&quot;: &quot;America/Denver&quot; },
+        &quot;prompt&quot;: &quot;Read HEARTBEAT.md if it exists. If nothing needs attention, reply HEARTBEAT_OK.&quot;
+      }
+    },
+    &quot;list&quot;: [
+      {
+        &quot;id&quot;: &quot;main&quot;,
+        &quot;default&quot;: true,
+        &quot;identity&quot;: { &quot;name&quot;: &quot;Assistant&quot;, &quot;emoji&quot;: &quot;🤖&quot; },
+        &quot;model&quot;: &quot;anthropic/claude-sonnet-4-20250514&quot;
+      }
+    ]
+  }
+}
+</code></pre>
+<hr>
+<h2>13. Tools</h2>
+<p><strong>What it is:</strong> Global tool policies — which tools agents can use, exec settings, web search/fetch configuration, media understanding, link analysis, messaging cross-context rules, and loop detection.</p>
+<p><strong>When you need it:</strong> Restricting tool access, configuring web search (Brave/Perplexity), setting exec security levels, enabling media understanding (images/audio/video), or tuning loop detection.</p>
+<h3>Tool Policy</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tools.profile</code></td>
+<td>string</td>
+<td>—</td>
+<td>Tool profile: <code>&quot;minimal&quot;</code>, <code>&quot;coding&quot;</code>, <code>&quot;messaging&quot;</code>, <code>&quot;full&quot;</code></td>
+</tr>
+<tr>
+<td><code>tools.allow</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Explicit tool allowlist (overrides profile)</td>
+</tr>
+<tr>
+<td><code>tools.alsoAllow</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Additional tools on top of the profile</td>
+</tr>
+<tr>
+<td><code>tools.deny</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Tools to deny regardless of allow/profile</td>
+</tr>
+<tr>
+<td><code>tools.byProvider</code></td>
+<td>object</td>
+<td>—</td>
+<td>Per-provider tool policy overrides</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>⚠️ Warning:</strong> Don&#39;t set both <code>allow</code> and <code>alsoAllow</code> in the same scope — use <code>allow</code> for full control or <code>alsoAllow</code> to extend a profile.</p>
+</blockquote>
+<h3>Exec Settings</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tools.exec.host</code></td>
+<td>string</td>
+<td>—</td>
+<td>Where to run: <code>&quot;sandbox&quot;</code>, <code>&quot;gateway&quot;</code>, <code>&quot;node&quot;</code></td>
+</tr>
+<tr>
+<td><code>tools.exec.security</code></td>
+<td>string</td>
+<td>—</td>
+<td>Security level: <code>&quot;deny&quot;</code>, <code>&quot;allowlist&quot;</code>, <code>&quot;full&quot;</code></td>
+</tr>
+<tr>
+<td><code>tools.exec.ask</code></td>
+<td>string</td>
+<td>—</td>
+<td>Approval mode: <code>&quot;off&quot;</code>, <code>&quot;on-miss&quot;</code>, <code>&quot;always&quot;</code></td>
+</tr>
+<tr>
+<td><code>tools.exec.node</code></td>
+<td>string</td>
+<td>—</td>
+<td>Pin exec to a specific node</td>
+</tr>
+<tr>
+<td><code>tools.exec.pathPrepend</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Directories to prepend to PATH</td>
+</tr>
+<tr>
+<td><code>tools.exec.safeBins</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Safe stdin-only binaries allowed without explicit allowlist</td>
+</tr>
+<tr>
+<td><code>tools.exec.backgroundMs</code></td>
+<td>number</td>
+<td>—</td>
+<td>Default background timeout (ms)</td>
+</tr>
+<tr>
+<td><code>tools.exec.timeoutSec</code></td>
+<td>number</td>
+<td>—</td>
+<td>Default exec timeout (seconds)</td>
+</tr>
+<tr>
+<td><code>tools.exec.cleanupMs</code></td>
+<td>number</td>
+<td>—</td>
+<td>Cleanup timeout (ms) after exec completes</td>
+</tr>
+<tr>
+<td><code>tools.exec.notifyOnExit</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Enqueue system event when backgrounded exec exits</td>
+</tr>
+<tr>
+<td><code>tools.exec.notifyOnExitEmptySuccess</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Notify even on empty successful exit</td>
+</tr>
+<tr>
+<td><code>tools.exec.applyPatch.enabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable apply_patch for OpenAI models</td>
+</tr>
+<tr>
+<td><code>tools.exec.applyPatch.workspaceOnly</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Restrict apply_patch to workspace</td>
+</tr>
+<tr>
+<td><code>tools.exec.applyPatch.allowModels</code></td>
+<td>string[]</td>
+<td>—</td>
+<td>Model allowlist for apply_patch</td>
+</tr>
+</tbody></table>
+<h3>File System</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tools.fs.workspaceOnly</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Restrict filesystem tools to workspace directory</td>
+</tr>
+</tbody></table>
+<h3>Web Search</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tools.web.search.enabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable web_search tool</td>
+</tr>
+<tr>
+<td><code>tools.web.search.provider</code></td>
+<td>string</td>
+<td>—</td>
+<td>Provider: <code>&quot;brave&quot;</code>, <code>&quot;perplexity&quot;</code>, <code>&quot;grok&quot;</code></td>
+</tr>
+<tr>
+<td><code>tools.web.search.apiKey</code></td>
+<td>string</td>
+<td>—</td>
+<td>Brave Search API key (⚠️ sensitive; fallback: <code>BRAVE_API_KEY</code> env)</td>
+</tr>
+<tr>
+<td><code>tools.web.search.maxResults</code></td>
+<td>number</td>
+<td>—</td>
+<td>Default results count (1–10)</td>
+</tr>
+<tr>
+<td><code>tools.web.search.timeoutSeconds</code></td>
+<td>number</td>
+<td>—</td>
+<td>Request timeout (seconds)</td>
+</tr>
+<tr>
+<td><code>tools.web.search.cacheTtlMinutes</code></td>
+<td>number</td>
+<td>—</td>
+<td>Cache TTL (minutes)</td>
+</tr>
+<tr>
+<td><code>tools.web.search.perplexity.apiKey</code></td>
+<td>string</td>
+<td>—</td>
+<td>Perplexity/OpenRouter API key (⚠️ sensitive)</td>
+</tr>
+<tr>
+<td><code>tools.web.search.perplexity.baseUrl</code></td>
+<td>string</td>
+<td>—</td>
+<td>Base URL override</td>
+</tr>
+<tr>
+<td><code>tools.web.search.perplexity.model</code></td>
+<td>string</td>
+<td><code>&quot;perplexity/sonar-pro&quot;</code></td>
+<td>Model override</td>
+</tr>
+<tr>
+<td><code>tools.web.search.grok.apiKey</code></td>
+<td>string</td>
+<td>—</td>
+<td>Grok API key (⚠️ sensitive)</td>
+</tr>
+<tr>
+<td><code>tools.web.search.grok.model</code></td>
+<td>string</td>
+<td>—</td>
+<td>Grok model</td>
+</tr>
+<tr>
+<td><code>tools.web.search.grok.inlineCitations</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable inline citations</td>
+</tr>
+</tbody></table>
+<h3>Web Fetch</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tools.web.fetch.enabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable web_fetch tool</td>
+</tr>
+<tr>
+<td><code>tools.web.fetch.maxChars</code></td>
+<td>number</td>
+<td>—</td>
+<td>Max characters returned (truncated)</td>
+</tr>
+<tr>
+<td><code>tools.web.fetch.maxCharsCap</code></td>
+<td>number</td>
+<td>—</td>
+<td>Hard cap for maxChars</td>
+</tr>
+<tr>
+<td><code>tools.web.fetch.timeoutSeconds</code></td>
+<td>number</td>
+<td>—</td>
+<td>Request timeout (seconds)</td>
+</tr>
+<tr>
+<td><code>tools.web.fetch.cacheTtlMinutes</code></td>
+<td>number</td>
+<td>—</td>
+<td>Cache TTL (minutes)</td>
+</tr>
+<tr>
+<td><code>tools.web.fetch.maxRedirects</code></td>
+<td>number</td>
+<td><code>3</code></td>
+<td>Maximum redirects</td>
+</tr>
+<tr>
+<td><code>tools.web.fetch.userAgent</code></td>
+<td>string</td>
+<td>—</td>
+<td>Custom User-Agent header</td>
+</tr>
+</tbody></table>
+<h3>Media Understanding</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tools.media.models</code></td>
+<td>array</td>
+<td>—</td>
+<td>Shared models for media understanding</td>
+</tr>
+<tr>
+<td><code>tools.media.concurrency</code></td>
+<td>number</td>
+<td>—</td>
+<td>Max concurrent media processing</td>
+</tr>
+<tr>
+<td><code>tools.media.image.enabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable image understanding</td>
+</tr>
+<tr>
+<td><code>tools.media.image.maxBytes</code></td>
+<td>number</td>
+<td>—</td>
+<td>Max image file size</td>
+</tr>
+<tr>
+<td><code>tools.media.image.maxChars</code></td>
+<td>number</td>
+<td>—</td>
+<td>Max chars in analysis output</td>
+</tr>
+<tr>
+<td><code>tools.media.image.prompt</code></td>
+<td>string</td>
+<td>—</td>
+<td>Custom prompt for image analysis</td>
+</tr>
+<tr>
+<td><code>tools.media.audio.enabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable audio understanding</td>
+</tr>
+<tr>
+<td><code>tools.media.audio.language</code></td>
+<td>string</td>
+<td>—</td>
+<td>Audio language hint</td>
+</tr>
+<tr>
+<td><code>tools.media.video.enabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable video understanding</td>
+</tr>
+</tbody></table>
+<h3>Link Understanding</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tools.links.enabled</code></td>
+<td>boolean</td>
+<td>—</td>
+<td>Enable link extraction and analysis</td>
+</tr>
+<tr>
+<td><code>tools.links.maxLinks</code></td>
+<td>number</td>
+<td>—</td>
+<td>Max links to process per message</td>
+</tr>
+<tr>
+<td><code>tools.links.timeoutSeconds</code></td>
+<td>number</td>
+<td>—</td>
+<td>Timeout per link</td>
+</tr>
+</tbody></table>
+<h3>Messaging</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tools.message.crossContext.allowWithinProvider</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Allow sends within same provider</td>
+</
+  </main>
+</div>
+<button class="top-btn" id="top" onclick="scrollTo({top:0,behavior:'smooth'})">↑</button>
+<script>
+const toc=document.getElementById('toc');
+document.querySelectorAll('#content h2,#content h3').forEach((h,i)=>{
+  if(!h.id)h.id='s'+i;
+  const li=document.createElement('li');
+  const a=document.createElement('a');
+  a.href='#'+h.id;a.textContent=h.textContent;
+  a.className=h.tagName.toLowerCase();
+  li.appendChild(a);toc.appendChild(li);
+});
+const b=document.getElementById('top');
+addEventListener('scroll',()=>b.classList.toggle('on',scrollY>300));
+</script>
+</body>
+</html>

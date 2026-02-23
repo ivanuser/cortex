@@ -1663,423 +1663,75 @@ Key mappings:
 
 ## 23. Configuration Reference
 
-The Cortex gateway is configured via a JSON file (typically `~/.openclaw/config.json`). This section documents the major configuration sections.
+The OpenClaw gateway is configured via a JSON file at `~/.openclaw/openclaw.json`. You can edit it through the **Gateway Config** UI page (Form mode or Raw JSON) or directly in the file. Changes require **Apply & Restart** to take effect.
 
-### Gateway Settings
+> **📖 Full Reference:** See **[CONFIG-REFERENCE.md](CONFIG-REFERENCE.md)** for the complete configuration reference with every setting, type, default, and example.
 
-Core gateway network and server configuration:
+### Configuration Sections Summary
+
+The Gateway Config UI organizes settings into these sections:
+
+| Section         | Config Key    | Description                                                                                                     |
+| --------------- | ------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Meta**        | `meta`        | Version tracking metadata (auto-managed)                                                                        |
+| **Env**         | `env`         | Environment variables and shell env loading                                                                     |
+| **Wizard**      | `wizard`      | Setup wizard state (auto-managed)                                                                               |
+| **Diagnostics** | `diagnostics` | OpenTelemetry, cache tracing, debug flags                                                                       |
+| **Logging**     | `logging`     | Log levels, file paths, console output, redaction                                                               |
+| **Update**      | `update`      | Auto-update channel (`stable`/`beta`/`dev`)                                                                     |
+| **Browser**     | `browser`     | Browser control, CDP ports, profiles, SSRF policy                                                               |
+| **UI**          | `ui`          | Web UI accent color, assistant name/avatar                                                                      |
+| **Auth**        | `auth`        | API key profiles, failover order, billing cooldowns                                                             |
+| **Models**      | `models`      | LLM providers (OpenAI, Anthropic, Ollama, Bedrock, custom)                                                      |
+| **Node Host**   | `nodeHost`    | Node hosting, browser proxy                                                                                     |
+| **Agents**      | `agents`      | Agent list, defaults, model, heartbeat, identity, sandbox                                                       |
+| **Tools**       | `tools`       | Tool policies, exec, web search/fetch, media, loop detection                                                    |
+| **Bindings**    | `bindings`    | Channel-to-agent routing rules                                                                                  |
+| **Broadcast**   | `broadcast`   | Multi-agent message broadcasting                                                                                |
+| **Audio**       | `audio`       | Audio transcription settings                                                                                    |
+| **Media**       | `media`       | Media handling (filename preservation)                                                                          |
+| **Messages**    | `messages`    | Message queue, ack reactions, status reactions, TTS                                                             |
+| **Commands**    | `commands`    | Slash commands, `/bash`, `/config`, `/debug` access                                                             |
+| **Approvals**   | `approvals`   | Exec approval forwarding to reviewers                                                                           |
+| **Session**     | `session`     | Session scope, reset, maintenance, typing indicators                                                            |
+| **Cron**        | `cron`        | Scheduled job configuration                                                                                     |
+| **Hooks**       | `hooks`       | Webhook endpoints, Gmail integration, internal hooks                                                            |
+| **Web**         | `web`         | WebChat/WebSocket client settings                                                                               |
+| **Channels**    | `channels`    | Channel plugins (Discord, Telegram, WhatsApp, Slack, Signal, IRC, iMessage, MS Teams, Google Chat, BlueBubbles) |
+| **Discovery**   | `discovery`   | mDNS and wide-area service discovery                                                                            |
+| **Canvas Host** | `canvasHost`  | Canvas hosting for rich UI rendering                                                                            |
+| **Talk**        | `talk`        | Voice/talk mode, voice IDs, aliases                                                                             |
+| **Gateway**     | `gateway`     | Core server: port, bind, TLS, auth, Control UI, security                                                        |
+| **Memory**      | `memory`      | Memory backend (builtin embeddings or QMD sidecar)                                                              |
+| **Skills**      | `skills`      | Skill loading, limits, per-skill config                                                                         |
+| **Plugins**     | `plugins`     | Plugin system, slots, install records                                                                           |
+
+### Quick Start Example
 
 ```json
 {
   "gateway": {
     "port": 18789,
-    "mode": "local",
-    "bind": "auto"
-  }
-}
-```
-
-| Key                      | Type   | Default   | Description                                                                     |
-| ------------------------ | ------ | --------- | ------------------------------------------------------------------------------- |
-| `gateway.port`           | number | `18789`   | WebSocket/HTTP server port                                                      |
-| `gateway.mode`           | string | `"local"` | Gateway mode: `"local"` or `"remote"`                                           |
-| `gateway.bind`           | string | `"auto"`  | Bind address strategy: `"auto"`, `"lan"`, `"loopback"`, `"custom"`, `"tailnet"` |
-| `gateway.customBindHost` | string | —         | Custom bind hostname (when bind = "custom")                                     |
-
-### Control UI Settings
-
-```json
-{
-  "gateway": {
-    "controlUi": {
-      "enabled": true,
-      "basePath": "/",
-      "allowedOrigins": ["https://cortex.example.com"],
-      "allowInsecureAuth": false,
-      "dangerouslyDisableDeviceAuth": false
-    }
-  }
-}
-```
-
-| Key                                              | Type     | Default | Description                         |
-| ------------------------------------------------ | -------- | ------- | ----------------------------------- |
-| `gateway.controlUi.enabled`                      | boolean  | `true`  | Enable/disable the Cortex web UI    |
-| `gateway.controlUi.basePath`                     | string   | `"/"`   | URL base path for the UI            |
-| `gateway.controlUi.root`                         | string   | —       | Custom UI assets directory          |
-| `gateway.controlUi.allowedOrigins`               | string[] | —       | CORS allowed origins for the UI     |
-| `gateway.controlUi.allowInsecureAuth`            | boolean  | `false` | Allow auth over non-TLS connections |
-| `gateway.controlUi.dangerouslyDisableDeviceAuth` | boolean  | `false` | ⚠️ Disable device auth entirely     |
-
-> **⚠️ Warning:** Never set `dangerouslyDisableDeviceAuth: true` in production. This completely disables authentication.
-
-### Auth Settings
-
-```json
-{
-  "gateway": {
-    "auth": {
-      "mode": "token",
-      "token": "your-secret-token",
-      "rateLimit": {
-        "maxAttempts": 5,
-        "windowMs": 60000,
-        "lockoutMs": 300000
-      }
-    }
-  }
-}
-```
-
-| Key                                  | Type    | Default  | Description                                                     |
-| ------------------------------------ | ------- | -------- | --------------------------------------------------------------- |
-| `gateway.auth.mode`                  | string  | `"none"` | Auth mode: `"none"`, `"token"`, `"password"`, `"trusted-proxy"` |
-| `gateway.auth.token`                 | string  | —        | Gateway-level auth token (⚠️ sensitive)                         |
-| `gateway.auth.password`              | string  | —        | Gateway-level password (⚠️ sensitive)                           |
-| `gateway.auth.allowTailscale`        | boolean | —        | Allow Tailscale-authenticated connections                       |
-| `gateway.auth.rateLimit.maxAttempts` | number  | —        | Max failed auth attempts before lockout                         |
-| `gateway.auth.rateLimit.windowMs`    | number  | —        | Rate limit time window in milliseconds                          |
-| `gateway.auth.rateLimit.lockoutMs`   | number  | —        | Lockout duration after max attempts                             |
-
-### Security Settings
-
-```json
-{
-  "gateway": {
-    "security": {
-      "lanAutoApprove": false,
-      "lanAutoApproveRole": "operator"
-    },
-    "trustedProxies": ["127.0.0.1", "::1"]
-  }
-}
-```
-
-| Key                                   | Type     | Default | Description                            |
-| ------------------------------------- | -------- | ------- | -------------------------------------- |
-| `gateway.security.lanAutoApprove`     | boolean  | `false` | Auto-approve device pairing from LAN   |
-| `gateway.security.lanAutoApproveRole` | string   | —       | Role assigned to auto-approved devices |
-| `gateway.trustedProxies`              | string[] | —       | IPs treated as trusted reverse proxies |
-
-### TLS Settings
-
-```json
-{
-  "gateway": {
-    "tls": {
-      "enabled": true,
-      "autoGenerate": false,
-      "certPath": "/path/to/cert.pem",
-      "keyPath": "/path/to/key.pem",
-      "caPath": "/path/to/ca.pem"
-    }
-  }
-}
-```
-
-### Model Provider Configuration
-
-```json
-{
-  "auth": {
-    "profiles": {
-      "anthropic-main": {
-        "provider": "anthropic",
-        "mode": "api_key"
-      },
-      "openai-fallback": {
-        "provider": "openai",
-        "mode": "api_key"
-      }
-    },
-    "order": {
-      "anthropic": ["anthropic-main"],
-      "openai": ["openai-fallback"]
-    },
-    "cooldowns": {
-      "billingBackoffHours": 1,
-      "billingMaxHours": 24,
-      "failureWindowHours": 2
-    }
-  }
-}
-```
-
-| Key                                  | Type     | Description                                     |
-| ------------------------------------ | -------- | ----------------------------------------------- |
-| `auth.profiles.<name>.provider`      | string   | Provider name (anthropic, openai, google, etc.) |
-| `auth.profiles.<name>.mode`          | string   | Auth mode: `"api_key"`, `"oauth"`, `"token"`    |
-| `auth.order.<provider>`              | string[] | Profile priority order for each provider        |
-| `auth.cooldowns.billingBackoffHours` | number   | Backoff hours after billing errors              |
-
-### Agent Configuration
-
-```json
-{
+    "auth": { "mode": "token", "token": "your-secret" }
+  },
   "agents": {
     "defaults": {
-      "model": "claude-sonnet-4-6",
-      "heartbeat": {
-        "enabled": true,
-        "intervalMinutes": 30,
-        "target": "last"
-      }
+      "model": { "primary": "anthropic/claude-sonnet-4-20250514" },
+      "workspace": "/home/user"
     },
-    "list": [
-      {
-        "id": "main",
-        "identity": {
-          "name": "Assistant",
-          "emoji": "🤖"
-        },
-        "model": "claude-sonnet-4-6",
-        "default": true
-      }
-    ]
-  }
-}
-```
-
-### Channel Configuration
-
-Each channel has its own configuration section under `channels`:
-
-```json
-{
+    "list": [{ "id": "main", "default": true, "identity": { "name": "Assistant", "emoji": "🤖" } }]
+  },
   "channels": {
     "discord": {
       "token": "your-discord-bot-token",
-      "allowedGuilds": ["guild-id"],
-      "allowedChannels": ["channel-id"]
-    },
-    "telegram": {
-      "token": "123456:ABC-DEF...",
-      "allowedUsers": ["username"]
-    },
-    "whatsapp": {
-      "authDir": "~/.openclaw/whatsapp-auth"
-    },
-    "signal": {
-      "number": "+1234567890"
-    },
-    "slack": {
-      "botToken": "xoxb-...",
-      "appToken": "xapp-..."
+      "dmPolicy": "pairing",
+      "groupPolicy": "allowlist"
     }
   }
 }
 ```
 
-### Memory Configuration
-
-```json
-{
-  "memory": {
-    "backend": "builtin",
-    "citations": "auto",
-    "qmd": {
-      "searchMode": "search",
-      "includeDefaultMemory": true,
-      "paths": [
-        {
-          "path": "~/.openclaw/workspace/memory",
-          "name": "daily-notes",
-          "pattern": "*.md"
-        }
-      ],
-      "sessions": {
-        "enabled": true,
-        "retentionDays": 30
-      },
-      "update": {
-        "interval": "30m",
-        "onBoot": true
-      },
-      "limits": {
-        "maxResults": 20,
-        "maxSnippetChars": 500,
-        "maxInjectedChars": 10000,
-        "timeoutMs": 30000
-      }
-    }
-  }
-}
-```
-
-| Key                     | Type   | Default     | Description                                     |
-| ----------------------- | ------ | ----------- | ----------------------------------------------- |
-| `memory.backend`        | string | `"builtin"` | Memory backend: `"builtin"` or `"qmd"`          |
-| `memory.citations`      | string | `"auto"`    | Citation mode: `"auto"`, `"on"`, `"off"`        |
-| `memory.qmd.searchMode` | string | `"search"`  | Search mode: `"query"`, `"search"`, `"vsearch"` |
-
-### Cron Configuration
-
-```json
-{
-  "cron": {
-    "enabled": true,
-    "store": "~/.openclaw/cron.db",
-    "maxConcurrentRuns": 3,
-    "sessionRetention": "7d"
-  }
-}
-```
-
-| Key                      | Type         | Default | Description                     |
-| ------------------------ | ------------ | ------- | ------------------------------- |
-| `cron.enabled`           | boolean      | —       | Enable/disable cron scheduler   |
-| `cron.store`             | string       | —       | Path to cron job database       |
-| `cron.maxConcurrentRuns` | number       | —       | Max jobs running simultaneously |
-| `cron.sessionRetention`  | string/false | —       | Auto-cleanup of cron sessions   |
-
-### Exec Approval Configuration
-
-```json
-{
-  "approvals": {
-    "mode": "allowlist",
-    "timeoutSeconds": 120,
-    "allowlist": ["ls *", "cat *", "git status"]
-  }
-}
-```
-
-### Logging Configuration
-
-```json
-{
-  "logging": {
-    "level": "info",
-    "file": "/tmp/openclaw/openclaw.log",
-    "consoleLevel": "warn",
-    "consoleStyle": "pretty",
-    "redactSensitive": "tools",
-    "redactPatterns": ["password", "token", "api_key"]
-  }
-}
-```
-
-| Key                       | Type     | Default    | Description                                       |
-| ------------------------- | -------- | ---------- | ------------------------------------------------- |
-| `logging.level`           | string   | `"info"`   | File log level                                    |
-| `logging.file`            | string   | —          | Log file path                                     |
-| `logging.consoleLevel`    | string   | —          | Console output level                              |
-| `logging.consoleStyle`    | string   | `"pretty"` | Console format: `"pretty"`, `"compact"`, `"json"` |
-| `logging.redactSensitive` | string   | —          | Redaction mode: `"off"` or `"tools"`              |
-| `logging.redactPatterns`  | string[] | —          | Additional patterns to redact                     |
-
-### Browser Configuration
-
-```json
-{
-  "browser": {
-    "enabled": true,
-    "headless": true,
-    "noSandbox": true,
-    "evaluateEnabled": false,
-    "defaultProfile": "openclaw",
-    "profiles": {
-      "openclaw": {
-        "cdpPort": 18792,
-        "driver": "clawd",
-        "color": "#00bcd4"
-      }
-    },
-    "ssrfPolicy": {
-      "allowPrivateNetwork": false,
-      "allowedHostnames": []
-    }
-  }
-}
-```
-
-### UI Configuration
-
-```json
-{
-  "ui": {
-    "seamColor": "#7c4dff",
-    "assistant": {
-      "name": "Cortex",
-      "avatar": "https://example.com/avatar.png"
-    }
-  }
-}
-```
-
-### Skills Configuration
-
-```json
-{
-  "skills": {
-    "allowBundled": ["docker", "git", "ssh", "1password"],
-    "load": {
-      "extraDirs": ["/opt/custom-skills"],
-      "watch": true,
-      "watchDebounceMs": 1000
-    },
-    "limits": {
-      "maxCandidatesPerRoot": 100,
-      "maxSkillsLoadedPerSource": 50,
-      "maxSkillsInPrompt": 10,
-      "maxSkillsPromptChars": 50000,
-      "maxSkillFileBytes": 65536
-    }
-  }
-}
-```
-
-### Hooks Configuration
-
-```json
-{
-  "hooks": {
-    "enabled": true,
-    "path": "/hooks",
-    "token": "your-webhook-secret",
-    "defaultSessionKey": "hooks",
-    "maxBodyBytes": 1048576
-  }
-}
-```
-
-### Discovery Configuration
-
-```json
-{
-  "discovery": {
-    "wideArea": {
-      "enabled": false
-    },
-    "mdns": {
-      "mode": "minimal"
-    }
-  }
-}
-```
-
-| Key                          | Type    | Default | Description                               |
-| ---------------------------- | ------- | ------- | ----------------------------------------- |
-| `discovery.wideArea.enabled` | boolean | `false` | Enable wide-area DNS discovery            |
-| `discovery.mdns.mode`        | string  | —       | mDNS mode: `"off"`, `"minimal"`, `"full"` |
-
-### Plugins Configuration
-
-```json
-{
-  "plugins": {
-    "enabled": true,
-    "allow": ["plugin-a"],
-    "deny": ["plugin-b"],
-    "load": {
-      "paths": ["/opt/cortex-plugins"]
-    },
-    "slots": {
-      "memory": "custom-memory-plugin"
-    }
-  }
-}
-```
+> **Tip:** Start with the wizard (`openclaw wizard`) to generate a working config, then customize via the Gateway Config UI.
 
 ---
 
