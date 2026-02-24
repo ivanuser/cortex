@@ -633,6 +633,25 @@ export function attachGatewayWsMessageHandler(params: {
         if (!authOk && ctxTokenValidation) {
           authOk = true;
           authMethod = "api-token";
+          // Populate connection scopes based on token role so that
+          // authorizeGatewayMethod (which checks client.connect.scopes)
+          // grants the correct access level for ctx_ API token connections.
+          const tokenRole = ctxTokenValidation.role ?? "admin";
+          if (tokenRole === "admin") {
+            scopes = [
+              "operator.admin",
+              "operator.read",
+              "operator.write",
+              "operator.approvals",
+              "operator.pairing",
+            ];
+          } else if (tokenRole === "operator") {
+            scopes = ["operator.read", "operator.write", "operator.approvals", "operator.pairing"];
+          } else if (tokenRole === "viewer") {
+            scopes = ["operator.read"];
+          }
+          // chat-only role gets empty scopes — Phase 3 authorize() handles chat permissions
+          connectParams.scopes = scopes;
         }
 
         if (!authOk && connectParams.auth?.token && device) {
