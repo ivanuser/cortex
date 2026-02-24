@@ -4,6 +4,18 @@
 >
 > Cortex v3.10+ · Last updated February 2026
 
+<div style="background: var(--card); padding: 16px 20px; border-radius: 8px; margin: 24px 0; border-left: 4px solid var(--cyan);">
+  <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+    <div style="font-weight: 600; color: var(--cyan); margin-right: 8px;">📖 Related Docs:</div>
+    <a href="plan.html" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--bg); border-radius: 6px; text-decoration: none; color: var(--text); font-size: 14px; transition: 0.15s;">
+      <span>🧠</span> Project Plan
+    </a>
+    <a href="config-reference.html" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--bg); border-radius: 6px; text-decoration: none; color: var(--text); font-size: 14px; transition: 0.15s;">
+      <span>⚙️</span> Config Reference
+    </a>
+  </div>
+</div>
+
 ---
 
 ## Table of Contents

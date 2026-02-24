@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cortex Project Plan</title>
+  <style>
+    :root {
+      --bg: #0a0e1a; --bg2: #111827; --card: #1a1f2e; --code-bg: #151b2d;
+      --text: #e2e8f0; --text2: #94a3b8; --muted: #64748b;
+      --accent: #7c4dff; --cyan: #22d3ee; --green: #10b981;
+      --orange: #f59e0b; --red: #ef4444; --border: #1e293b;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px;
+    }
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 280px; background: var(--bg2); border-right: 1px solid var(--border);
+      padding: 20px 12px; position: fixed; top: 0; left: 0; bottom: 0;
+      overflow-y: auto; z-index: 10;
+    }
+    .sidebar-hdr {
+      display: flex; align-items: center; gap: 10px;
+      padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px;
+    }
+    .sidebar-hdr .logo {
+      font-size: 22px; font-weight: 700;
+      background: linear-gradient(135deg, var(--cyan), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .sidebar-hdr .badge {
+      font-size: 11px; padding: 2px 8px; border-radius: 12px;
+      background: var(--accent); color: white; font-weight: 600;
+    }
+    .back-link {
+      display: block; padding: 8px 10px; margin-bottom: 12px;
+      color: var(--cyan); text-decoration: none; font-size: 14px;
+      border-radius: 5px; transition: 0.15s;
+    }
+    .back-link:hover { background: var(--card); }
+    .toc { list-style: none; }
+    .toc li { margin-bottom: 1px; }
+    .toc a {
+      display: block; padding: 5px 10px; color: var(--text2); text-decoration: none;
+      border-radius: 5px; font-size: 13px; transition: all 0.15s;
+    }
+    .toc a:hover { background: var(--card); color: var(--cyan); }
+    .toc .h2 { padding-left: 10px; font-weight: 600; color: var(--text); font-size: 14px; }
+    .toc .h3 { padding-left: 24px; font-size: 12px; }
+    .main {
+      margin-left: 280px; flex: 1; max-width: 880px; padding: 36px 44px 80px;
+    }
+    h1 {
+      font-size: 2.4rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--cyan), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 8px; line-height: 1.2;
+    }
+    h2 {
+      font-size: 1.65rem; font-weight: 700; color: var(--cyan);
+      margin-top: 48px; margin-bottom: 14px; padding-bottom: 6px;
+      border-bottom: 2px solid #7c4dff40;
+    }
+    h3 { font-size: 1.2rem; font-weight: 600; color: var(--text); margin-top: 28px; margin-bottom: 10px; }
+    h4 { font-size: 1.05rem; font-weight: 600; color: var(--accent); margin-top: 20px; margin-bottom: 6px; }
+    p { margin-bottom: 14px; }
+    a { color: var(--cyan); text-decoration: none; border-bottom: 1px solid transparent; transition: 0.15s; }
+    a:hover { border-bottom-color: var(--cyan); }
+    ul, ol { margin-bottom: 14px; padding-left: 22px; }
+    li { margin-bottom: 5px; }
+    li strong { color: var(--cyan); }
+    code {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.88em;
+      background: var(--code-bg); padding: 2px 5px; border-radius: 3px;
+      color: var(--cyan); border: 1px solid var(--border);
+    }
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px 18px; overflow-x: auto; margin-bottom: 18px;
+    }
+    pre code { background: none; border: none; padding: 0; color: var(--text); font-size: 0.84em; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 0.88em; }
+    th {
+      background: var(--card); color: var(--cyan); font-weight: 600;
+      text-align: left; padding: 8px 12px; border: 1px solid var(--border);
+    }
+    td { padding: 7px 12px; border: 1px solid var(--border); }
+    tr:nth-child(even) td { background: var(--bg2); }
+    tr:hover td { background: var(--card); }
+    img {
+      max-width: 100%; border-radius: 10px; border: 2px solid var(--border);
+      margin: 14px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.4); transition: 0.2s;
+    }
+    blockquote {
+      border-left: 4px solid var(--accent); background: var(--card);
+      padding: 14px 18px; margin: 14px 0; border-radius: 0 8px 8px 0;
+    }
+    blockquote p { margin-bottom: 6px; color: var(--text2); }
+    blockquote p:last-child { margin-bottom: 0; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+    .top-btn {
+      position: fixed; bottom: 20px; right: 20px; width: 42px; height: 42px;
+      background: var(--accent); color: white; border: none; border-radius: 50%;
+      font-size: 18px; cursor: pointer; opacity: 0; transition: 0.3s; z-index: 20;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .top-btn.on { opacity: 1; }
+    .top-btn:hover { background: var(--cyan); }
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 20px 16px; }
+    }
+    ::-webkit-scrollbar { width: 7px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar">
+    <div class="sidebar-hdr"><span class="logo">🦞 Cortex</span><span class="badge">PLAN</span></div>
+    <a class="back-link" href="index.html">← Back to Main Guide</a>
+    <ul class="toc" id="toc"></ul>
+  </nav>
+  <main class="main" id="content">
+<h1>🧠 CORTEX — Project Plan</h1>
+<p><strong>Version:</strong> v3.10.2
+<strong>Date:</strong> February 24, 2026
+<strong>Author:</strong> Ivan Honer
+<strong>Repository:</strong> <a href="https://gitlab.honercloud.com/llm/cortex-fork">https://gitlab.honercloud.com/llm/cortex-fork</a>
+<strong>Status:</strong> Production Ready</p>
+<hr>
+<h2>Table of Contents</h2>
+<ol>
+<li><a href="#1-project-overview">Project Overview</a></li>
+<li><a href="#2-architecture">Architecture</a></li>
+<li><a href="#3-tech-stack">Tech Stack</a></li>
+<li><a href="#4-completed-milestones">Completed Milestones</a></li>
+<li><a href="#5-current-state">Current State</a></li>
+<li><a href="#6-active-development">Active Development</a></li>
+<li><a href="#7-roadmap">Roadmap</a></li>
+<li><a href="#8-key-technical-decisions">Key Technical Decisions</a></li>
+<li><a href="#9-infrastructure">Infrastructure</a></li>
+<li><a href="#10-links">Links</a></li>
+</ol>
+<hr>
+<h2>1. Project Overview</h2>
+<h3>What Cortex IS</h3>
+<p><strong>Cortex</strong> is a security-hardened fork of <a href="https://github.com/openclaw/openclaw">OpenClaw</a> that provides a comprehensive AI assistant command center with a cyberpunk-themed web interface. It&#39;s not a hypothetical system — it&#39;s built, deployed, and running in production.</p>
+<p><strong>Key differentiators from OpenClaw:</strong></p>
+<ul>
+<li><strong>Security-first design</strong>: Role-based access control (RBAC), device pairing with Ed25519 identities, audit logging, and scoped API tokens</li>
+<li><strong>Cyberpunk UI</strong>: Dark, neon-accented interface with 8 theme presets + custom theme support</li>
+<li><strong>Production ready</strong>: Docker registry, npm package distribution (<code>openclaw-cortex</code>), installer scripts</li>
+<li><strong>Desktop companion</strong>: Native Tauri v2 app (Cortex Synapse) for Windows/Linux with system integration</li>
+<li><strong>Complete documentation</strong>: Comprehensive guides and configuration reference</li>
+</ul>
+<p><strong>Distribution channels:</strong></p>
+<ul>
+<li><strong>npm package</strong>: <code>openclaw-cortex</code> — Gateway + embedded Cortex UI</li>
+<li><strong>Docker</strong>: Registry at <code>gitlab.honercloud.com:5050/llm/cortex-fork</code></li>
+<li><strong>GitLab CI/CD</strong>: Automated builds and releases</li>
+<li><strong>GitHub mirror</strong>: Secondary public repo at <code>github.com/ivanuser/cortex</code></li>
+</ul>
+<h3>The Problem It Solved</h3>
+<p>OpenClaw&#39;s built-in Control UI was functional but limited — a small Lit-based admin panel focused on configuration rather than user experience. Cortex provides:</p>
+<ol>
+<li><strong>Rich chat experience</strong> with markdown rendering, syntax highlighting, LaTeX math, and Mermaid diagrams</li>
+<li><strong>Comprehensive admin interface</strong> with 16 dedicated pages for all gateway management</li>
+<li><strong>Security hardening</strong> with audit trails, role-based access, and device pairing</li>
+<li><strong>Modern UX</strong> with PWA support, keyboard shortcuts, browser notifications, and mobile responsiveness</li>
+<li><strong>Desktop integration</strong> via the Synapse companion app</li>
+</ol>
+<h2>2. Architecture</h2>
+<h3>System Overview</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                            CORTEX ECOSYSTEM                             │
+│                                                                         │
+│  ┌─────────────────┐    ┌──────────────────────────┐    ┌─────────────┐ │
+│  │   Web Browser   │    │        Gateway            │    │ Node Worker │ │
+│  │   (Cortex UI)   │◄──►│  ┌──────────────────────┐ │◄──►│ (headless)  │ │
+│  │                 │    │  │  Control Plane        │ │    │             │ │
+│  │  • Chat         │    │  │  • Cortex Web UI      │ │    │ • Exec      │ │
+│  │  • Admin Pages  │    │  │  • Agent Engine       │ │    │ • Browser   │ │
+│  │  • PWA          │    │  │  • Session Manager    │ │    │ • Camera    │ │
+│  │  • Auth         │    │  │  • Model Router       │ │    │ • Screen    │ │
+│  └─────────────────┘    │  │  • Channel Adapters   │ │    │ • Canvas    │ │
+│                         │  │  • Memory System      │ │    └─────────────┘ │
+│  ┌─────────────────┐    │  │  • Cron Scheduler     │ │           ▲        │
+│  │ Cortex Synapse  │    │  │  • Security Layer     │ │           │        │
+│  │ (Desktop App)   │◄──►│  │  • RBAC Engine        │ │      WebSocket     │
+│  │                 │    │  │  • Audit Logger       │ │     Connection     │
+│  │ • Native Chat   │    │  └──────────────────────┘ │                    │
+│  │ • System Tray   │    └──────────────────────────┘                    │
+│  │ • Notifications │           ▲                                         │
+│  │ • Auto-reconnect│           │                                         │
+│  └─────────────────┘           │ Port 18789                              │
+│                           (WS + HTTP)                                    │
+│  ┌─────────────────┐           │                                         │
+│  │ Discord/Telegram│◄──────────┘                                         │
+│  │ WhatsApp/Slack  │                                                     │
+│  │ Signal/IRC      │                                                     │
+│  └─────────────────┘                                                     │
+└─────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3>Component Breakdown</h3>
+<p><strong>Gateway (Node.js)</strong></p>
+<ul>
+<li>OpenClaw core with embedded Cortex UI</li>
+<li>Serves both the web interface and API</li>
+<li>Manages all LLM provider connections</li>
+<li>Enforces security policies and RBAC</li>
+<li>Routes messages across all channels</li>
+</ul>
+<p><strong>Cortex UI (SvelteKit 2 + Svelte 5)</strong></p>
+<ul>
+<li>Static adapter — compiles to pure HTML/CSS/JS</li>
+<li>Served by gateway or standalone (Docker/npm)</li>
+<li>16 admin pages covering all gateway functionality</li>
+<li>Real-time WebSocket communication</li>
+<li>Progressive Web App (PWA) with offline support</li>
+</ul>
+<p><strong>Synapse Desktop (Tauri v2 + Svelte)</strong></p>
+<ul>
+<li>Native app for Windows and Linux</li>
+<li>Embeds the Cortex UI in a native window</li>
+<li>System tray integration and notifications</li>
+<li>Auto-reconnect with connection management</li>
+<li>Future: Full node capabilities (screen, camera)</li>
+</ul>
+<p><strong>Sentinel (Future)</strong></p>
+<ul>
+<li>Distributed AI security agents</li>
+<li>Each node runs an AI agent monitoring its host</li>
+<li>Central coordinator correlates threats across the network</li>
+<li>Concept doc: <code>/home/ihoner/projects/cortex-sentinel/CONCEPT.md</code></li>
+</ul>
+<h2>3. Tech Stack</h2>
+<h3>Frontend</h3>
+<ul>
+<li><strong>SvelteKit 2</strong> with static adapter</li>
+<li><strong>Svelte 5</strong> with runes for reactive state</li>
+<li><strong>Tailwind CSS</strong> for styling with cyberpunk theme variables</li>
+<li><strong>TypeScript</strong> in strict mode</li>
+<li><strong>Vite</strong> as the build tool</li>
+</ul>
+<h3>Content Rendering</h3>
+<ul>
+<li><strong>marked</strong> for Markdown processing with GFM support</li>
+<li><strong>Shiki</strong> for syntax highlighting (30+ languages)</li>
+<li><strong>KaTeX</strong> for mathematical expressions</li>
+<li><strong>Mermaid</strong> for diagrams and flowcharts</li>
+<li><strong>Prism</strong> for code highlighting fallback</li>
+</ul>
+<h3>Backend (Gateway)</h3>
+<ul>
+<li><strong>Node.js 22+</strong> runtime</li>
+<li><strong>OpenClaw</strong> core engine (forked)</li>
+<li><strong>WebSocket</strong> for real-time communication</li>
+<li><strong>SQLite</strong> for session and audit storage</li>
+</ul>
+<h3>Desktop (Synapse)</h3>
+<ul>
+<li><strong>Tauri v2</strong> framework (Rust + WebView)</li>
+<li><strong>Rust</strong> backend with system integration</li>
+<li><strong>System WebView</strong> (WebView2 on Windows, WebKitGTK on Linux)</li>
+<li><strong>Svelte frontend</strong> (shared with web UI)</li>
+</ul>
+<h3>Infrastructure</h3>
+<ul>
+<li><strong>Docker</strong> with multi-stage builds</li>
+<li><strong>GitLab CI/CD</strong> with instance runners</li>
+<li><strong>GitLab Container Registry</strong> (port 5050)</li>
+<li><strong>GitLab Pages</strong> for documentation</li>
+<li><strong>npm</strong> for package distribution</li>
+</ul>
+<h2>4. Completed Milestones</h2>
+<h3>✅ Phase 0: Proof-of-Concept (February 19, 2026)</h3>
+<p><strong>Duration:</strong> 1 day
+<strong>Goal:</strong> Validate the technical approach</p>
+<ul>
+<li>WebSocket connection to OpenClaw gateway</li>
+<li>Basic chat streaming interface</li>
+<li>Session management foundation</li>
+<li>SvelteKit + Tailwind setup</li>
+</ul>
+<p><strong>Outcome:</strong> Proved that a modern web UI could replace OpenClaw&#39;s Lit-based Control UI</p>
+<h3>✅ Phase 1: Core UI Foundation (February 19-20, 2026)</h3>
+<p><strong>Duration:</strong> 2 days, 3 sprints
+<strong>Goal:</strong> Build the essential chat and admin interface</p>
+<p><strong>Sprint 1:</strong></p>
+<ul>
+<li>Chat foundation with streaming support</li>
+<li>Dark cyberpunk theme with neon accents</li>
+<li>Message rendering with basic Markdown</li>
+<li>Session list with create/delete/switch</li>
+</ul>
+<p><strong>Sprint 2:</strong></p>
+<ul>
+<li>Tool call status indicators</li>
+<li>Rich markdown rendering (Shiki, KaTeX, Mermaid)</li>
+<li>Message actions (copy, edit, delete)</li>
+<li>Real-time typing indicators</li>
+</ul>
+<p><strong>Sprint 3:</strong></p>
+<ul>
+<li>Polish and bug fixes</li>
+<li>Responsive design for mobile</li>
+<li>Keyboard shortcuts (Ctrl+Enter to send)</li>
+<li>Connection status monitoring</li>
+</ul>
+<p><strong>Outcome:</strong> Production-quality chat interface that exceeded OpenClaw&#39;s built-in UI</p>
+<h3>✅ Control UI Parity (February 20-21, 2026)</h3>
+<p><strong>Duration:</strong> 2 days
+<strong>Goal:</strong> Replace all OpenClaw Control UI functionality</p>
+<p>Built 13 admin pages matching OpenClaw&#39;s features:</p>
+<ol>
+<li><strong>Overview</strong> — System status and quick actions</li>
+<li><strong>Channels</strong> — WhatsApp QR codes, bot status</li>
+<li><strong>Sessions</strong> — Full session management</li>
+<li><strong>Cron Jobs</strong> — Schedule management with CRUD</li>
+<li><strong>Exec Approvals</strong> — Command approval workflow</li>
+<li><strong>Agents</strong> — Agent configuration</li>
+<li><strong>Skills</strong> — Plugin management</li>
+<li><strong>Nodes</strong> — Node fleet monitoring</li>
+<li><strong>Memory</strong> — Vector database browser</li>
+<li><strong>Settings</strong> — Gateway configuration</li>
+<li><strong>Debug</strong> — System diagnostics</li>
+<li><strong>Logs</strong> — Live log tailing</li>
+<li><strong>Config Editor</strong> — Raw JSON configuration</li>
+</ol>
+<p><strong>Outcome:</strong> Feature parity achieved — Cortex could completely replace OpenClaw&#39;s built-in UI</p>
+<h3>✅ Phase 6: Polish &amp; PWA (February 21, 2026)</h3>
+<p><strong>Duration:</strong> 1 day
+<strong>Goal:</strong> Production polish and mobile experience</p>
+<ul>
+<li><strong>Theme picker</strong>: 8 preset themes + custom theme builder</li>
+<li><strong>PWA support</strong>: Install as app on mobile/desktop</li>
+<li><strong>Keyboard shortcuts</strong>: Full hotkey system</li>
+<li><strong>Browser notifications</strong>: Native notification support</li>
+<li><strong>Mobile optimization</strong>: Touch-friendly responsive design</li>
+<li><strong>Performance</strong>: Bundle optimization and lazy loading</li>
+</ul>
+<p><strong>Outcome:</strong> Professional-grade user experience competitive with commercial platforms</p>
+<h3>✅ v1.0.0 Release (February 22, 2026)</h3>
+<p><strong>Goal:</strong> Feature-complete initial release</p>
+<ul>
+<li><strong>Image upload/rendering</strong>: Drag &amp; drop image support</li>
+<li><strong>Tool call status</strong>: Visual indicators for tool execution</li>
+<li><strong>Chat polish</strong>: Improved message threading</li>
+<li><strong>Memory files browser</strong>: UI for memory system exploration</li>
+</ul>
+<p><strong>Outcome:</strong> First stable release ready for production use</p>
+<h3>✅ v2.0.0 Distribution (February 22, 2026)</h3>
+<p><strong>Goal:</strong> Production deployment infrastructure</p>
+<ul>
+<li><strong>Runtime configuration</strong>: No rebuild required for config changes</li>
+<li><strong>Docker registry</strong>: Automated builds to GitLab registry</li>
+<li><strong>Installer script</strong>: One-line installation via curl</li>
+<li><strong>Setup wizard</strong>: First-run configuration interface</li>
+<li><strong>Node pairing</strong>: Secure device pairing with Ed25519</li>
+<li><strong>npm package</strong>: <code>openclaw-cortex</code> published to npmjs.com</li>
+</ul>
+<p><strong>Outcome:</strong> Self-service deployment for end users</p>
+<h3>✅ OpenClaw Fork (February 23, 2026)</h3>
+<p><strong>Goal:</strong> Deep integration rather than overlay</p>
+<ul>
+<li>Forked OpenClaw to <code>openclaw-cortex</code></li>
+<li>Embedded Cortex UI directly into gateway</li>
+<li>Published as <code>openclaw-cortex@3.x</code> on npm</li>
+<li>Maintained backward compatibility with OpenClaw configs</li>
+</ul>
+<p><strong>Outcome:</strong> Single package providing both gateway and UI</p>
+<h3>✅ Security Phase 1: Audit Logging (February 23, 2026)</h3>
+<p><strong>Goal:</strong> Comprehensive activity tracking</p>
+<ul>
+<li>Full audit trail for all actions</li>
+<li>Structured logging with timestamps and user context</li>
+<li>Audit log viewer in the admin interface</li>
+<li>Configurable retention policies</li>
+</ul>
+<h3>✅ Security Phase 2: Role-Based Access Control (February 23-24, 2026)</h3>
+<p><strong>Goal:</strong> Granular permissions and user management</p>
+<p>Implemented 4 role levels:</p>
+<ul>
+<li><strong>admin</strong>: Full access to everything</li>
+<li><strong>operator</strong>: Management access, limited config changes</li>
+<li><strong>viewer</strong>: Read-only access to most features</li>
+<li><strong>chat-only</strong>: Chat interface only, no admin pages</li>
+</ul>
+<p><strong>Outcome:</strong> Multi-user deployments with appropriate access controls</p>
+<h3>✅ Security Phase 3: Method Authorization (February 24, 2026)</h3>
+<p><strong>Goal:</strong> Per-API-method permission enforcement</p>
+<ul>
+<li>Granular method-level permissions</li>
+<li>API token system with scoped access</li>
+<li>Device pairing with cryptographic identity</li>
+<li>Rate limiting and abuse prevention</li>
+</ul>
+<h3>✅ Seamless Authentication (February 24, 2026)</h3>
+<p><strong>Goal:</strong> Frictionless but secure access</p>
+<ul>
+<li><strong>Auto-approve first device</strong>: Zero-config single-user setup</li>
+<li><strong>Token-based auth</strong>: API tokens for programmatic access</li>
+<li><strong>Pairing codes</strong>: Time-limited codes for device setup</li>
+<li><strong>Invite links</strong>: Shareable links with embedded tokens</li>
+<li><strong>QR pairing</strong>: Mobile-friendly device registration</li>
+<li><strong>LAN auto-approve</strong>: Automatic approval for local network devices</li>
+</ul>
+<p><strong>Outcome:</strong> Security without friction for legitimate users</p>
+<h3>❌ Phase 4: Multi-User (CANCELLED)</h3>
+<p><strong>Original goal:</strong> Full multi-user collaboration features</p>
+<p><strong>Cancellation reason:</strong> Ivan decided RBAC defeats the purpose. The person who runs the gateway IS the authority. Simplified to single-operator model with role inheritance.</p>
+<h3>✅ Documentation (February 24, 2026)</h3>
+<p><strong>Goal:</strong> Comprehensive user and developer documentation</p>
+<ul>
+<li><strong>GUIDE.md</strong>: 2500+ line comprehensive user guide</li>
+<li><strong>CONFIG-REFERENCE.md</strong>: Complete configuration documentation</li>
+<li><strong>GitLab Pages</strong>: Static site generation with cyberpunk theme</li>
+<li><strong>HTML conversion</strong>: Markdown to styled HTML with navigation</li>
+</ul>
+<p><strong>Outcome:</strong> Documentation deployed at GitLab Pages with professional presentation</p>
+<h3>✅ Cortex Synapse v0.1.0 (February 24, 2026)</h3>
+<p><strong>Goal:</strong> Native desktop application</p>
+<ul>
+<li><strong>Tauri v2</strong> application framework</li>
+<li><strong>Linux + Windows</strong> builds via GitLab CI</li>
+<li><strong>Basic chat</strong> functionality working</li>
+<li><strong>WebSocket connection</strong> to gateway</li>
+</ul>
+<p><strong>Outcome:</strong> MVP desktop app for testing</p>
+<h3>✅ Synapse Batch 1 (February 24, 2026)</h3>
+<p><strong>Goal:</strong> Essential desktop features</p>
+<ul>
+<li><strong>Markdown rendering</strong>: Full parity with web UI</li>
+<li><strong>Session management</strong>: Create, switch, and manage sessions</li>
+<li><strong>Chat history</strong>: Persistent message history</li>
+<li><strong>Auto-reconnect</strong>: Robust connection management with exponential backoff</li>
+</ul>
+<p><strong>Outcome:</strong> Feature parity with core web UI functionality</p>
+<h2>5. Current State</h2>
+<h3>Production Deployment</h3>
+<ul>
+<li><strong>Version</strong>: v3.10.2 on npm</li>
+<li><strong>Test environment</strong>: Deployed on devclaw (.223)</li>
+<li><strong>Desktop</strong>: Synapse v0.2.0 in testing</li>
+</ul>
+<h3>Web UI Status</h3>
+<ul>
+<li><strong>16 admin pages</strong> covering all gateway functionality</li>
+<li><strong>Full chat interface</strong> with rich markdown rendering</li>
+<li><strong>Cyberpunk theme</strong> with 8 presets + custom themes</li>
+<li><strong>PWA support</strong> with offline capability</li>
+<li><strong>Mobile responsive</strong> design</li>
+</ul>
+<h3>Desktop Status (Synapse v0.2.0)</h3>
+<ul>
+<li><strong>Native chat</strong> with Tauri v2 framework</li>
+<li><strong>Markdown rendering</strong> with syntax highlighting</li>
+<li><strong>Session management</strong> and history</li>
+<li><strong>Auto-reconnect</strong> with connection monitoring</li>
+<li><strong>System tray</strong> integration (basic)</li>
+</ul>
+<h3>Security Status</h3>
+<ul>
+<li><strong>3-phase security complete</strong>:<ul>
+<li>✅ Audit logging with retention policies</li>
+<li>✅ RBAC with 4 role levels (admin/operator/viewer/chat-only)</li>
+<li>✅ Method authorization with API tokens</li>
+<li>✅ Seamless auth with device pairing</li>
+</ul>
+</li>
+</ul>
+<h3>Distribution</h3>
+<ul>
+<li><strong>npm</strong>: <code>openclaw-cortex@3.10.2</code> published</li>
+<li><strong>Docker</strong>: Available in GitLab registry</li>
+<li><strong>Desktop</strong>: Automated Windows/Linux builds</li>
+<li><strong>Documentation</strong>: Live at GitLab Pages</li>
+</ul>
+<h2>6. Active Development</h2>
+<h3>🔄 Synapse Batch 2 (In Progress)</h3>
+<p><strong>Target completion</strong>: February 25-26, 2026</p>
+<p>Active GitLab issues:</p>
+<ul>
+<li><strong>Native notifications</strong> (#25): System notifications for agent messages</li>
+<li><strong>System tray</strong> (#26): Minimize to tray, tray icon menu</li>
+<li><strong>Start minimized</strong> (#27): Boot with app hidden to tray</li>
+</ul>
+<h3>🔄 Synapse Batch 3 (Planned for this week)</h3>
+<p><strong>Target completion</strong>: February 27-28, 2026</p>
+<p>Queued GitLab issues:</p>
+<ul>
+<li><strong>Copy button</strong> (#28): Copy messages and code blocks</li>
+<li><strong>Timestamps</strong> (#29): Message timestamps with relative time</li>
+<li><strong>Syntax highlighting</strong> (#30): Code syntax highlighting in chat</li>
+<li><strong>Keyboard shortcuts</strong> (#31): Hotkeys matching web UI</li>
+</ul>
+<h2>7. Roadmap</h2>
+<h3>📋 Synapse Phase 1: Node Registration (Q1 2026)</h3>
+<p><strong>Goal</strong>: Desktop app becomes a full OpenClaw node</p>
+<ul>
+<li><strong>Node registration</strong>: App registers with gateway as full node</li>
+<li><strong>Canvas host</strong>: Display interactive canvases in secondary windows</li>
+<li><strong>System capabilities</strong>: Execute commands on behalf of gateway</li>
+</ul>
+<h3>📋 Synapse Phase 2: Sensory Capabilities (Q1 2026)</h3>
+<p><strong>Goal</strong>: Screen capture and camera access</p>
+<ul>
+<li><strong>Screen capture</strong>: Screenshot and screen recording</li>
+<li><strong>Camera access</strong>: Photo and video capture</li>
+<li><strong>Permissions</strong>: OS-level permission prompts</li>
+<li><strong>Privacy controls</strong>: User control over data sharing</li>
+</ul>
+<h3>📋 Synapse Phase 3: All-in-One Mode (Q2 2026)</h3>
+<p><strong>Goal</strong>: Embedded gateway for single-user deployments</p>
+<ul>
+<li><strong>Embedded gateway</strong>: Bundle OpenClaw gateway in desktop app</li>
+<li><strong>Process management</strong>: Start/stop/monitor gateway process</li>
+<li><strong>First-run wizard</strong>: Complete setup in single package</li>
+</ul>
+<h3>📋 Synapse Phase 4: Distribution (Q2 2026)</h3>
+<p><strong>Goal</strong>: Professional distribution and updates</p>
+<ul>
+<li><strong>MSI installer</strong>: Windows installer package</li>
+<li><strong>AppImage</strong>: Linux portable application</li>
+<li><strong>Auto-updater</strong>: Built-in update mechanism</li>
+<li><strong>Code signing</strong>: Signed binaries for security</li>
+</ul>
+<h3>📋 Cortex Sentinel: Distributed AI Security</h3>
+<p><strong>Goal</strong>: AI-powered distributed security monitoring</p>
+<ul>
+<li><strong>Host agents</strong>: AI agents on each monitored machine</li>
+<li><strong>Central coordinator</strong>: Gateway-based threat correlation</li>
+<li><strong>Threat intelligence</strong>: Network-wide security analysis</li>
+<li><strong>Automated response</strong>: AI-driven remediation with human approval</li>
+</ul>
+<p><strong>Status</strong>: Concept phase — full concept document at <code>/home/ihoner/projects/cortex-sentinel/CONCEPT.md</code></p>
+<h3>📋 Public Release: Community Edition</h3>
+<p><strong>Goal</strong>: Open source release for broader adoption</p>
+<ul>
+<li><strong>GitHub primary</strong>: Move from GitLab to GitHub as primary</li>
+<li><strong>Polished README</strong>: Professional project presentation</li>
+<li><strong>Community docs</strong>: Contribution guidelines and architecture docs</li>
+<li><strong>Issue templates</strong>: Standardized bug reports and feature requests</li>
+</ul>
+<h2>8. Key Technical Decisions</h2>
+<h3>Build vs. Fork vs. Extend</h3>
+<ul>
+<li><strong>Considered</strong>: Build standalone UI, extend OpenClaw Control UI, or fork OpenClaw</li>
+<li><strong>Decided</strong>: Fork OpenClaw for deeper integration</li>
+<li><strong>Reasoning</strong>: Forking allows direct UI embedding, better performance, and unified distribution</li>
+</ul>
+<h3>Frontend Framework</h3>
+<ul>
+<li><strong>Considered</strong>: React/Next.js, Vue/Nuxt, Svelte/SvelteKit</li>
+<li><strong>Decided</strong>: SvelteKit 2 with Svelte 5 runes</li>
+<li><strong>Reasoning</strong>: Smaller bundle size, better performance, existing Open WebUI precedent, simpler state management</li>
+</ul>
+<h3>Desktop Technology</h3>
+<ul>
+<li><strong>Considered</strong>: Electron, Tauri v1, Tauri v2</li>
+<li><strong>Decided</strong>: Tauri v2</li>
+<li><strong>Reasoning</strong>: 10x smaller binaries, Rust security model, system WebView, built-in auto-updater</li>
+</ul>
+<h3>Security Model</h3>
+<ul>
+<li><strong>Considered</strong>: JWT tokens, session cookies, OAuth2</li>
+<li><strong>Decided</strong>: Ed25519 device pairing + API tokens</li>
+<li><strong>Reasoning</strong>: Cryptographic identity, offline capability, fine-grained scopes</li>
+</ul>
+<h3>Distribution Strategy</h3>
+<ul>
+<li><strong>Considered</strong>: Docker-only, GitHub Releases, package managers</li>
+<li><strong>Decided</strong>: Multi-channel (npm + Docker + desktop packages)</li>
+<li><strong>Reasoning</strong>: Different users prefer different installation methods</li>
+</ul>
+<h3>Multi-User Architecture</h3>
+<ul>
+<li><strong>Considered</strong>: Full multi-tenant system, role-based collaboration</li>
+<li><strong>Decided</strong>: Single-operator model with role inheritance (CANCELLED full multi-user)</li>
+<li><strong>Reasoning</strong>: Complexity didn&#39;t justify benefits for primary use case</li>
+</ul>
+<h3>Primary Git Platform</h3>
+<ul>
+<li><strong>Considered</strong>: GitHub-first vs. GitLab-first</li>
+<li><strong>Decided</strong>: GitLab primary, GitHub secondary</li>
+<li><strong>Reasoning</strong>: GitLab CI/CD, container registry, pages — better integrated DevOps</li>
+</ul>
+<h2>9. Infrastructure</h2>
+<h3>Production Environments</h3>
+<table>
+<thead>
+<tr>
+<th>Environment</th>
+<th>IP</th>
+<th>Purpose</th>
+<th>Services</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Gateway</strong></td>
+<td>.242 (openclaw box)</td>
+<td>Production gateway</td>
+<td>OpenClaw + Cortex</td>
+</tr>
+<tr>
+<td><strong>Dev Box</strong></td>
+<td>.197</td>
+<td>Web UI hosting</td>
+<td>Docker + nginx</td>
+</tr>
+<tr>
+<td><strong>Devclaw</strong></td>
+<td>.223 (Proxmox VM)</td>
+<td>Test environment</td>
+<td>Full stack testing</td>
+</tr>
+</tbody></table>
+<h3>Development Infrastructure</h3>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Location</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>GitLab Server</strong></td>
+<td>.75</td>
+<td>CI/CD, repos, registry</td>
+</tr>
+<tr>
+<td><strong>Container Registry</strong></td>
+<td>.75:5050</td>
+<td>Docker image hosting</td>
+</tr>
+<tr>
+<td><strong>GitLab Pages</strong></td>
+<td>pages subdomain</td>
+<td>Documentation hosting</td>
+</tr>
+<tr>
+<td><strong>npm Registry</strong></td>
+<td>npmjs.com</td>
+<td>Package distribution</td>
+</tr>
+</tbody></table>
+<h3>Repositories</h3>
+<table>
+<thead>
+<tr>
+<th>Repo</th>
+<th>Platform</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>llm/cortex-fork</strong></td>
+<td>GitLab</td>
+<td>Main codebase (web UI + gateway)</td>
+</tr>
+<tr>
+<td><strong>llm/cortex-synapse</strong></td>
+<td>GitLab</td>
+<td>Desktop application</td>
+</tr>
+<tr>
+<td><strong>ivanuser/cortex</strong></td>
+<td>GitHub</td>
+<td>Public mirror</td>
+</tr>
+</tbody></table>
+<h3>Build Infrastructure</h3>
+<ul>
+<li><strong>GitLab CI/CD</strong>: Automated testing and builds</li>
+<li><strong>Instance runners</strong>: Linux build agents on GitLab infrastructure</li>
+<li><strong>Windows runner</strong>: dev05 (runner ID 18, tag <code>windows-build</code>)</li>
+<li><strong>Multi-platform builds</strong>: Docker buildx for cross-platform images</li>
+</ul>
+<h2>10. Links</h2>
+<h3>Live Deployments</h3>
+<ul>
+<li><strong>Web UI</strong>: <a href="https://cortex.honercloud.com">https://cortex.honercloud.com</a></li>
+<li><strong>Documentation</strong>: <a href="https://llm.pages.honercloud.com/cortex-fork/">https://llm.pages.honercloud.com/cortex-fork/</a> (GitLab Pages)</li>
+</ul>
+<h3>Source Code</h3>
+<ul>
+<li><strong>Main Repository</strong>: <a href="https://gitlab.honercloud.com/llm/cortex-fork">https://gitlab.honercloud.com/llm/cortex-fork</a></li>
+<li><strong>Desktop App</strong>: <a href="https://gitlab.honercloud.com/llm/cortex-synapse">https://gitlab.honercloud.com/llm/cortex-synapse</a></li>
+<li><strong>GitHub Mirror</strong>: <a href="https://github.com/ivanuser/cortex">https://github.com/ivanuser/cortex</a></li>
+</ul>
+<h3>Package Distribution</h3>
+<ul>
+<li><strong>npm Package</strong>: <a href="https://npmjs.com/package/openclaw-cortex">https://npmjs.com/package/openclaw-cortex</a></li>
+<li><strong>Container Registry</strong>: <a href="https://gitlab.honercloud.com/llm/cortex-fork/container_registry">https://gitlab.honercloud.com/llm/cortex-fork/container_registry</a></li>
+</ul>
+<h3>Documentation</h3>
+<ul>
+<li><strong>Main Guide</strong>: <a href="GUIDE.md">GUIDE.md</a></li>
+<li><strong>Configuration Reference</strong>: <a href="CONFIG-REFERENCE.md">CONFIG-REFERENCE.md</a></li>
+<li><strong>Desktop App Plan</strong>: <a href="DESKTOP-APP-PLAN.md">DESKTOP-APP-PLAN.md</a></li>
+</ul>
+<h3>Concept Documents</h3>
+<ul>
+<li><strong>Cortex Sentinel</strong>: <code>/home/ihoner/projects/cortex-sentinel/CONCEPT.md</code> (distributed AI security)</li>
+</ul>
+<hr>
+<h2>Project Status Summary</h2>
+<p><strong>✅ Completed</strong>: Production-ready web UI with security hardening, desktop app MVP, comprehensive documentation</p>
+<p><strong>🔄 In Progress</strong>: Desktop app system integration (notifications, tray, shortcuts)</p>
+<p><strong>📋 Next</strong>: Node capabilities for desktop app, distributed security agents, public release</p>
+<p><strong>Timeline</strong>: ~5 days of intensive development produced a complete replacement for OpenClaw&#39;s UI with significant security and UX improvements. Desktop companion adds native OS integration. Future phases focus on advanced capabilities and community adoption.</p>
+<hr>
+<p><em>Cortex v3.10.2 — February 24, 2026</em></p>
+  </main>
+</div>
+<button class="top-btn" id="top" onclick="scrollTo({top:0,behavior:'smooth'})">↑</button>
+<script>
+const toc=document.getElementById('toc');
+document.querySelectorAll('#content h2,#content h3').forEach((h,i)=>{
+  if(!h.id)h.id='s'+i;
+  const li=document.createElement('li');
+  const a=document.createElement('a');
+  a.href='#'+h.id;a.textContent=h.textContent;
+  a.className=h.tagName.toLowerCase();
+  li.appendChild(a);toc.appendChild(li);
+});
+const b=document.getElementById('top');
+addEventListener('scroll',()=>b.classList.toggle('on',scrollY>300));
+</script>
+</body>
+</html>

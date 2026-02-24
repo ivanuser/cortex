@@ -125,6 +125,18 @@
 <p><strong>The comprehensive reference for the Cortex AI Assistant Command Center.</strong></p>
 <p>Cortex v3.10+ · Last updated February 2026</p>
 </blockquote>
+<div style="background: var(--card); padding: 16px 20px; border-radius: 8px; margin: 24px 0; border-left: 4px solid var(--cyan);">
+  <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+    <div style="font-weight: 600; color: var(--cyan); margin-right: 8px;">📖 Related Docs:</div>
+    <a href="plan.html" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--bg); border-radius: 6px; text-decoration: none; color: var(--text); font-size: 14px; transition: 0.15s;">
+      <span>🧠</span> Project Plan
+    </a>
+    <a href="config-reference.html" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--bg); border-radius: 6px; text-decoration: none; color: var(--text); font-size: 14px; transition: 0.15s;">
+      <span>⚙️</span> Config Reference
+    </a>
+  </div>
+</div>
+
 <hr>
 <h2>Table of Contents</h2>
 <ol>
@@ -1879,40 +1891,7 @@ cortex memory index --force
 </tr>
 <tr>
 <td><code>models.list</code></td>
-<td>List available models</td>
-<td><code>{}</code></td>
-</tr>
-<tr>
-<td><code>config.set</code></td>
-<td>Set a config value</td>
-<td><code>{&quot;path&quot;: &quot;logging.level&quot;, &quot;value&quot;: &quot;debug&quot;}</code></td>
-</tr>
-<tr>
-<td><code>cron.list</code></td>
-<td>List cron jobs</td>
-<td><code>{}</code></td>
-</tr>
-<tr>
-<td><code>audit.query</code></td>
-<td>Query audit log</td>
-<td><code>{&quot;limit&quot;: 10}</code></td>
-</tr>
-<tr>
-<td><code>device.pair.list</code></td>
-<td>List paired devices</td>
-<td><code>{}</code></td>
-</tr>
-<tr>
-<td><code>logs.tail</code></td>
-<td>Tail gateway logs</td>
-<td><code>{&quot;limit&quot;: 50}</code></td>
-</tr>
-</tbody></table>
-<h3>Use Cases</h3>
-<ul>
-<li><strong>Testing RPC methods</strong> before building automation around them</li>
-<li><strong>Debugging permissions</strong> — see exactly what error a method returns for a given role</li>
-<li><
+<td>List availabl
   </main>
 </div>
 <button class="top-btn" id="top" onclick="scrollTo({top:0,behavior:'smooth'})">↑</button>
