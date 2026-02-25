@@ -1215,6 +1215,12 @@ export function attachGatewayWsMessageHandler(params: {
           for (const nodeId of nodeIdsForPairing) {
             void updatePairedNodeMetadata(nodeId, {
               lastConnectedAtMs: nodeSession.connectedAtMs,
+              version: nodeSession.version,
+              coreVersion: nodeSession.coreVersion,
+              displayName: nodeSession.displayName,
+              platform: nodeSession.platform,
+              caps: nodeSession.caps,
+              commands: nodeSession.commands,
             }).catch((err) =>
               logGateway.warn(`failed to record last connect for ${nodeId}: ${formatForLog(err)}`),
             );
