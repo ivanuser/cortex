@@ -1312,6 +1312,29 @@
                         {/if}
                       </div>
 
+                        <!-- Danger Zone -->
+                        <div class="mt-6 pt-4 border-t border-red-500/20">
+                          <h4 class="text-xs font-semibold uppercase tracking-wider text-red-400 mb-3">Danger Zone</h4>
+                          <button
+                            onclick={async () => {
+                              const nodeId = typeof selectedNode?.nodeId === 'string' ? selectedNode.nodeId : '';
+                              const name = typeof selectedNode?.displayName === 'string' ? selectedNode.displayName : nodeId;
+                              if (!nodeId || !confirm(`Remove node "${name}"? This will unpair the node and disconnect it if connected.`)) return;
+                              try {
+                                await gateway.call('node.pair.remove', { nodeId });
+                                toasts.success('Node Removed', `${name} has been unpaired`);
+                                selectedNode = null;
+                                loadNodes();
+                              } catch (e: any) {
+                                toasts.error('Remove Failed', e?.message ?? 'Unknown error');
+                              }
+                            }}
+                            class="px-4 py-2 text-xs font-medium rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50 transition-all"
+                          >
+                            🗑️ Remove Node
+                          </button>
+                        </div>
+
                     {:else if detailTab === 'invoke'}
                       <!-- ─── INVOKE TAB ─── -->
                       <div class="space-y-4">

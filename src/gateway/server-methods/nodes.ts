@@ -5,6 +5,7 @@ import {
   getPairedNode,
   listNodePairing,
   rejectNodePairing,
+  removePairedNode,
   renamePairedNode,
   requestNodePairing,
   verifyNodeToken,
@@ -428,6 +429,29 @@ export const nodeHandlers: GatewayRequestHandlers = {
         return;
       }
       respond(true, { nodeId: updated.nodeId, displayName: updated.displayName }, undefined);
+    });
+  },
+  "node.pair.remove": async ({ params, respond, context }) => {
+    const nodeId = (params as { nodeId?: string })?.nodeId;
+    if (typeof nodeId !== "string" || !nodeId.trim()) {
+      respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "nodeId is required"));
+      return;
+    }
+    await respondUnavailableOnThrow(respond, async () => {
+      const removed = await removePairedNode(nodeId.trim());
+      if (!removed) {
+        respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "unknown nodeId"));
+        return;
+      }
+      // Also disconnect if currently connected
+      const node = context.nodeRegistry.get(nodeId.trim());
+      if (node) {
+        context.nodeRegistry.unregister(node.connId);
+      }
+      context.logGateway.info(
+        `node pairing removed nodeId=${removed.nodeId} displayName=${removed.displayName}`,
+      );
+      respond(true, { nodeId: removed.nodeId, displayName: removed.displayName }, undefined);
     });
   },
   "node.list": async ({ params, respond, context }) => {
