@@ -1203,6 +1203,9 @@ export function attachGatewayWsMessageHandler(params: {
           const nodeSession = context.nodeRegistry.register(nextClient, {
             remoteIp: reportedClientIp,
           });
+          logWsControl.info(
+            `node registered nodeId=${nodeSession.nodeId} conn=${connId} caps=${(nodeSession.caps ?? []).join(",")} commands=${(nodeSession.commands ?? []).length} client=${clientLabel}`,
+          );
           const instanceIdRaw = connectParams.client.instanceId;
           const instanceId = typeof instanceIdRaw === "string" ? instanceIdRaw.trim() : "";
           const nodeIdsForPairing = new Set<string>([nodeSession.nodeId]);
