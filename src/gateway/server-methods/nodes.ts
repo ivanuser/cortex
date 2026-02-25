@@ -2,6 +2,7 @@ import { loadConfig } from "../../config/config.js";
 import { listDevicePairing } from "../../infra/device-pairing.js";
 import {
   approveNodePairing,
+  getPairedNode,
   listNodePairing,
   rejectNodePairing,
   renamePairedNode,
@@ -284,6 +285,12 @@ export const nodeHandlers: GatewayRequestHandlers = {
       silent?: boolean;
     };
     await respondUnavailableOnThrow(respond, async () => {
+      // Check if node is already paired — skip creating pending entry
+      const existingPaired = await getPairedNode(p.nodeId);
+      if (existingPaired) {
+        respond(true, { status: "already-paired", nodeId: p.nodeId, isRepair: true }, undefined);
+        return;
+      }
       const result = await requestNodePairing({
         nodeId: p.nodeId,
         displayName: p.displayName,
@@ -434,6 +441,7 @@ export const nodeHandlers: GatewayRequestHandlers = {
     }
     await respondUnavailableOnThrow(respond, async () => {
       const list = await listDevicePairing();
+      const nodePairingList = await listNodePairing();
       const pairedById = new Map(
         list.paired
           .filter((entry) => isNodeEntry(entry))
@@ -455,6 +463,25 @@ export const nodeHandlers: GatewayRequestHandlers = {
             },
           ]),
       );
+      // Merge node-pairing store entries (from node.pair.approve)
+      for (const np of nodePairingList.paired) {
+        if (!pairedById.has(np.nodeId)) {
+          pairedById.set(np.nodeId, {
+            nodeId: np.nodeId,
+            displayName: np.displayName,
+            platform: np.platform,
+            version: np.version,
+            coreVersion: np.coreVersion,
+            uiVersion: np.uiVersion,
+            deviceFamily: undefined,
+            modelIdentifier: undefined,
+            remoteIp: np.remoteIp,
+            caps: np.caps ?? [],
+            commands: np.commands ?? [],
+            permissions: undefined,
+          });
+        }
+      }
       const connected = context.nodeRegistry.listConnected();
       const connectedById = new Map(connected.map((n) => [n.nodeId, n]));
       const nodeIds = new Set<string>([...pairedById.keys(), ...connectedById.keys()]);
@@ -755,7 +782,11 @@ export const nodeHandlers: GatewayRequestHandlers = {
           : null;
     await respondUnavailableOnThrow(respond, async () => {
       const { handleNodeEvent } = await import("../server-node-events.js");
-      const nodeId = client?.connect?.device?.id ?? client?.connect?.client?.id ?? "node";
+      const nodeId =
+        client?.connect?.device?.id ??
+        client?.connect?.client?.instanceId ??
+        client?.connect?.client?.id ??
+        "node";
       const nodeContext = {
         deps: context.deps,
         broadcast: context.broadcast,

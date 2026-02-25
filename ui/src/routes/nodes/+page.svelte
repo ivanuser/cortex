@@ -73,6 +73,9 @@
   let allowlistSaving = $state(false);
   let allowlistDirty = $state(false);
 
+  // ─── Collapsible sections ──────────────────────
+  let devicesExpanded = $state(false);
+
   // ─── Capability icon map ───────────────────────
   const capIcons: Record<string, { icon: string; color: string; label: string; description: string }> = {
     camera: {
@@ -603,8 +606,9 @@
         <!-- View toggle -->
         <div class="flex items-center bg-bg-tertiary rounded-lg border border-border-default p-0.5">
           <button
-            onclick={() => viewMode = 'grid'}
-            class="p-1.5 rounded-md transition-all {viewMode === 'grid' ? 'bg-bg-hover text-accent-cyan' : 'text-text-muted hover:text-text-primary'}"
+            type="button"
+            onclick={() => { viewMode = 'grid'; }}
+            class="p-1.5 rounded-md transition-all {viewMode === 'grid' ? 'bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/30' : 'text-text-muted hover:text-text-primary border border-transparent'}"
             title="Grid view"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -612,8 +616,9 @@
             </svg>
           </button>
           <button
-            onclick={() => viewMode = 'list'}
-            class="p-1.5 rounded-md transition-all {viewMode === 'list' ? 'bg-bg-hover text-accent-cyan' : 'text-text-muted hover:text-text-primary'}"
+            type="button"
+            onclick={() => { viewMode = 'list'; }}
+            class="p-1.5 rounded-md transition-all {viewMode === 'list' ? 'bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/30' : 'text-text-muted hover:text-text-primary border border-transparent'}"
             title="List view"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -824,51 +829,59 @@
     </div>
   {/if}
 
-  <!-- Paired Devices Section -->
+  <!-- Paired Devices Section (collapsible, default collapsed) -->
   {#if pairedDevices.length > 0}
     <div class="flex-shrink-0 mx-4 md:mx-6 mt-4">
-      <div class="p-4 rounded-xl border border-border-default bg-bg-secondary/50">
-        <div class="flex items-center gap-2 mb-3">
-          <svg class="w-5 h-5 text-accent-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      <div class="rounded-xl border border-border-default bg-bg-secondary/50 overflow-hidden">
+        <button
+          onclick={() => devicesExpanded = !devicesExpanded}
+          class="w-full flex items-center justify-between p-3 hover:bg-bg-primary/30 transition-colors cursor-pointer"
+        >
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-accent-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <span class="text-sm font-semibold text-accent-purple">{pairedDevices.length} Paired Device{pairedDevices.length > 1 ? 's' : ''}</span>
+          </div>
+          <svg class="w-4 h-4 text-text-muted transition-transform {devicesExpanded ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
           </svg>
-          <h3 class="text-sm font-semibold text-accent-purple">{pairedDevices.length} Paired Device{pairedDevices.length > 1 ? 's' : ''}</h3>
-        </div>
-        <div class="space-y-2">
-          {#each pairedDevices as device}
-            {@const devId = String(device.deviceId ?? '')}
-            {@const devName = String(device.displayName ?? device.clientId ?? devId)}
-            {@const devRole = getDeviceRole(device)}
-            {@const devIp = String(device.remoteIp ?? '')}
-            {@const badgeClass = roleBadgeColors[devRole] ?? roleBadgeColors['operator']}
-            {@const isLanAutoApproved = String(device.approveReason ?? '') === 'lan-auto-approve'}
-            <div class="flex items-center justify-between p-3 rounded-lg bg-bg-primary/50 border border-border-default">
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-accent-purple/20 flex items-center justify-center">
-                  <svg class="w-4 h-4 text-accent-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <div class="flex items-center gap-2">
-                    <p class="text-sm font-medium text-text-primary">{devName}</p>
-                    <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full border {badgeClass}">
-                      {devRole}
-                    </span>
-                    {#if isLanAutoApproved}
-                      <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-accent-green/15 text-accent-green border border-accent-green/20" title="Auto-approved from local network">
-                        LAN auto-approved
-                      </span>
-                    {/if}
+        </button>
+        {#if devicesExpanded}
+          <div class="px-3 pb-3 space-y-2">
+            {#each pairedDevices as device}
+              {@const devId = String(device.deviceId ?? '')}
+              {@const devName = String(device.displayName ?? device.clientId ?? devId)}
+              {@const devRole = getDeviceRole(device)}
+              {@const devIp = String(device.remoteIp ?? '')}
+              {@const badgeClass = roleBadgeColors[devRole] ?? roleBadgeColors['operator']}
+              {@const isLanAutoApproved = String(device.approveReason ?? '') === 'lan-auto-approve'}
+              <div class="flex items-center justify-between p-2.5 rounded-lg bg-bg-primary/50 border border-border-default">
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <div class="w-7 h-7 rounded-lg bg-accent-purple/20 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-3.5 h-3.5 text-accent-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
                   </div>
-                  <p class="text-xs text-text-muted">
-                    {devId.substring(0, 12)}…{#if devIp} · {devIp}{/if}
-                  </p>
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <p class="text-xs font-medium text-text-primary truncate">{devName}</p>
+                      <span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full border {badgeClass}">
+                        {devRole}
+                      </span>
+                      {#if isLanAutoApproved}
+                        <span class="px-1.5 py-0.5 text-[9px] font-medium rounded-full bg-accent-green/15 text-accent-green border border-accent-green/20" title="Auto-approved from local network">
+                          LAN
+                        </span>
+                      {/if}
+                    </div>
+                    <p class="text-[10px] text-text-muted truncate">
+                      {devId.substring(0, 12)}…{#if devIp} · {devIp}{/if}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div class="flex items-center gap-2">
                 <select
-                  class="px-2 py-1 text-xs rounded-lg bg-bg-input border border-border-default text-text-primary focus:outline-none focus:border-accent-purple/50 disabled:opacity-50"
+                  class="px-1.5 py-1 text-[11px] rounded-lg bg-bg-input border border-border-default text-text-primary focus:outline-none focus:border-accent-purple/50 disabled:opacity-50 flex-shrink-0"
                   value={devRole}
                   disabled={deviceRoleChanging === devId}
                   onchange={(e) => setDeviceRole(devId, (e.target as HTMLSelectElement).value)}
@@ -878,9 +891,9 @@
                   {/each}
                 </select>
               </div>
-            </div>
-          {/each}
-        </div>
+            {/each}
+          </div>
+        {/if}
       </div>
     </div>
   {/if}

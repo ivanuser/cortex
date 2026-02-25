@@ -88,8 +88,8 @@ const PLATFORM_DEFAULTS: Record<string, string[]> = {
     ...MOTION_COMMANDS,
     ...SYSTEM_COMMANDS,
   ],
-  linux: [...SYSTEM_COMMANDS],
-  windows: [...SYSTEM_COMMANDS],
+  linux: [...CANVAS_COMMANDS, ...CAMERA_COMMANDS, ...SYSTEM_COMMANDS],
+  windows: [...CANVAS_COMMANDS, ...CAMERA_COMMANDS, ...SYSTEM_COMMANDS],
   unknown: [...CANVAS_COMMANDS, ...CAMERA_COMMANDS, ...LOCATION_COMMANDS, ...SYSTEM_COMMANDS],
 };
 
