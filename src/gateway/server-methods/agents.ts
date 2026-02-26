@@ -503,10 +503,19 @@ export const agentsHandlers: GatewayRequestHandlers = {
       return;
     }
     const { agentId, workspaceDir, name } = resolved;
-    await fs.mkdir(workspaceDir, { recursive: true });
+    // Ensure parent directories exist (supports nested paths like "uploads/image.png")
     const filePath = path.join(workspaceDir, name);
-    const content = String(params.content ?? "");
-    await fs.writeFile(filePath, content, "utf-8");
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    // Support binary files via base64 encoding
+    const isBase64 = params.encoding === "base64";
+    if (isBase64) {
+      const base64Data = String(params.content ?? "");
+      const buffer = Buffer.from(base64Data, "base64");
+      await fs.writeFile(filePath, buffer);
+    } else {
+      const content = String(params.content ?? "");
+      await fs.writeFile(filePath, content, "utf-8");
+    }
     const meta = await statFile(filePath);
     respond(
       true,
@@ -520,10 +529,38 @@ export const agentsHandlers: GatewayRequestHandlers = {
           missing: false,
           size: meta?.size,
           updatedAtMs: meta?.updatedAtMs,
-          content,
+          // Don't echo back binary content
+          content: isBase64 ? undefined : String(params.content ?? ""),
         },
       },
       undefined,
     );
+  },
+  "agents.files.delete": async ({ params, respond }) => {
+    const resolved = resolveAgentWorkspaceFileOrRespondError(params, respond);
+    if (!resolved) {
+      return;
+    }
+    const { agentId, workspaceDir, name } = resolved;
+    const filePath = path.join(workspaceDir, name);
+    try {
+      await fs.unlink(filePath);
+      respond(true, { ok: true, agentId, workspace: workspaceDir, name }, undefined);
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if (code === "ENOENT") {
+        respond(
+          true,
+          { ok: true, agentId, workspace: workspaceDir, name, alreadyMissing: true },
+          undefined,
+        );
+      } else {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INTERNAL, `failed to delete: ${(err as Error).message}`),
+        );
+      }
+    }
   },
 };
