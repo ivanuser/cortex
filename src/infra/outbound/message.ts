@@ -107,6 +107,14 @@ async function resolveRequiredChannel(params: {
   cfg: OpenClawConfig;
   channel?: string;
 }): Promise<string> {
+  // "webchat" is an internal surface, not a deliverable message channel.
+  // Agents in webchat sessions should include content in their response instead.
+  const rawChannel = params.channel?.trim().toLowerCase();
+  if (rawChannel === "webchat") {
+    throw new Error(
+      "webchat is not a deliverable channel. In webchat sessions, include images and content directly in your response text — it will be delivered to the user automatically through the session.",
+    );
+  }
   const channel = params.channel?.trim()
     ? normalizeChannelId(params.channel)
     : (await resolveMessageChannelSelection({ cfg: params.cfg })).channel;
