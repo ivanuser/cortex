@@ -139,11 +139,15 @@ export function createChatRunRegistry(): ChatRunRegistry {
   return { add, peek, shift, remove, clear };
 }
 
+export type ChatImageBlock = { type: "image"; data: string; mimeType: string };
+
 export type ChatRunState = {
   registry: ChatRunRegistry;
   buffers: Map<string, string>;
   deltaSentAt: Map<string, number>;
   abortedRuns: Map<string, number>;
+  /** Accumulated image content blocks from tool results, keyed by clientRunId */
+  runImages: Map<string, ChatImageBlock[]>;
   clear: () => void;
 };
 
@@ -152,12 +156,14 @@ export function createChatRunState(): ChatRunState {
   const buffers = new Map<string, string>();
   const deltaSentAt = new Map<string, number>();
   const abortedRuns = new Map<string, number>();
+  const runImages = new Map<string, ChatImageBlock[]>();
 
   const clear = () => {
     registry.clear();
     buffers.clear();
     deltaSentAt.clear();
     abortedRuns.clear();
+    runImages.clear();
   };
 
   return {
@@ -165,6 +171,7 @@ export function createChatRunState(): ChatRunState {
     buffers,
     deltaSentAt,
     abortedRuns,
+    runImages,
     clear,
   };
 }
@@ -330,17 +337,32 @@ export function createAgentEventHandler({
       normalizedHeartbeatText.suppress || isSilentReplyText(text, SILENT_REPLY_TOKEN);
     chatRunState.buffers.delete(clientRunId);
     chatRunState.deltaSentAt.delete(clientRunId);
+    // Collect any images accumulated from tool results during this run.
+    const accumulatedImages = chatRunState.runImages.get(clientRunId) ?? [];
+    chatRunState.runImages.delete(clientRunId);
     if (jobState === "done") {
+      const contentBlocks: Array<Record<string, unknown>> = [];
+      if (text && !shouldSuppressSilent) {
+        contentBlocks.push({ type: "text", text });
+      }
+      // Append images from tool results (camera_snap, screenshots, etc.)
+      for (const img of accumulatedImages) {
+        contentBlocks.push({
+          type: "image",
+          data: img.data,
+          mimeType: img.mimeType,
+        });
+      }
       const payload = {
         runId: clientRunId,
         sessionKey,
         seq,
         state: "final" as const,
         message:
-          text && !shouldSuppressSilent
+          contentBlocks.length > 0
             ? {
                 role: "assistant",
-                content: [{ type: "text", text }],
+                content: contentBlocks,
                 timestamp: Date.now(),
               }
             : undefined,
@@ -410,6 +432,36 @@ export function createAgentEventHandler({
               : { ...eventForClients, data };
           })()
         : agentPayload;
+
+    // Accumulate images from tool results for inclusion in the chat final event.
+    // Tool results contain image content blocks ({ type:"image", data, mimeType })
+    // that would otherwise be invisible to webchat clients.
+    if (isToolEvent && evt.data?.phase === "result" && !isAborted) {
+      const toolResult = evt.data?.result;
+      if (toolResult && typeof toolResult === "object") {
+        const content = Array.isArray((toolResult as Record<string, unknown>).content)
+          ? ((toolResult as Record<string, unknown>).content as unknown[])
+          : [];
+        for (const block of content) {
+          if (
+            block &&
+            typeof block === "object" &&
+            (block as Record<string, unknown>).type === "image" &&
+            typeof (block as Record<string, unknown>).data === "string" &&
+            typeof (block as Record<string, unknown>).mimeType === "string"
+          ) {
+            const existing = chatRunState.runImages.get(clientRunId) ?? [];
+            existing.push({
+              type: "image",
+              data: (block as Record<string, unknown>).data as string,
+              mimeType: (block as Record<string, unknown>).mimeType as string,
+            });
+            chatRunState.runImages.set(clientRunId, existing);
+          }
+        }
+      }
+    }
+
     if (evt.seq !== last + 1) {
       broadcast("agent", {
         runId: eventRunId,
@@ -478,6 +530,7 @@ export function createAgentEventHandler({
         chatRunState.abortedRuns.delete(evt.runId);
         chatRunState.buffers.delete(clientRunId);
         chatRunState.deltaSentAt.delete(clientRunId);
+        chatRunState.runImages.delete(clientRunId);
         if (chatLink) {
           chatRunState.registry.remove(evt.runId, clientRunId, sessionKey);
         }
