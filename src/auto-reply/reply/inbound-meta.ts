@@ -24,6 +24,13 @@ export function buildInboundMetaSystemPrompt(ctx: TemplateContext): string {
   // For webchat/Hub Chat sessions (when Surface is 'webchat' or undefined with no real channel),
   // omit the channel field entirely rather than falling back to an unrelated provider.
   let channelValue = safeTrim(ctx.OriginatingChannel) ?? safeTrim(ctx.Surface);
+  // "webchat" is an internal surface, not a deliverable message channel.
+  // If we report it as the channel, the agent will try to use the message tool
+  // with channel="webchat" which fails with "Unknown channel: webchat".
+  // Omit it so the agent routes replies through the session (WebSocket) instead.
+  if (channelValue === "webchat") {
+    channelValue = undefined;
+  }
   if (!channelValue) {
     // Only fall back to Provider if it represents a real messaging channel.
     // For webchat/internal sessions, ctx.Provider may be unrelated (e.g., the user's configured
