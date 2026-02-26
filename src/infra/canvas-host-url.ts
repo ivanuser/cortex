@@ -55,6 +55,14 @@ const parseForwardedProto = (value: HostSource | HostSource[]) => {
 };
 
 export function resolveCanvasHostUrl(params: CanvasHostUrlParams) {
+  // Allow explicit override via env var — useful when the auto-resolved URL
+  // doesn't match what remote nodes can actually reach (e.g. Cloudflare tunnel
+  // resolves to port 443 but the gateway listens on 18789 behind LAN DNS).
+  const envOverride = process.env.OPENCLAW_CANVAS_HOST_URL?.trim();
+  if (envOverride) {
+    return envOverride;
+  }
+
   const port = params.canvasPort;
   if (!port) {
     return undefined;

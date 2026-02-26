@@ -633,6 +633,12 @@ export function attachGatewayWsMessageHandler(params: {
         if (!authOk && ctxTokenValidation) {
           authOk = true;
           authMethod = "api-token";
+          // The shared-secret auth check above recorded a rate-limit failure
+          // (ctx_ token != gateway token → "token_mismatch") before we got here.
+          // Reset that counter now that we know the ctx_ token is valid,
+          // otherwise repeated reconnects poison the rate limiter and cause
+          // intermittent lockouts (10 attempts → 5-min block).
+          rateLimiter?.reset(clientIp, AUTH_RATE_LIMIT_SCOPE_SHARED_SECRET);
           // Populate connection scopes based on token role so that
           // authorizeGatewayMethod (which checks client.connect.scopes)
           // grants the correct access level for ctx_ API token connections.
