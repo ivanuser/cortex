@@ -128,11 +128,17 @@ function sanitizeChatHistoryContentBlock(block: unknown): { block: unknown; chan
   }
   const type = typeof entry.type === "string" ? entry.type : "";
   if (type === "image" && typeof entry.data === "string") {
-    const bytes = Buffer.byteLength(entry.data, "utf8");
-    delete entry.data;
-    entry.omitted = true;
-    entry.bytes = bytes;
-    changed = true;
+    // Preserve image data for webchat clients to render inline.
+    // Images are already capped by sanitizeToolResultImages (max 1200px, JPEG compressed).
+    // Only strip if the data exceeds a generous per-block limit (512KB base64 ~ 384KB binary).
+    const dataLen = entry.data.length;
+    if (dataLen > 512 * 1024) {
+      const bytes = Buffer.byteLength(entry.data, "utf8");
+      delete entry.data;
+      entry.omitted = true;
+      entry.bytes = bytes;
+      changed = true;
+    }
   }
   return { block: changed ? entry : block, changed };
 }
