@@ -21,16 +21,17 @@ async function loadNodes(opts: GatewayCallOptions): Promise<NodeListNode[]> {
   }
 }
 
-function pickDefaultNode(nodes: NodeListNode[]): NodeListNode | null {
-  const withCanvas = nodes.filter((n) =>
-    Array.isArray(n.caps) ? n.caps.includes("canvas") : true,
-  );
-  if (withCanvas.length === 0) {
+function pickDefaultNode(nodes: NodeListNode[], requiredCap?: string): NodeListNode | null {
+  // Filter by required capability if specified
+  const withCap = requiredCap
+    ? nodes.filter((n) => (Array.isArray(n.caps) ? n.caps.includes(requiredCap) : true))
+    : nodes;
+  if (withCap.length === 0) {
     return null;
   }
 
-  const connected = withCanvas.filter((n) => n.connected);
-  const candidates = connected.length > 0 ? connected : withCanvas;
+  const connected = withCap.filter((n) => n.connected);
+  const candidates = connected.length > 0 ? connected : withCap;
   if (candidates.length === 1) {
     return candidates[0];
   }
@@ -45,6 +46,11 @@ function pickDefaultNode(nodes: NodeListNode[]): NodeListNode | null {
     return local[0];
   }
 
+  // If only one connected node, use it regardless of platform
+  if (connected.length === 1) {
+    return connected[0];
+  }
+
   return null;
 }
 
@@ -56,16 +62,24 @@ export function resolveNodeIdFromList(
   nodes: NodeListNode[],
   query?: string,
   allowDefault = false,
+  requiredCap?: string,
 ): string {
   const q = String(query ?? "").trim();
   if (!q) {
     if (allowDefault) {
-      const picked = pickDefaultNode(nodes);
+      const picked = pickDefaultNode(nodes, requiredCap);
       if (picked) {
         return picked.nodeId;
       }
     }
-    throw new Error("node required");
+    const connected = nodes.filter((n) => n.connected);
+    if (connected.length > 1) {
+      const names = connected
+        .map((n) => `  • ${n.displayName || n.nodeId} (${n.nodeId.slice(0, 8)}...)`)
+        .join("\n");
+      throw new Error(`Multiple nodes connected — specify which one:\n${names}`);
+    }
+    throw new Error("node required — no connected nodes found");
   }
   return resolveNodeIdFromCandidates(nodes, q);
 }
@@ -74,7 +88,8 @@ export async function resolveNodeId(
   opts: GatewayCallOptions,
   query?: string,
   allowDefault = false,
+  requiredCap?: string,
 ) {
   const nodes = await loadNodes(opts);
-  return resolveNodeIdFromList(nodes, query, allowDefault);
+  return resolveNodeIdFromList(nodes, query, allowDefault, requiredCap);
 }

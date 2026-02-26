@@ -182,8 +182,8 @@ export function createNodesTool(options?: {
             return jsonResult({ ok: true });
           }
           case "camera_snap": {
-            const node = readStringParam(params, "node", { required: true });
-            const nodeId = await resolveNodeId(gatewayOpts, node);
+            const node = typeof params.node === "string" ? params.node.trim() : "";
+            const nodeId = await resolveNodeId(gatewayOpts, node || undefined, true, "camera");
             const facingRaw =
               typeof params.facing === "string" ? params.facing.toLowerCase() : "both";
             const facings: CameraFacing[] =
@@ -270,8 +270,8 @@ export function createNodesTool(options?: {
             return await sanitizeToolResultImages(result, "nodes:camera_snap", imageSanitization);
           }
           case "camera_list": {
-            const node = readStringParam(params, "node", { required: true });
-            const nodeId = await resolveNodeId(gatewayOpts, node);
+            const node = typeof params.node === "string" ? params.node.trim() : "";
+            const nodeId = await resolveNodeId(gatewayOpts, node || undefined, true, "camera");
             const raw = await callGatewayTool<{ payload: unknown }>("node.invoke", gatewayOpts, {
               nodeId,
               command: "camera.list",
@@ -283,8 +283,8 @@ export function createNodesTool(options?: {
             return jsonResult(payload);
           }
           case "camera_clip": {
-            const node = readStringParam(params, "node", { required: true });
-            const nodeId = await resolveNodeId(gatewayOpts, node);
+            const node = typeof params.node === "string" ? params.node.trim() : "";
+            const nodeId = await resolveNodeId(gatewayOpts, node || undefined, true, "camera");
             const facing =
               typeof params.facing === "string" ? params.facing.toLowerCase() : "front";
             if (facing !== "front" && facing !== "back") {
@@ -330,8 +330,8 @@ export function createNodesTool(options?: {
             };
           }
           case "screen_record": {
-            const node = readStringParam(params, "node", { required: true });
-            const nodeId = await resolveNodeId(gatewayOpts, node);
+            const node = typeof params.node === "string" ? params.node.trim() : "";
+            const nodeId = await resolveNodeId(gatewayOpts, node || undefined, true, "system");
             const durationMs =
               typeof params.durationMs === "number" && Number.isFinite(params.durationMs)
                 ? params.durationMs
