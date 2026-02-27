@@ -84,7 +84,9 @@ function resolveAgentWorkspaceFileOrRespondError(
   const name = (
     typeof rawName === "string" || typeof rawName === "number" ? String(rawName) : ""
   ).trim();
-  if (!ALLOWED_FILE_NAMES.has(name)) {
+  // Allow whitelisted config files + any path under uploads/
+  const isAllowedUpload = name.startsWith("uploads/") && !name.includes("..");
+  if (!ALLOWED_FILE_NAMES.has(name) && !isAllowedUpload) {
     respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, `unsupported file "${name}"`));
     return null;
   }
@@ -164,6 +166,29 @@ async function listAgentFiles(workspaceDir: string, options?: { hideBootstrap?: 
     } else {
       files.push({ name: DEFAULT_MEMORY_FILENAME, path: primaryMemoryPath, missing: true });
     }
+  }
+
+  // Also list files in uploads/ directory
+  const uploadsDir = path.join(workspaceDir, "uploads");
+  try {
+    const entries = await fs.readdir(uploadsDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile()) {
+        const filePath = path.join(uploadsDir, entry.name);
+        const meta = await statFile(filePath);
+        if (meta) {
+          files.push({
+            name: `uploads/${entry.name}`,
+            path: filePath,
+            missing: false,
+            size: meta.size,
+            updatedAtMs: meta.updatedAtMs,
+          });
+        }
+      }
+    }
+  } catch {
+    // uploads/ directory doesn't exist yet — that's fine
   }
 
   return files;
