@@ -150,6 +150,7 @@ export const AgentsFilesSetParamsSchema = Type.Object(
     agentId: NonEmptyString,
     name: NonEmptyString,
     content: Type.String(),
+    encoding: Type.Optional(Type.Union([Type.Literal("base64"), Type.Literal("utf-8")])),
   },
   { additionalProperties: false },
 );
