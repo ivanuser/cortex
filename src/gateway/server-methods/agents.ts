@@ -84,9 +84,10 @@ function resolveAgentWorkspaceFileOrRespondError(
   const name = (
     typeof rawName === "string" || typeof rawName === "number" ? String(rawName) : ""
   ).trim();
-  // Allow whitelisted config files + any path under uploads/
-  const isAllowedUpload = name.startsWith("uploads/") && !name.includes("..");
-  if (!ALLOWED_FILE_NAMES.has(name) && !isAllowedUpload) {
+  // Allow whitelisted config files + any path under uploads/ or avatars/
+  const isAllowedSubdir =
+    (name.startsWith("uploads/") || name.startsWith("avatars/")) && !name.includes("..");
+  if (!ALLOWED_FILE_NAMES.has(name) && !isAllowedSubdir) {
     respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, `unsupported file "${name}"`));
     return null;
   }
@@ -189,6 +190,29 @@ async function listAgentFiles(workspaceDir: string, options?: { hideBootstrap?: 
     }
   } catch {
     // uploads/ directory doesn't exist yet — that's fine
+  }
+
+  // Also list files in avatars/ directory
+  const avatarsDir = path.join(workspaceDir, "avatars");
+  try {
+    const entries = await fs.readdir(avatarsDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile()) {
+        const filePath = path.join(avatarsDir, entry.name);
+        const meta = await statFile(filePath);
+        if (meta) {
+          files.push({
+            name: `avatars/${entry.name}`,
+            path: filePath,
+            missing: false,
+            size: meta.size,
+            updatedAtMs: meta.updatedAtMs,
+          });
+        }
+      }
+    }
+  } catch {
+    // avatars/ directory doesn't exist yet — that's fine
   }
 
   return files;
