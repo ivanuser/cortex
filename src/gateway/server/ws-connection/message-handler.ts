@@ -29,6 +29,7 @@ import { TokenStore } from "../../../security/tokens.js";
 import { roleScopesAllow } from "../../../shared/operator-scope-compat.js";
 import { isGatewayCliClient, isWebchatClient } from "../../../utils/message-channel.js";
 import { resolveRuntimeServiceVersion, VERSION } from "../../../version.js";
+import { resolveAssistantIdentity } from "../../assistant-identity.js";
 import {
   AUTH_RATE_LIMIT_SCOPE_DEVICE_TOKEN,
   AUTH_RATE_LIMIT_SCOPE_SHARED_SECRET,
@@ -1159,6 +1160,12 @@ export function attachGatewayWsMessageHandler(params: {
             ? (buildCanvasScopedHostUrl(canvasHostUrl, canvasCapability) ?? canvasHostUrl)
             : canvasHostUrl;
         const resolvedAuthMode = ctxTokenValidation ? ("token" as const) : ("device" as const);
+        // Resolve assistant identity for branding
+        const assistantIdentity = resolveAssistantIdentity({
+          config: configSnapshot,
+          agentId: connectParams.agentId,
+        });
+
         const helloOk = {
           type: "hello-ok",
           protocol: PROTOCOL_VERSION,
@@ -1167,6 +1174,11 @@ export function attachGatewayWsMessageHandler(params: {
             commit: process.env.GIT_COMMIT,
             host: os.hostname(),
             connId,
+          },
+          branding: {
+            assistantName: assistantIdentity.name,
+            assistantAvatar: assistantIdentity.avatar,
+            assistantEmoji: assistantIdentity.emoji,
           },
           features: { methods: gatewayMethods, events },
           snapshot,
