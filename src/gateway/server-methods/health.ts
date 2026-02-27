@@ -8,6 +8,10 @@ import type { GatewayRequestHandlers } from "./types.js";
 const ADMIN_SCOPE = "operator.admin";
 
 export const healthHandlers: GatewayRequestHandlers = {
+  // Control UI sends "tick" as a keepalive heartbeat. Respond with a lightweight ack.
+  tick: async ({ respond }) => {
+    respond(true, { ts: Date.now() });
+  },
   health: async ({ respond, context, params }) => {
     const { getHealthCache, refreshHealthSnapshot, logHealth } = context;
     const wantsProbe = params?.probe === true;

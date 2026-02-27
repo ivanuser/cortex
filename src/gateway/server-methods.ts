@@ -110,7 +110,7 @@ function authorizeGatewayMethod(method: string, client: GatewayRequestOptions["c
   if (!client?.connect) {
     return null;
   }
-  if (method === "health") {
+  if (method === "health" || method === "tick") {
     return null;
   }
   const role = client.connect.role ?? "operator";
