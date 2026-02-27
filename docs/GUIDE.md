@@ -2349,4 +2349,4 @@ Cortex respects the following environment variables:
 
 ---
 
-_This documentation covers Cortex v3.10.x. For the latest updates, check the [GitHub repository](https://github.com/ivanuser/cortex)._
+_This documentation covers Cortex v3.10.x (current: v3.10.11). For the latest updates, check the [GitHub repository](https://github.com/ivanuser/cortex)._

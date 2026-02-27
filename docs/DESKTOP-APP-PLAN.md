@@ -1,6 +1,9 @@
-# Cortex Desktop App — Project Plan
+# Cortex Synapse — Desktop App Plan
 
 > **Goal:** Build native Windows and Linux desktop apps that provide full node capabilities (canvas, screen, camera, notifications) — matching what the macOS OpenClaw app already does.
+>
+> **Status:** ✅ Phases 0–2 and 4 COMPLETE. Phase 3 (All-in-One) planned for Q2 2026.
+> **Current Version:** v0.9.9 (February 27, 2026)
 
 ## The Problem
 
@@ -18,18 +21,21 @@ This means Windows and Linux users are second-class citizens. They can chat and 
 - Send native OS notifications
 - Control their desktop
 
-## The Solution: Cortex Desktop
+## The Solution: Cortex Synapse
 
 A native desktop app for Windows and Linux that:
 
-1. **Embeds the Cortex UI** in a native window (no browser needed)
-2. **Runs as a node** connecting to the gateway with full capabilities
-3. **Hosts canvas** via native WebView
-4. **Captures screen** for the AI agent to see
-5. **Accesses camera** (if available)
-6. **Sends native notifications**
-7. **Lives in system tray** for always-on presence
-8. **Can optionally run the gateway** itself (all-in-one mode)
+1. ✅ **Chat interface** with streaming, thinking indicators, tool cards, and markdown
+2. ✅ **Runs as a node** connecting to the gateway with full capabilities
+3. ✅ **Hosts canvas** via native WebView with full window chrome
+4. ✅ **Captures screen** for the AI agent to see
+5. ✅ **Accesses camera** (front/back)
+6. ✅ **Sends native notifications**
+7. ✅ **Lives in system tray** for always-on presence
+8. ✅ **File Manager** for workspace file browsing, upload, and download
+9. ✅ **Multi-gateway profiles** with add/edit/switch/delete
+10. ✅ **Auto-update** with signed bundles
+11. 📋 **Can optionally run the gateway** itself (all-in-one mode) — Phase 3
 
 ## Technology: Tauri v2
 
@@ -55,184 +61,205 @@ A native desktop app for Windows and Linux that:
 
 ```
 ┌─────────────────────────────────────────────┐
-│              Cortex Desktop                  │
+│              Cortex Synapse                  │
 │                                              │
 │  ┌──────────────┐  ┌──────────────────────┐ │
 │  │  Tauri Rust   │  │   Svelte Frontend    │ │
-│  │  Backend      │  │   (Cortex UI)        │ │
-│  │              │  │                      │ │
-│  │  • Gateway   │◄─┤  • Chat              │ │
-│  │    Client    │  │  • Admin Pages       │ │
-│  │  • Screen    │  │  • Canvas Host       │ │
-│  │    Capture   │──►│  • Settings          │ │
-│  │  • Camera    │  │  • Connection Mgmt   │ │
-│  │  • Tray Icon │  │                      │ │
+│  │  Backend      │  │                      │ │
+│  │              │  │  • Chat w/ streaming  │ │
+│  │  • Node WS   │◄─┤  • Tool cards        │ │
+│  │    Client    │  │  • File Manager      │ │
+│  │  • Screen    │  │  • Node Settings     │ │
+│  │    Capture   │──►│  • Gateway Panel     │ │
+│  │  • Camera    │  │  • Profile Switcher  │ │
+│  │  • Canvas    │  │  • Notifications     │ │
+│  │  • Tray Icon │  │  • Keyboard Shortcuts│ │
 │  │  • Notifs    │  └──────────────────────┘ │
 │  │  • FS Access │                           │
-│  │  • Gateway   │  ┌──────────────────────┐ │
-│  │    (optional)│  │   Canvas WebView     │ │
-│  └──────────────┘  │   (secondary window) │ │
-│                    └──────────────────────┘ │
+│  │  • Updater   │  ┌──────────────────────┐ │
+│  │  • Gateway   │  │   Canvas WebView     │ │
+│  │    (planned) │  │   (secondary window) │ │
+│  └──────────────┘  └──────────────────────┘ │
 │         │                                    │
-│         │ WebSocket                          │
+│         │ Dual WebSocket                     │
 │         ▼                                    │
 │  ┌──────────────┐                           │
 │  │   Gateway     │ (local or remote)        │
 │  │   :18789      │                           │
+│  │               │                           │
+│  │  WS 1: webchat (chat messages)           │
+│  │  WS 2: node (capabilities + RPC)        │
 │  └──────────────┘                           │
 └─────────────────────────────────────────────┘
 ```
 
+### Dual WebSocket Design
+
+Synapse maintains **two simultaneous WebSocket connections** to the gateway:
+
+1. **Webchat connection** — handles chat messages, session management, streaming responses
+2. **Node connection** — registers capabilities (canvas, screen, camera), handles RPC commands
+
+Both authenticate via `ctx_` API token. This separation allows the chat and node systems to operate independently.
+
 ### Two Operating Modes
 
-**1. Client Mode (connect to existing gateway)**
+**1. Client Mode (connect to existing gateway)** ✅ IMPLEMENTED
 
 - App connects to a remote or local gateway via WebSocket
 - Registers as a node with full capabilities
-- User gets the Cortex UI + native OS integration
+- User gets full chat UI + native OS integration
 - Lightweight — just the app, gateway runs elsewhere
 
-**2. All-in-One Mode (embedded gateway)**
+**2. All-in-One Mode (embedded gateway)** 📋 PLANNED
 
 - App spawns and manages the gateway process locally
 - Everything in one package — no separate install needed
 - Best for single-user setups
 - Gateway runs as a child process, managed by the app
 
-## Node Capabilities to Implement
+## Node Capabilities
 
-| Capability      | What it does                 | Tauri approach                                               |
-| --------------- | ---------------------------- | ------------------------------------------------------------ |
-| `system`        | Execute commands on the host | Tauri shell plugin + IPC                                     |
-| `browser`       | Browser automation (CDP)     | Launch/control system browser via CDP                        |
-| `canvas`        | Display interactive WebViews | Tauri secondary window (WebView)                             |
-| `screen`        | Screen capture/recording     | `xcap` crate (cross-platform screenshots)                    |
-| `camera`        | Photo/video capture          | `nokhwa` crate (cross-platform camera)                       |
-| `notifications` | Native OS notifications      | Tauri notification plugin                                    |
-| `location`      | Geolocation                  | Platform-specific APIs (Windows Location API, Linux GeoClue) |
+| Capability      | Status | Implementation                                |
+| --------------- | ------ | --------------------------------------------- |
+| `canvas`        | ✅     | Tauri secondary WebView window with OS chrome |
+| `screen`        | ✅     | `xcap` crate for screenshots and recording    |
+| `camera`        | ✅     | `nokhwa` crate for photo/video capture        |
+| `notifications` | ✅     | Tauri notification plugin                     |
+| `system`        | 📋     | Tauri shell plugin + IPC (planned)            |
+| `browser`       | 📋     | CDP browser control (planned)                 |
+| `location`      | 📋     | Platform-specific APIs (planned)              |
 
-## Phased Implementation
+## Implementation Progress
 
-### Phase 0: PoC — Tauri + Cortex UI (1-2 days)
+### ✅ Phase 0: PoC — Tauri + Svelte Chat (COMPLETE - Feb 24)
 
-**Goal:** Prove Tauri can embed the Cortex Svelte UI and connect to a gateway.
+- [x] Scaffold Tauri v2 project with Svelte 5 frontend
+- [x] WebSocket connection to gateway
+- [x] Chat streaming with real-time display
+- [x] Build and run on Linux and Windows
+- [x] System tray icon with quit/show/hide
 
-- [ ] Scaffold Tauri v2 project with Svelte frontend
-- [ ] Copy/symlink the existing Cortex UI source as the frontend
-- [ ] Build and run — verify the UI renders in native window
-- [ ] Connect to devclaw gateway — verify chat works
-- [ ] System tray icon with quit/show/hide
+### ✅ Phase 1: Node Registration + Canvas (COMPLETE - Feb 25-26)
 
-**Success criteria:** Chat working through native app window on Linux.
+- [x] Dual WebSocket: webchat + node connections
+- [x] Node registration with capabilities: `["canvas", "screen", "camera"]`
+- [x] Canvas host: secondary WebView window with full OS chrome
+- [x] Handle canvas commands (present, navigate, eval, snapshot)
+- [x] Native notifications for agent messages
+- [x] RPC handler at App level (survives panel switches)
 
-### Phase 1: Node Registration + Canvas (3-4 days)
+### ✅ Phase 2: Screen Capture + Camera (COMPLETE - Feb 26)
 
-**Goal:** App registers as a full node and can host canvases.
+- [x] Screen capture using `xcap` crate
+- [x] Respond to `screen_record` node commands
+- [x] Camera access using `nokhwa` crate
+- [x] Respond to `camera_snap`, `camera_list`, `camera_clip` commands
+- [x] Node settings panel with enable/disable toggle
+- [x] Auto-node detection on gateway side (v3.10.8)
 
-- [ ] Implement gateway WebSocket client in Rust
-- [ ] Register with capabilities: `["system", "browser", "canvas"]`
-- [ ] Canvas host: secondary WebView window that gateway can push content to
-- [ ] Handle `canvas.present`, `canvas.navigate`, `canvas.eval`, `canvas.snapshot` commands
-- [ ] Native notifications for agent messages
+### 📋 Phase 3: All-in-One Mode (PLANNED - Q2 2026)
 
-**Success criteria:** Agent can push a canvas to the desktop app and snapshot it.
-
-### Phase 2: Screen Capture + Camera (3-4 days)
-
-**Goal:** Full sensory capabilities.
-
-- [ ] Screen capture using `xcap` crate
-- [ ] Respond to `screen_record` node commands
-- [ ] Camera access using `nokhwa` crate
-- [ ] Respond to `camera_snap`, `camera_list`, `camera_clip` commands
-- [ ] Permission prompts (user must approve screen/camera access)
-- [ ] Capability: `["system", "browser", "canvas", "screen", "camera"]`
-
-**Success criteria:** Agent can take a screenshot and a photo through the desktop app.
-
-### Phase 3: All-in-One Mode (2-3 days)
-
-**Goal:** Single-package install for new users.
-
-- [ ] Bundle `cortex` gateway binary (or invoke via npm)
-- [ ] "Start Gateway" / "Stop Gateway" in app menu
+- [ ] Bundle `openclaw-cortex` gateway (or invoke via npm)
+- [ ] "Start Gateway" / "Stop Gateway" in gateway panel
 - [ ] Gateway process management (spawn, monitor, restart on crash)
 - [ ] First-run wizard: configure API keys, set up agent
 - [ ] Gateway logs viewable in the app
 
-**Success criteria:** Download one app → run it → have a fully working AI assistant.
+### ✅ Phase 4: Distribution + Auto-Update (COMPLETE - Feb 27)
 
-### Phase 4: Polish + Distribution (2-3 days)
+- [x] Windows: `.msi` installer (WiX) + `.exe` installer (NSIS)
+- [x] Linux: `.deb` + `.rpm` + `.AppImage`
+- [x] Auto-updater with signed update bundles (Tauri built-in)
+- [x] GitLab CI pipeline: build-linux, build-windows, publish-update, create-release
+- [x] Update endpoint: `update.json` auto-generated and committed by CI
+- [x] Updater signing key (minisign) for tamper-proof updates
+- [x] Proper app icons (Cortex branding)
+- [x] Start on boot option (autostart plugin)
+- [x] Minimize to tray on close
 
-**Goal:** Installable packages for Windows and Linux.
+## Feature Summary (v0.9.9)
 
-- [ ] Windows: `.msi` installer via WiX
-- [ ] Linux: `.deb` + `.AppImage` + `.rpm`
-- [ ] Auto-updater (Tauri built-in)
-- [ ] Proper app icons (Cortex branding)
-- [ ] Start on boot option
-- [ ] Minimize to tray on close
-- [ ] GitHub Releases CI/CD
+### Chat
 
-**Success criteria:** Users can download from GitHub Releases and install with one click.
+- Real-time streaming with live thinking indicator (animated bouncing dots)
+- Tool activity cards showing real-time tool calls
+- Inline image rendering (camera snaps, screenshots, generated images)
+- Image attachments (drag & drop or paste)
+- Markdown rendering with code blocks
+- Message history persisted across sessions
+- Keyboard shortcuts: `Ctrl+N` new chat, `Ctrl+Shift+C` copy last, `Ctrl+/` reference
 
-## File Structure
+### File Management
+
+- File Manager panel with browse/upload/download
+- Tauri native file dialog + HTML fallback for uploads
+- Binary file support via base64 encoding
+
+### Profiles & Settings
+
+- Multi-gateway profile system (add, edit, switch, delete)
+- Gateway panel with connection status and auto-start toggle
+- Node settings with capability toggles
+- Notification controls (enable/disable)
+
+### System Integration
+
+- System tray with minimize-to-tray
+- Native OS notifications
+- Auto-reconnect with exponential backoff
+- Auto-update with signed bundles
+
+## CI/CD Pipeline
 
 ```
-cortex-desktop/
-├── src-tauri/                   # Rust backend
-│   ├── Cargo.toml
-│   ├── src/
-│   │   ├── main.rs              # App entry point
-│   │   ├── tray.rs              # System tray setup
-│   │   ├── gateway_client.rs    # WS connection to gateway
-│   │   ├── node/
-│   │   │   ├── mod.rs
-│   │   │   ├── screen.rs        # Screen capture
-│   │   │   ├── camera.rs        # Camera access
-│   │   │   ├── canvas.rs        # Canvas host management
-│   │   │   └── system.rs        # System command execution
-│   │   ├── gateway_manager.rs   # Embedded gateway process mgmt
-│   │   └── commands.rs          # Tauri IPC commands
-│   ├── tauri.conf.json
-│   └── icons/
-├── src/                         # Frontend (Cortex Svelte UI)
-│   └── ... (symlinked or copied from ui/)
-├── package.json
-└── README.md
+main branch push
+    │
+    ├── build-linux (GitLab runner)
+    │   ├── .deb package
+    │   ├── .rpm package
+    │   └── .AppImage.tar.gz + .sig
+    │
+    ├── build-windows (dev05 runner)
+    │   ├── .msi + .msi.zip + .sig
+    │   └── .exe (NSIS) + .nsis.zip + .sig
+    │
+    ├── publish-update (uploads to GitLab package registry)
+    │   ├── Generates update.json from build artifacts
+    │   └── Commits update.json to repo
+    │
+    └── create-release (tag-triggered)
+        └── Creates GitLab release with all artifacts
 ```
 
-## Discovery Questions
+### CI Variables
 
-Before starting the PoC:
+- `TAURI_SIGNING_PRIVATE_KEY` — minisign private key for update signing
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — key password (empty for current key)
+- `CI_API_TOKEN` — GitLab PAT for API access and package registry
 
-1. **Gateway location:** Should Phase 0 PoC connect to devclaw (.223) or spin up a local gateway?
-2. **Repo structure:** New repo (`cortex-desktop`) or monorepo inside `cortex-fork`?
-3. **Rust experience:** I'll be generating Rust code via AI. Any preferences on code style or crate choices?
-4. **Priority platform:** Start with Linux (we have dev boxes) or Windows (your daily driver)?
-5. **All-in-one priority:** How important is bundling the gateway inside the app vs. just being a client?
+### Update Endpoint
 
-## Risk Assessment
+- URL: `https://gitlab.honercloud.com/llm/cortex-synapse/-/raw/main/update.json`
+- Format: Tauri v2 updater JSON with per-platform download URLs and signatures
 
-| Risk                             | Likelihood | Impact | Mitigation                                                        |
-| -------------------------------- | ---------- | ------ | ----------------------------------------------------------------- |
-| Tauri v2 WebView quirks on Linux | Medium     | Medium | Test on multiple distros early; WebKitGTK is mature               |
-| Camera crate compatibility       | Medium     | Low    | `nokhwa` supports most USB cameras; fallback to ffmpeg            |
-| Screen capture permissions       | Low        | Medium | Prompt user; document per-OS requirements                         |
-| Gateway protocol complexity      | Low        | High   | Gateway WS client already exists in TypeScript — port logic       |
-| Build size with embedded gateway | Medium     | Low    | Gateway is a Node.js process, not compiled in — separate download |
+## Repository
 
-## Timeline Estimate
+- **GitLab**: https://gitlab.honercloud.com/llm/cortex-synapse (project ID: 100)
+- **Tech stack**: Tauri v2 + Svelte 5 + TypeScript + Rust
+- **Build**: `npm run build` (wraps `tauri build`)
+- **Dev**: `npm run dev` (wraps `tauri dev`)
 
-| Phase                    | Duration       | Deliverable                     |
-| ------------------------ | -------------- | ------------------------------- |
-| Phase 0: PoC             | 1-2 days       | Native window with working chat |
-| Phase 1: Node + Canvas   | 3-4 days       | Full node registration + canvas |
-| Phase 2: Screen + Camera | 3-4 days       | All sensory capabilities        |
-| Phase 3: All-in-One      | 2-3 days       | Embedded gateway mode           |
-| Phase 4: Distribution    | 2-3 days       | Installable packages            |
-| **Total**                | **~2-3 weeks** | **Full desktop app**            |
+## What's Next for v1.0
+
+1. **Auto-update end-to-end testing** — verify update banner + one-click install
+2. **Voice/TTS integration** — audio playback in chat
+3. **Improved markdown** — better code blocks, tables, syntax highlighting
+4. **Chat export** — save conversations to file
+5. **Chat search** — search across past conversations
+6. **All-in-One Mode** — embedded gateway for zero-config setup
 
 ---
 
-_This is the piece that makes Cortex a complete platform — not just a web UI, but a native presence on every desktop._
+_Cortex Synapse v0.9.9 — February 27, 2026_
+_From concept to near-v1.0 in 3 days._

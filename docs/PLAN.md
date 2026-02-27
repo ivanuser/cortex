@@ -1,7 +1,7 @@
 # 🧠 CORTEX — Project Plan
 
-**Version:** v3.10.2
-**Date:** February 24, 2026
+**Version:** v3.10.11
+**Date:** February 27, 2026
 **Author:** Ivan Honer
 **Repository:** https://gitlab.honercloud.com/llm/cortex-fork
 **Status:** Production Ready
@@ -111,10 +111,13 @@ OpenClaw's built-in Control UI was functional but limited — a small Lit-based 
 **Synapse Desktop (Tauri v2 + Svelte)**
 
 - Native app for Windows and Linux
-- Embeds the Cortex UI in a native window
-- System tray integration and notifications
+- Dual WebSocket connections: webchat (chat) + node (capabilities)
+- Full node registration with canvas, screen, and camera capabilities
+- System tray integration and native OS notifications
 - Auto-reconnect with connection management
-- Future: Full node capabilities (screen, camera)
+- File Manager for workspace file browsing and uploads
+- Multi-gateway profile switching
+- Auto-update via signed update bundles
 
 **Sentinel (Future)**
 
@@ -360,29 +363,112 @@ Implemented 4 role levels:
 
 **Outcome:** Feature parity with core web UI functionality
 
+### ✅ Synapse Batch 2 (February 25, 2026)
+
+**Goal:** System integration
+
+- **Native notifications** (#25): OS-level notifications for agent messages
+- **System tray** (#26): Minimize to tray, tray icon menu
+- **Start minimized** (#27): Boot with app hidden to tray
+
+**Outcome:** Desktop-native experience with persistent background presence
+
+### ✅ Synapse Batch 3 (February 25, 2026)
+
+**Goal:** Chat polish
+
+- **Copy button** (#28): Copy messages and code blocks
+- **Timestamps** (#29): Message timestamps with relative time
+- **Syntax highlighting** (#30): Code syntax highlighting in chat
+- **Keyboard shortcuts** (#31): Hotkeys matching web UI (Ctrl+N, Ctrl+Shift+C, Ctrl+/)
+
+**Outcome:** Chat UX parity with web UI
+
+### ✅ Gateway v3.10.3–v3.10.11 (February 25-27, 2026)
+
+**Goal:** Gateway enhancements to support Synapse and webchat
+
+- **v3.10.3**: Canvas `gateway.bind: "lan"` + `OPENCLAW_CANVAS_HOST_URL` env var + origins allowlist, ctx\_ token rate-limiter fix
+- **v3.10.4**: Omit `channel` from inbound metadata for webchat
+- **v3.10.5**: Helpful error when agent tries messaging via webchat channel
+- **v3.10.6**: `emitChatFinal` accumulates image blocks from tool results during runs
+- **v3.10.7**: `sanitizeChatHistoryContentBlock` preserves images under 512KB base64
+- **v3.10.8**: Auto-node detection for camera_snap, camera_list, camera_clip, screen_record
+- **v3.10.9**: Binary file upload via `agents.files.set` with `encoding: "base64"`, new `agents.files.delete`, auto-mkdir
+- **v3.10.10**: Added `tick` keepalive handler to gateway + auth bypass
+- **v3.10.11**: Added `encoding` field to `AgentsFilesSetParamsSchema` (TypeBox validation fix)
+
+**Additional gateway fixes:**
+
+- `agents.files.set/get/list` support for `uploads/` and `avatars/` directories with path traversal protection
+- Binary file detection in `agents.files.get` — returns base64 with `encoding` field for image/binary files
+- `resolveAssistantIdentity` parameter name fix
+- Assistant branding (name + avatar) in `hello-ok` connect response
+- Improved workspace templates (IDENTITY.md, AGENTS.md, BOOTSTRAP.md, TOOLS.md)
+
+**Outcome:** Full image pipeline, file management API, and webchat support for Synapse
+
+### ✅ Synapse v0.7.7–v0.9.9 (February 25-27, 2026)
+
+**Goal:** Full-featured desktop client with node capabilities
+
+**Chat & Rendering (v0.7.7–v0.8.0):**
+
+- Inline image rendering from camera snaps and screenshots
+- CSS scaling fixes for images
+- MEDIA: URL filtering in message display
+- Tool result image merging
+- Streaming delta REPLACE (not append) fix
+
+**UX & Features (v0.9.0–v0.9.5):**
+
+- Animated thinking indicator (bouncing dots)
+- Tool activity cards showing real-time tool calls
+- Multi-gateway profile system with add/edit/switch/delete
+- Native OS notifications with toggle control
+- File Manager panel with browse/upload/download
+- Tauri native file dialog + HTML fallback for uploads
+
+**Node & System (v0.9.6–v0.9.9):**
+
+- Node registration with canvas, screen, and camera capabilities
+- Avatar cache-busting (timestamp query param)
+- Canvas window with full OS chrome (title bar, move, resize, close)
+- Auto-update infrastructure with signed update bundles
+- Updater endpoint via GitLab package registry
+- CI pipeline: build-linux, build-windows, publish-update, create-release
+
+**Outcome:** Near-complete desktop client — Phases 1, 2, and 4 of the original roadmap largely achieved
+
 ## 5. Current State
 
 ### Production Deployment
 
-- **Version**: v3.10.2 on npm
-- **Test environment**: Deployed on devclaw (.223)
-- **Desktop**: Synapse v0.2.0 in testing
+- **Gateway Version**: v3.10.11 deployed on devclaw (.223)
+- **Test environment**: Full stack on devclaw with Cloudflare tunnel
+- **Desktop**: Synapse v0.9.9 (CI building)
 
 ### Web UI Status
 
 - **16 admin pages** covering all gateway functionality
 - **Full chat interface** with rich markdown rendering
+- **Binary file rendering** in file viewer (images displayed inline)
 - **Cyberpunk theme** with 8 presets + custom themes
 - **PWA support** with offline capability
 - **Mobile responsive** design
 
-### Desktop Status (Synapse v0.2.0)
+### Desktop Status (Synapse v0.9.9)
 
-- **Native chat** with Tauri v2 framework
-- **Markdown rendering** with syntax highlighting
-- **Session management** and history
-- **Auto-reconnect** with connection monitoring
-- **System tray** integration (basic)
+- **Native chat** with full streaming, thinking indicators, and tool cards
+- **Dual WebSocket**: webchat connection (chat) + node connection (capabilities)
+- **Node capabilities**: Canvas host, screen capture, camera access
+- **File Manager**: Browse, upload, download workspace files
+- **Multi-gateway profiles**: Add, edit, switch, delete gateway connections
+- **Native notifications**: OS-level alerts with toggle control
+- **System tray**: Minimize to tray, tray icon menu
+- **Keyboard shortcuts**: Ctrl+N, Ctrl+Shift+C, Ctrl+/
+- **Auto-update**: Signed update bundles via GitLab package registry
+- **Auto-reconnect** with exponential backoff
 
 ### Security Status
 
@@ -394,52 +480,44 @@ Implemented 4 role levels:
 
 ### Distribution
 
-- **npm**: `openclaw-cortex@3.10.2` published
+- **npm**: `openclaw-cortex` published
 - **Docker**: Available in GitLab registry
-- **Desktop**: Automated Windows/Linux builds
+- **Desktop**: Automated Windows/Linux builds (MSI, NSIS, AppImage, deb, rpm)
+- **Auto-update**: Signed bundles uploaded to GitLab package registry
 - **Documentation**: Live at GitLab Pages
 
 ## 6. Active Development
 
-### 🔄 Synapse Batch 2 (In Progress)
+### 🔄 Synapse v1.0 Polish (In Progress)
 
-**Target completion**: February 25-26, 2026
+- **Auto-update end-to-end testing**: Verify update banner and one-click install
+- **Markdown rendering improvements**: Better code blocks and tables
+- **Voice/TTS integration**: Audio playback in chat
+- **Chat export**: Save conversations to file
+- **Chat search/history**: Search across past conversations
 
-Active GitLab issues:
+### 🔄 Gateway Improvements
 
-- **Native notifications** (#25): System notifications for agent messages
-- **System tray** (#26): Minimize to tray, tray icon menu
-- **Start minimized** (#27): Boot with app hidden to tray
-
-### 🔄 Synapse Batch 3 (Planned for this week)
-
-**Target completion**: February 27-28, 2026
-
-Queued GitLab issues:
-
-- **Copy button** (#28): Copy messages and code blocks
-- **Timestamps** (#29): Message timestamps with relative time
-- **Syntax highlighting** (#30): Code syntax highlighting in chat
-- **Keyboard shortcuts** (#31): Hotkeys matching web UI
+- **Upstream rebase**: ~2,270 commits behind upstream OpenClaw (v2026.2.25)
+- **Anthropic API timeout investigation**: 600s timeouts on devclaw
 
 ## 7. Roadmap
 
-### 📋 Synapse Phase 1: Node Registration (Q1 2026)
+### ✅ Synapse Phase 1: Node Registration (COMPLETE)
 
 **Goal**: Desktop app becomes a full OpenClaw node
 
-- **Node registration**: App registers with gateway as full node
-- **Canvas host**: Display interactive canvases in secondary windows
-- **System capabilities**: Execute commands on behalf of gateway
+- ✅ **Node registration**: App registers with gateway as full node
+- ✅ **Canvas host**: Display interactive canvases in native WebView window
+- ✅ **System capabilities**: Canvas, screen, camera registered
 
-### 📋 Synapse Phase 2: Sensory Capabilities (Q1 2026)
+### ✅ Synapse Phase 2: Sensory Capabilities (COMPLETE)
 
 **Goal**: Screen capture and camera access
 
-- **Screen capture**: Screenshot and screen recording
-- **Camera access**: Photo and video capture
-- **Permissions**: OS-level permission prompts
-- **Privacy controls**: User control over data sharing
+- ✅ **Screen capture**: Screenshot and screen recording via xcap crate
+- ✅ **Camera access**: Photo and video capture via nokhwa crate
+- ✅ **Node settings panel**: Enable/disable node with capability toggles
 
 ### 📋 Synapse Phase 3: All-in-One Mode (Q2 2026)
 
@@ -449,14 +527,16 @@ Queued GitLab issues:
 - **Process management**: Start/stop/monitor gateway process
 - **First-run wizard**: Complete setup in single package
 
-### 📋 Synapse Phase 4: Distribution (Q2 2026)
+### ✅ Synapse Phase 4: Distribution (COMPLETE)
 
 **Goal**: Professional distribution and updates
 
-- **MSI installer**: Windows installer package
-- **AppImage**: Linux portable application
-- **Auto-updater**: Built-in update mechanism
-- **Code signing**: Signed binaries for security
+- ✅ **MSI installer**: Windows installer package
+- ✅ **NSIS installer**: Windows setup executable
+- ✅ **AppImage**: Linux portable application
+- ✅ **deb/rpm**: Linux packages
+- ✅ **Auto-updater**: Signed update bundles with one-click install
+- 🔄 **Code signing**: Update signing implemented, binary signing pending
 
 ### 📋 Cortex Sentinel: Distributed AI Security
 
@@ -588,14 +668,14 @@ Queued GitLab issues:
 
 ## Project Status Summary
 
-**✅ Completed**: Production-ready web UI with security hardening, desktop app MVP, comprehensive documentation
+**✅ Completed**: Production-ready web UI with security hardening, full-featured desktop app with node capabilities, auto-update infrastructure, comprehensive documentation
 
-**🔄 In Progress**: Desktop app system integration (notifications, tray, shortcuts)
+**🔄 In Progress**: Synapse v1.0 polish (markdown, voice, chat export), auto-update end-to-end testing, upstream rebase consideration
 
-**📋 Next**: Node capabilities for desktop app, distributed security agents, public release
+**📋 Next**: All-in-one mode (embedded gateway), distributed security agents, public release
 
-**Timeline**: ~5 days of intensive development produced a complete replacement for OpenClaw's UI with significant security and UX improvements. Desktop companion adds native OS integration. Future phases focus on advanced capabilities and community adoption.
+**Timeline**: ~8 days of intensive development (Feb 19-27) produced a complete replacement for OpenClaw's UI, a full desktop companion with node capabilities, and auto-update distribution — from zero to near-v1.0 in just over a week.
 
 ---
 
-_Cortex v3.10.2 — February 24, 2026_
+_Cortex v3.10.11 — February 27, 2026_
