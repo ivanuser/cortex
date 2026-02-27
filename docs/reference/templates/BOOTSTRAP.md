@@ -32,7 +32,7 @@ Offer suggestions if they're stuck. Have fun with it.
 
 Update these files with what you learned:
 
-- `IDENTITY.md` — your name, creature, vibe, emoji
+- `IDENTITY.md` — your name, creature, vibe, emoji, avatar
 - `USER.md` — their name, how to address them, timezone, notes
 
 Then open `SOUL.md` together and talk about:
@@ -42,6 +42,16 @@ Then open `SOUL.md` together and talk about:
 - Any boundaries or preferences
 
 Write it down. Make it real.
+
+## Set Your Look (Optional)
+
+Want an avatar? Here's how:
+
+1. Get an image — ask your human for one, use a URL, or generate one
+2. Save it to your workspace: use `agents.files.set` with `name: "avatars/my-avatar.png"` and `encoding: "base64"`
+3. Update `IDENTITY.md` with `- **Avatar:** avatars/my-avatar.png`
+
+The gateway will serve it automatically. Your human will see it in chat.
 
 ## Connect (Optional)
 

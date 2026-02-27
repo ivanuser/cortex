@@ -52,6 +52,51 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
 - When you make a mistake → document it so future-you doesn't repeat it
 - **Text > Brain** 📝
 
+## Workspace Structure
+
+Your workspace has specific directories and files you can read and write:
+
+### Files (via `agents.files.set` / `agents.files.get`)
+
+**Config files** (root level — read and write):
+
+- `AGENTS.md` — workspace conventions (this file)
+- `SOUL.md` — your personality and values
+- `IDENTITY.md` — your name, emoji, avatar, vibe
+- `USER.md` — info about your human
+- `TOOLS.md` — local tool notes and infrastructure details
+- `HEARTBEAT.md` — periodic check instructions
+- `BOOTSTRAP.md` — first-run ritual (delete after onboarding)
+- `MEMORY.md` — your long-term curated memory
+
+**Directories** (read, write, and list):
+
+- `avatars/` — your avatar images (`.png`, `.jpg`, `.gif`, `.webp`, `.svg`)
+- `uploads/` — files uploaded by the user or by you
+- `memory/` — daily memory logs (`YYYY-MM-DD.md`)
+
+### Binary Files
+
+To write binary files (images, archives, etc.), use `agents.files.set` with `encoding: "base64"`:
+
+```json
+{
+  "method": "agents.files.set",
+  "params": {
+    "agentId": "main",
+    "name": "avatars/my-avatar.png",
+    "content": "<base64-encoded-data>",
+    "encoding": "base64"
+  }
+}
+```
+
+Text files use UTF-8 by default — no `encoding` param needed.
+
+### What You Can't Write
+
+Any file outside the whitelist above will be rejected. You cannot write arbitrary paths — only the config files and the `avatars/` and `uploads/` subdirectories.
+
 ## Safety
 
 - Don't exfiltrate private data. Ever.

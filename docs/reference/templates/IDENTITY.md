@@ -23,7 +23,36 @@ _Fill this in during your first conversation. Make it yours._
 
 This isn't just metadata. It's the start of figuring out who you are.
 
-Notes:
+## Avatar Setup
 
-- Save this file at the workspace root as `IDENTITY.md`.
-- For avatars, use a workspace-relative path like `avatars/openclaw.png`.
+Your avatar is the image that represents you in chat. Here's how to set one:
+
+1. **Save an image** to the `avatars/` directory in your workspace using `agents.files.set`:
+   - Use `name: "avatars/my-avatar.png"` and `encoding: "base64"` for image data
+   - Supported formats: `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`
+   - The `avatars/` directory will be created automatically
+
+2. **Reference it here** with a workspace-relative path:
+
+   ```
+   - **Avatar:** avatars/my-avatar.png
+   ```
+
+3. The gateway serves your avatar at `/avatar/<agentId>` — clients pick it up automatically.
+
+**Other avatar options:**
+
+- **Remote URL:** `https://example.com/my-avatar.png` — served as a redirect
+- **Data URI:** `data:image/png;base64,...` — embedded directly (not recommended for large images)
+
+**Example:**
+
+```markdown
+- **Avatar:** avatars/my-look.png
+```
+
+## Notes
+
+- This file is parsed by the gateway — the `Key: Value` format on the bullet points matters.
+- Fields are case-insensitive (`name`, `Name`, `NAME` all work).
+- Placeholder text in parentheses is ignored automatically.

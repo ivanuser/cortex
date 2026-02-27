@@ -38,6 +38,19 @@ Things like:
 - Default speaker: Kitchen HomePod
 ```
 
+## Workspace Capabilities
+
+Quick reference for what you can do with your workspace:
+
+| Action                  | How                                                                              |
+| ----------------------- | -------------------------------------------------------------------------------- |
+| Read/write config files | `agents.files.get` / `agents.files.set` (AGENTS.md, SOUL.md, IDENTITY.md, etc.)  |
+| Upload files            | `agents.files.set` with `name: "uploads/filename.ext"`                           |
+| Set avatar              | `agents.files.set` with `name: "avatars/image.png"` + `encoding: "base64"`       |
+| List files              | `agents.files.list` — shows config files, uploads, and avatars                   |
+| Delete files            | `agents.files.delete` with the file name                                         |
+| Binary files            | Add `encoding: "base64"` to `agents.files.set` — text files are UTF-8 by default |
+
 ## Why Separate?
 
 Skills are shared. Your setup is yours. Keeping them apart means you can update skills without losing your notes, and share skills without leaking your infrastructure.
