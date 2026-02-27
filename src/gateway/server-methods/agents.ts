@@ -515,7 +515,26 @@ export const agentsHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    const content = await fs.readFile(filePath, "utf-8");
+    // Detect binary files by extension and return base64 for them
+    const ext = path.extname(name).toLowerCase();
+    const BINARY_EXTS = new Set([
+      ".png",
+      ".jpg",
+      ".jpeg",
+      ".gif",
+      ".webp",
+      ".svg",
+      ".ico",
+      ".bmp",
+      ".zip",
+      ".gz",
+      ".tar",
+      ".pdf",
+    ]);
+    const isBinary = BINARY_EXTS.has(ext);
+    const content = isBinary
+      ? (await fs.readFile(filePath)).toString("base64")
+      : await fs.readFile(filePath, "utf-8");
     respond(
       true,
       {
@@ -528,6 +547,7 @@ export const agentsHandlers: GatewayRequestHandlers = {
           size: meta.size,
           updatedAtMs: meta.updatedAtMs,
           content,
+          ...(isBinary ? { encoding: "base64" } : {}),
         },
       },
       undefined,

@@ -56,8 +56,31 @@
   let activeFile = $state<string | null>(null);
   let fileContent = $state('');
   let fileDraft = $state('');
+  let fileEncoding = $state<string | null>(null);
   let fileLoading = $state(false);
   let fileSaving = $state(false);
+
+  const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.bmp']);
+  const MIME_MAP: Record<string, string> = {
+    '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon', '.bmp': 'image/bmp',
+  };
+
+  function getFileExt(name: string): string {
+    const dot = name.lastIndexOf('.');
+    return dot >= 0 ? name.slice(dot).toLowerCase() : '';
+  }
+
+  function isImageFile(name: string): boolean {
+    return IMAGE_EXTS.has(getFileExt(name));
+  }
+
+  function getImageDataUrl(name: string, base64Content: string): string {
+    const ext = getFileExt(name);
+    const mime = MIME_MAP[ext] || 'application/octet-stream';
+    return `data:${mime};base64,${base64Content}`;
+  }
 
   // Skills
   let skills = $state<SkillEntry[]>([]);
@@ -242,9 +265,11 @@
     if (!selectedAgentId) return;
     activeFile = name;
     fileLoading = true;
+    fileEncoding = null;
     try {
-      const res = await gateway.call<{ file?: { content?: string } }>('agents.files.get', { agentId: selectedAgentId, name });
+      const res = await gateway.call<{ file?: { content?: string; encoding?: string } }>('agents.files.get', { agentId: selectedAgentId, name });
       fileContent = res?.file?.content ?? '';
+      fileEncoding = res?.file?.encoding ?? null;
       fileDraft = fileContent;
     } catch (e) {
       toasts.error('Failed to load file', String(e));
@@ -639,6 +664,7 @@
                         <span class="w-2 h-2 rounded-full bg-accent-amber"></span>
                       {/if}
                     </div>
+                    {#if fileEncoding !== 'base64'}
                     <div class="flex items-center gap-2">
                       <button onclick={() => { fileDraft = fileContent; }} disabled={!isDirty}
                         class="px-2.5 py-1 rounded text-xs text-text-muted hover:text-text-primary transition-all disabled:opacity-30">
@@ -650,12 +676,31 @@
                         {fileSaving ? 'Saving…' : 'Save'}
                       </button>
                     </div>
+                    {/if}
                   </div>
-                  <textarea
-                    bind:value={fileDraft}
-                    class="flex-1 w-full p-4 bg-bg-primary text-text-primary font-mono text-sm resize-none focus:outline-none border-none"
-                    spellcheck="false"
-                  ></textarea>
+                  {#if activeFile && isImageFile(activeFile) && fileEncoding === 'base64'}
+                    <div class="flex-1 flex items-center justify-center p-6 bg-bg-primary overflow-auto">
+                      <img
+                        src={getImageDataUrl(activeFile, fileContent)}
+                        alt={activeFile}
+                        class="max-w-full max-h-full rounded-lg shadow-lg object-contain"
+                        style="max-height: calc(100vh - 200px);"
+                      />
+                    </div>
+                  {:else if fileEncoding === 'base64'}
+                    <div class="flex-1 flex flex-col items-center justify-center p-6 bg-bg-primary text-text-muted gap-3">
+                      <span class="text-3xl">📦</span>
+                      <span class="text-sm font-medium">{activeFile}</span>
+                      <span class="text-xs">Binary file ({Math.round((fileContent.length * 3/4) / 1024)} KB)</span>
+                      <span class="text-xs text-text-muted/60">Preview not available for this file type</span>
+                    </div>
+                  {:else}
+                    <textarea
+                      bind:value={fileDraft}
+                      class="flex-1 w-full p-4 bg-bg-primary text-text-primary font-mono text-sm resize-none focus:outline-none border-none"
+                      spellcheck="false"
+                    ></textarea>
+                  {/if}
                 {/if}
               </div>
             </div>
