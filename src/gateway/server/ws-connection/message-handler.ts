@@ -1162,7 +1162,7 @@ export function attachGatewayWsMessageHandler(params: {
         const resolvedAuthMode = ctxTokenValidation ? ("token" as const) : ("device" as const);
         // Resolve assistant identity for branding
         const assistantIdentity = resolveAssistantIdentity({
-          config: configSnapshot,
+          cfg: configSnapshot,
           agentId: connectParams.agentId,
         });
 
