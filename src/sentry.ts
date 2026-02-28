@@ -10,7 +10,8 @@
 
 import { version } from "../package.json" with { type: "json" };
 
-const SENTRY_DSN = "https://af877b470afb42d20e56491efa42b71a@sentry.honercloud.com/4";
+// Use internal IP for self-hosted Sentry (CF tunnel blocks /api/envelope/)
+const SENTRY_DSN = "http://af877b470afb42d20e56491efa42b71a@192.168.1.170:9000/4";
 
 interface Breadcrumb {
   timestamp: number;
