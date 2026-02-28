@@ -36,8 +36,17 @@ export async function initSentry(): Promise<void> {
       // Performance: sample 10% of transactions
       tracesSampleRate: 0.1,
 
-      // Capture unhandled exceptions and rejections
-      integrations: [sentryModule.onUnhandledRejectionIntegration({ mode: "warn" })],
+      // Disable default integrations that auto-detect frameworks (Fastify/Express need @fastify/otel etc.)
+      // Only use core error capture integrations
+      defaultIntegrations: false,
+      integrations: [
+        sentryModule.inboundFiltersIntegration(),
+        sentryModule.linkedErrorsIntegration(),
+        sentryModule.onUncaughtExceptionIntegration(),
+        sentryModule.onUnhandledRejectionIntegration({ mode: "warn" }),
+        sentryModule.contextLinesIntegration(),
+        sentryModule.nodeContextIntegration(),
+      ],
 
       // Scrub sensitive data
       beforeSend(event) {
