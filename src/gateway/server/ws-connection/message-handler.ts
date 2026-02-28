@@ -705,6 +705,29 @@ export function attachGatewayWsMessageHandler(params: {
           return;
         }
 
+        // ─── Populate scopes for desktop app origins with shared auth ─────
+        // Desktop apps (tauri://, capacitor://) authenticated via gateway
+        // shared token should get operator scopes, same as ctx_ admin tokens.
+        // Without this, scopes stay empty because they're only populated for
+        // ctx_ tokens (above) or device-token auth.
+        const isDesktopAppOriginForScopes =
+          typeof requestOrigin === "string" && /^(tauri|capacitor):\/\//i.test(requestOrigin);
+        if (
+          isDesktopAppOriginForScopes &&
+          sharedAuthOk &&
+          !ctxTokenValidation &&
+          connectParams.scopes.length === 0
+        ) {
+          connectParams.scopes = [
+            "operator.admin",
+            "operator.read",
+            "operator.write",
+            "operator.approvals",
+            "operator.pairing",
+          ];
+          scopes = connectParams.scopes;
+        }
+
         // ─── Invite code / pairing code auto-approval ────────
         let inviteOrCodeRole: string | null = null;
 
