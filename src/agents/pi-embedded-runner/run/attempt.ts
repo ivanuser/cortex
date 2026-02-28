@@ -437,6 +437,40 @@ export async function runEmbeddedAttempt(
     });
     const ttsHint = params.config ? buildTtsSystemPromptHint(params.config) : undefined;
 
+    // Fetch connected nodes for system prompt context (best-effort, non-blocking)
+    let connectedNodes: Array<{
+      displayName?: string;
+      nodeId: string;
+      platform?: string;
+      caps?: string[];
+      connected?: boolean;
+    }> = [];
+    try {
+      const { listNodes } = (await import("../../tools/nodes-utils.js")) as {
+        listNodes: (opts: Record<string, unknown>) => Promise<
+          Array<{
+            nodeId: string;
+            displayName?: string;
+            platform?: string;
+            caps?: string[];
+            connected?: boolean;
+          }>
+        >;
+      };
+      const allNodes = await listNodes({});
+      connectedNodes = allNodes
+        .filter((n) => n.connected)
+        .map((n) => ({
+          displayName: n.displayName,
+          nodeId: n.nodeId,
+          platform: n.platform,
+          caps: n.caps,
+          connected: n.connected,
+        }));
+    } catch {
+      // Non-critical — nodes context is optional
+    }
+
     const appendPrompt = buildEmbeddedSystemPrompt({
       workspaceDir: effectiveWorkspace,
       defaultThinkLevel: params.thinkLevel,
@@ -463,6 +497,7 @@ export async function runEmbeddedAttempt(
       userTimeFormat,
       contextFiles,
       memoryCitationsMode: params.config?.memory?.citations,
+      connectedNodes,
     });
     const systemPromptReport = buildSystemPromptReport({
       source: "run",

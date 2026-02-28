@@ -221,6 +221,14 @@ export function buildAgentSystemPrompt(params: {
     channel: string;
   };
   memoryCitationsMode?: MemoryCitationsMode;
+  /** Connected nodes for system prompt injection (exec routing context). */
+  connectedNodes?: Array<{
+    displayName?: string;
+    nodeId: string;
+    platform?: string;
+    caps?: string[];
+    connected?: boolean;
+  }>;
 }) {
   const coreToolSummaries: Record<string, string> = {
     read: "Read file contents",
@@ -634,6 +642,23 @@ export function buildAgentSystemPrompt(params: {
     buildRuntimeLine(runtimeInfo, runtimeChannel, runtimeCapabilities, params.defaultThinkLevel),
     `Reasoning: ${reasoningLevel} (hidden unless on/stream). Toggle /reasoning; /status shows Reasoning when enabled.`,
   );
+
+  // Inject connected node context so the agent can make smart exec routing decisions
+  const connectedNodes = params.connectedNodes?.filter((n) => n.connected);
+  if (connectedNodes && connectedNodes.length > 0) {
+    const nodeList = connectedNodes
+      .map((n) => {
+        const name = n.displayName || n.nodeId.slice(0, 12);
+        const platform = n.platform || "unknown";
+        const caps = Array.isArray(n.caps) && n.caps.length > 0 ? n.caps.join("+") : "none";
+        return `${name} (${platform}, ${caps})`;
+      })
+      .join(", ");
+    lines.push(
+      `Connected nodes: ${nodeList}`,
+      "Use exec with host=node to run commands on a connected node. Use platform= to target a specific OS (e.g. platform=windows).",
+    );
+  }
 
   return lines.filter(Boolean).join("\n");
 }

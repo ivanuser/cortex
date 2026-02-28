@@ -326,7 +326,7 @@ const ToolExecApplyPatchSchema = z
   .optional();
 
 const ToolExecBaseShape = {
-  host: z.enum(["sandbox", "gateway", "node"]).optional(),
+  host: z.enum(["sandbox", "gateway", "node", "auto"]).optional(),
   security: z.enum(["deny", "allowlist", "full"]).optional(),
   ask: z.enum(["off", "on-miss", "always"]).optional(),
   node: z.string().optional(),

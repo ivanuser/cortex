@@ -48,6 +48,14 @@ export function buildEmbeddedSystemPrompt(params: {
   userTimeFormat?: ResolvedTimeFormat;
   contextFiles?: EmbeddedContextFile[];
   memoryCitationsMode?: MemoryCitationsMode;
+  /** Connected nodes for exec routing context in system prompt. */
+  connectedNodes?: Array<{
+    displayName?: string;
+    nodeId: string;
+    platform?: string;
+    caps?: string[];
+    connected?: boolean;
+  }>;
 }): string {
   return buildAgentSystemPrompt({
     workspaceDir: params.workspaceDir,
@@ -74,6 +82,7 @@ export function buildEmbeddedSystemPrompt(params: {
     userTimeFormat: params.userTimeFormat,
     contextFiles: params.contextFiles,
     memoryCitationsMode: params.memoryCitationsMode,
+    connectedNodes: params.connectedNodes,
   });
 }
 

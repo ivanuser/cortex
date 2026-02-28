@@ -126,7 +126,8 @@ export const execSchema = Type.Object({
   ),
   host: Type.Optional(
     Type.String({
-      description: "Exec host (sandbox|gateway|node).",
+      description:
+        "Exec host (sandbox|gateway|node). Use host=node to run on a connected desktop app/companion. Use host=gateway for server-side execution.",
     }),
   ),
   security: Type.Optional(
@@ -142,6 +143,12 @@ export const execSchema = Type.Object({
   node: Type.Optional(
     Type.String({
       description: "Node id/name for host=node.",
+    }),
+  ),
+  platform: Type.Optional(
+    Type.String({
+      description:
+        "Target platform for host=node (e.g. windows, linux, macos). Auto-resolves to a connected node on that platform.",
     }),
   ),
 });
@@ -166,7 +173,12 @@ export type ExecProcessHandle = {
 
 export function normalizeExecHost(value?: string | null): ExecHost | null {
   const normalized = value?.trim().toLowerCase();
-  if (normalized === "sandbox" || normalized === "gateway" || normalized === "node") {
+  if (
+    normalized === "sandbox" ||
+    normalized === "gateway" ||
+    normalized === "node" ||
+    normalized === "auto"
+  ) {
     return normalized;
   }
   return null;
@@ -189,7 +201,13 @@ export function normalizeExecAsk(value?: string | null): ExecAsk | null {
 }
 
 export function renderExecHostLabel(host: ExecHost) {
-  return host === "sandbox" ? "sandbox" : host === "gateway" ? "gateway" : "node";
+  return host === "sandbox"
+    ? "sandbox"
+    : host === "gateway"
+      ? "gateway"
+      : host === "auto"
+        ? "auto"
+        : "node";
 }
 
 export function normalizeNotifyOutput(value: string) {

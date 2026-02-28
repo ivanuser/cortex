@@ -105,6 +105,13 @@ const NodesToolSchema = Type.Object({
   // invoke
   invokeCommand: Type.Optional(Type.String()),
   invokeParamsJson: Type.Optional(Type.String()),
+  // platform targeting
+  platform: Type.Optional(
+    Type.String({
+      description:
+        "Target platform for node selection (e.g. windows, linux, macos). Auto-resolves to a connected node on that platform.",
+    }),
+  ),
 });
 
 export function createNodesTool(options?: {
@@ -406,14 +413,22 @@ export function createNodesTool(options?: {
             return jsonResult(raw?.payload ?? {});
           }
           case "run": {
-            const node = readStringParam(params, "node", { required: true });
+            const node = readStringParam(params, "node", { required: false });
+            const platform = readStringParam(params, "platform", { required: false });
             const nodes = await listNodes(gatewayOpts);
             if (nodes.length === 0) {
               throw new Error(
                 "system.run requires a paired companion app or node host (no nodes available).",
               );
             }
-            const nodeId = resolveNodeIdFromList(nodes, node);
+            // Allow resolution by node name/id OR by platform (or both)
+            const nodeId = resolveNodeIdFromList(
+              nodes,
+              node,
+              !node, // allow default when no explicit node specified
+              "system", // require system capability
+              platform,
+            );
             const nodeInfo = nodes.find((entry) => entry.nodeId === nodeId);
             const supportsSystemRun = Array.isArray(nodeInfo?.commands)
               ? nodeInfo?.commands?.includes("system.run")

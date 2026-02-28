@@ -546,9 +546,9 @@ function buildChatCommands(): ChatCommandDefinition[] {
       args: [
         {
           name: "host",
-          description: "sandbox, gateway, or node",
+          description: "sandbox, gateway, node, or auto",
           type: "string",
-          choices: ["sandbox", "gateway", "node"],
+          choices: ["sandbox", "gateway", "node", "auto"],
         },
         {
           name: "security",

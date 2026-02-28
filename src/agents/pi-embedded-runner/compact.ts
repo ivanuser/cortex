@@ -478,6 +478,41 @@ export async function compactEmbeddedPiSessionDirect(
       moduleUrl: import.meta.url,
     });
     const ttsHint = params.config ? buildTtsSystemPromptHint(params.config) : undefined;
+
+    // Fetch connected nodes for system prompt context (best-effort)
+    let connectedNodes: Array<{
+      displayName?: string;
+      nodeId: string;
+      platform?: string;
+      caps?: string[];
+      connected?: boolean;
+    }> = [];
+    try {
+      const { listNodes } = (await import("../tools/nodes-utils.js")) as {
+        listNodes: (opts: Record<string, unknown>) => Promise<
+          Array<{
+            nodeId: string;
+            displayName?: string;
+            platform?: string;
+            caps?: string[];
+            connected?: boolean;
+          }>
+        >;
+      };
+      const allNodes = await listNodes({});
+      connectedNodes = allNodes
+        .filter((n) => n.connected)
+        .map((n) => ({
+          displayName: n.displayName,
+          nodeId: n.nodeId,
+          platform: n.platform,
+          caps: n.caps,
+          connected: n.connected,
+        }));
+    } catch {
+      // Non-critical
+    }
+
     const appendPrompt = buildEmbeddedSystemPrompt({
       workspaceDir: effectiveWorkspace,
       defaultThinkLevel: params.thinkLevel,
@@ -503,6 +538,7 @@ export async function compactEmbeddedPiSessionDirect(
       userTimeFormat,
       contextFiles,
       memoryCitationsMode: params.config?.memory?.citations,
+      connectedNodes,
     });
     const systemPromptOverride = createSystemPromptOverride(appendPrompt);
 

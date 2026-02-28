@@ -195,6 +195,7 @@ export function createExecTool(
         security?: string;
         ask?: string;
         node?: string;
+        platform?: string;
       };
 
       if (!params.command) {
@@ -281,12 +282,21 @@ export function createExecTool(
       }
       const configuredHost = defaults?.host ?? "sandbox";
       const requestedHost = normalizeExecHost(params.host) ?? null;
-      let host: ExecHost = requestedHost ?? configuredHost;
-      if (!elevatedRequested && requestedHost && requestedHost !== configuredHost) {
-        throw new Error(
-          `exec host not allowed (requested ${renderExecHostLabel(requestedHost)}; ` +
-            `configure tools.exec.host=${renderExecHostLabel(configuredHost)} to allow).`,
-        );
+      // When configured as "auto", the agent can freely switch between gateway and node.
+      // Resolve "auto" to the concrete host: use agent's request, or default to gateway.
+      let host: ExecHost;
+      if (configuredHost === "auto") {
+        // Auto mode: agent picks gateway or node per-call. Default to gateway.
+        const effective = requestedHost === "node" ? "node" : "gateway";
+        host = effective;
+      } else {
+        host = requestedHost ?? configuredHost;
+        if (!elevatedRequested && requestedHost && requestedHost !== configuredHost) {
+          throw new Error(
+            `exec host not allowed (requested ${renderExecHostLabel(requestedHost)}; ` +
+              `configure tools.exec.host=${renderExecHostLabel(configuredHost)} or "auto" to allow).`,
+          );
+        }
       }
       if (elevatedRequested) {
         host = "gateway";
@@ -367,6 +377,7 @@ export function createExecTool(
           requestedEnv: params.env,
           requestedNode: params.node?.trim(),
           boundNode: defaults?.node?.trim(),
+          platform: params.platform?.trim(),
           sessionKey: defaults?.sessionKey,
           agentId,
           security,

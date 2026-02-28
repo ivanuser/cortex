@@ -178,8 +178,8 @@ export type GroupToolPolicyConfig = {
 export type GroupToolPolicyBySenderConfig = Record<string, GroupToolPolicyConfig>;
 
 export type ExecToolConfig = {
-  /** Exec host routing (default: sandbox). */
-  host?: "sandbox" | "gateway" | "node";
+  /** Exec host routing (default: sandbox). Use "auto" to let the agent choose gateway or node per-call. */
+  host?: "sandbox" | "gateway" | "node" | "auto";
   /** Exec security mode (default: deny). */
   security?: "deny" | "allowlist" | "full";
   /** Exec ask mode (default: on-miss). */

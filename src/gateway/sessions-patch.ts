@@ -38,9 +38,14 @@ function invalid(message: string): { ok: false; error: ErrorShape } {
   return { ok: false, error: errorShape(ErrorCodes.INVALID_REQUEST, message) };
 }
 
-function normalizeExecHost(raw: string): "sandbox" | "gateway" | "node" | undefined {
+function normalizeExecHost(raw: string): "sandbox" | "gateway" | "node" | "auto" | undefined {
   const normalized = raw.trim().toLowerCase();
-  if (normalized === "sandbox" || normalized === "gateway" || normalized === "node") {
+  if (
+    normalized === "sandbox" ||
+    normalized === "gateway" ||
+    normalized === "node" ||
+    normalized === "auto"
+  ) {
     return normalized;
   }
   return undefined;
@@ -232,7 +237,7 @@ export async function applySessionsPatchToStore(params: {
     } else if (raw !== undefined) {
       const normalized = normalizeExecHost(String(raw));
       if (!normalized) {
-        return invalid('invalid execHost (use "sandbox"|"gateway"|"node")');
+        return invalid('invalid execHost (use "sandbox"|"gateway"|"node"|"auto")');
       }
       next.execHost = normalized;
     }

@@ -29,6 +29,8 @@ export type ExecuteNodeHostCommandParams = {
   requestedEnv?: Record<string, string>;
   requestedNode?: string;
   boundNode?: string;
+  /** Target platform for node selection (e.g. "windows", "linux", "macos") */
+  platform?: string;
   sessionKey?: string;
   agentId?: string;
   security: ExecSecurity;
@@ -66,11 +68,11 @@ export async function executeNodeHostCommand(
   }
   let nodeId: string;
   try {
-    nodeId = resolveNodeIdFromList(nodes, nodeQuery, !nodeQuery);
+    nodeId = resolveNodeIdFromList(nodes, nodeQuery, !nodeQuery, undefined, params.platform);
   } catch (err) {
     if (!nodeQuery && String(err).includes("node required")) {
       throw new Error(
-        "exec host=node requires a node id when multiple nodes are available (set tools.exec.node or exec.node).",
+        "exec host=node requires a node id when multiple nodes are available (set tools.exec.node or exec.node, or use platform= to filter).",
         { cause: err },
       );
     }

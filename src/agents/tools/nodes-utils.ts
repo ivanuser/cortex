@@ -21,7 +21,26 @@ async function loadNodes(opts: GatewayCallOptions): Promise<NodeListNode[]> {
   }
 }
 
-function pickDefaultNode(nodes: NodeListNode[], requiredCap?: string): NodeListNode | null {
+/** Normalize platform strings for matching. Supports common aliases. */
+function normalizePlatform(platform?: string): string {
+  const p = (platform ?? "").trim().toLowerCase();
+  if (p === "win" || p === "win32" || p === "win64") {
+    return "windows";
+  }
+  if (p === "mac" || p === "macos" || p === "osx" || p === "darwin") {
+    return "macos";
+  }
+  if (p === "lin") {
+    return "linux";
+  }
+  return p;
+}
+
+function pickDefaultNode(
+  nodes: NodeListNode[],
+  requiredCap?: string,
+  platform?: string,
+): NodeListNode | null {
   // Filter by required capability if specified
   const withCap = requiredCap
     ? nodes.filter((n) => (Array.isArray(n.caps) ? n.caps.includes(requiredCap) : true))
@@ -30,23 +49,22 @@ function pickDefaultNode(nodes: NodeListNode[], requiredCap?: string): NodeListN
     return null;
   }
 
-  const connected = withCap.filter((n) => n.connected);
-  const candidates = connected.length > 0 ? connected : withCap;
+  // Filter by platform if specified
+  const normalizedPlatform = platform ? normalizePlatform(platform) : undefined;
+  const withPlatform = normalizedPlatform
+    ? withCap.filter((n) => normalizePlatform(n.platform) === normalizedPlatform)
+    : withCap;
+  if (withPlatform.length === 0) {
+    return null;
+  }
+
+  const connected = withPlatform.filter((n) => n.connected);
+  const candidates = connected.length > 0 ? connected : withPlatform;
   if (candidates.length === 1) {
     return candidates[0];
   }
 
-  const local = candidates.filter(
-    (n) =>
-      n.platform?.toLowerCase().startsWith("mac") &&
-      typeof n.nodeId === "string" &&
-      n.nodeId.startsWith("mac-"),
-  );
-  if (local.length === 1) {
-    return local[0];
-  }
-
-  // If only one connected node, use it regardless of platform
+  // If only one connected node, use it regardless of other factors
   if (connected.length === 1) {
     return connected[0];
   }
@@ -63,18 +81,32 @@ export function resolveNodeIdFromList(
   query?: string,
   allowDefault = false,
   requiredCap?: string,
+  platform?: string,
 ): string {
   const q = String(query ?? "").trim();
   if (!q) {
     if (allowDefault) {
-      const picked = pickDefaultNode(nodes, requiredCap);
+      const picked = pickDefaultNode(nodes, requiredCap, platform);
       if (picked) {
         return picked.nodeId;
       }
     }
+    // Filter by platform if specified to give better error messages
+    const normalizedPlatform = platform ? normalizePlatform(platform) : undefined;
     const connected = nodes.filter((n) => n.connected);
-    if (connected.length > 1) {
-      const names = connected
+    const filtered = normalizedPlatform
+      ? connected.filter((n) => normalizePlatform(n.platform) === normalizedPlatform)
+      : connected;
+    if (filtered.length === 0 && normalizedPlatform) {
+      const available = connected
+        .map((n) => `  • ${n.displayName || n.nodeId} (${n.platform || "unknown"})`)
+        .join("\n");
+      throw new Error(
+        `No ${platform} node connected.${available ? ` Available nodes:\n${available}` : ""}`,
+      );
+    }
+    if (filtered.length > 1) {
+      const names = filtered
         .map((n) => `  • ${n.displayName || n.nodeId} (${n.nodeId.slice(0, 8)}...)`)
         .join("\n");
       throw new Error(`Multiple nodes connected — specify which one:\n${names}`);
@@ -84,12 +116,15 @@ export function resolveNodeIdFromList(
   return resolveNodeIdFromCandidates(nodes, q);
 }
 
+export { normalizePlatform };
+
 export async function resolveNodeId(
   opts: GatewayCallOptions,
   query?: string,
   allowDefault = false,
   requiredCap?: string,
+  platform?: string,
 ) {
   const nodes = await loadNodes(opts);
-  return resolveNodeIdFromList(nodes, query, allowDefault, requiredCap);
+  return resolveNodeIdFromList(nodes, query, allowDefault, requiredCap, platform);
 }
