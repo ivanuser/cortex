@@ -468,7 +468,12 @@ export function attachGatewayWsMessageHandler(params: {
           }
           const canSkipDevice = sharedAuthOk || Boolean(ctxTokenValidation);
 
-          if (isControlUi && !allowControlUiBypass && !ctxTokenValidation) {
+          // Desktop app schemes (tauri://, capacitor://) are secure contexts
+          // with full WebCrypto — treat them like HTTPS/localhost.
+          const isDesktopAppOrigin =
+            typeof requestOrigin === "string" && /^(tauri|capacitor):\/\//i.test(requestOrigin);
+
+          if (isControlUi && !allowControlUiBypass && !ctxTokenValidation && !isDesktopAppOrigin) {
             const errorMessage = "control ui requires HTTPS or localhost (secure context)";
             markHandshakeFailure("control-ui-insecure-auth", {
               insecureAuthConfigured: allowInsecureControlUi,
