@@ -11,8 +11,11 @@ function parseOrigin(
   }
   try {
     const url = new URL(trimmed);
+    // Non-standard schemes (tauri://, capacitor://, etc.) return "null"
+    // for url.origin per the URL spec. Use the raw input instead.
+    const origin = url.origin === "null" ? trimmed.toLowerCase() : url.origin.toLowerCase();
     return {
-      origin: url.origin.toLowerCase(),
+      origin,
       host: url.host.toLowerCase(),
       hostname: url.hostname.toLowerCase(),
     };
