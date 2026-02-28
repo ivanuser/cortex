@@ -462,16 +462,21 @@ export function attachGatewayWsMessageHandler(params: {
           close(1008, truncateCloseReason(authMessage));
         };
         if (!device) {
-          if (scopes.length > 0 && !allowControlUiBypass && !ctxTokenValidation) {
-            scopes = [];
-            connectParams.scopes = scopes;
-          }
-          const canSkipDevice = sharedAuthOk || Boolean(ctxTokenValidation);
-
           // Desktop app schemes (tauri://, capacitor://) are secure contexts
           // with full WebCrypto — treat them like HTTPS/localhost.
           const isDesktopAppOrigin =
             typeof requestOrigin === "string" && /^(tauri|capacitor):\/\//i.test(requestOrigin);
+
+          if (
+            scopes.length > 0 &&
+            !allowControlUiBypass &&
+            !ctxTokenValidation &&
+            !isDesktopAppOrigin
+          ) {
+            scopes = [];
+            connectParams.scopes = scopes;
+          }
+          const canSkipDevice = sharedAuthOk || Boolean(ctxTokenValidation);
 
           if (isControlUi && !allowControlUiBypass && !ctxTokenValidation && !isDesktopAppOrigin) {
             const errorMessage = "control ui requires HTTPS or localhost (secure context)";
