@@ -33,8 +33,8 @@ export async function initSentry(): Promise<void> {
   const dsn = process.env.SENTRY_DSN || SENTRY_DSN;
 
   try {
-    // Use @sentry/core to avoid @sentry/node's heavy OTel auto-instrumentation imports
-    const core = await import("@sentry/core");
+    // Use @sentry/node-core (not @sentry/node) to avoid heavy OTel auto-instrumentation imports
+    const core = await import("@sentry/node-core");
 
     core.init({
       dsn,
