@@ -646,18 +646,27 @@ export function buildAgentSystemPrompt(params: {
   // Inject connected node context so the agent can make smart exec routing decisions
   const connectedNodes = params.connectedNodes?.filter((n) => n.connected);
   if (connectedNodes && connectedNodes.length > 0) {
+    // Check if display names collide — if so, include node ID prefix for disambiguation
+    const nameCount = new Map<string, number>();
+    for (const n of connectedNodes) {
+      const name = n.displayName || "unknown";
+      nameCount.set(name, (nameCount.get(name) || 0) + 1);
+    }
     const nodeList = connectedNodes
       .map((n) => {
         const name = n.displayName || n.nodeId.slice(0, 12);
         const platform = n.platform || "unknown";
         const caps = Array.isArray(n.caps) && n.caps.length > 0 ? n.caps.join("+") : "none";
-        return `${name} (${platform}, ${caps})`;
+        const isDuplicate = (nameCount.get(n.displayName || "unknown") || 0) > 1;
+        const idHint = isDuplicate ? ` [${n.nodeId.slice(0, 8)}]` : "";
+        return `${name}${idHint} (${platform}, ${caps})`;
       })
       .join(", ");
     lines.push(
       `Connected nodes: ${nodeList}`,
       "Commands run on the user's machine (connected node) by default, NOT on the gateway server. " +
-        "Use host=gateway only for server-side tasks. Use platform= to target a specific OS (e.g. platform=windows).",
+        "Use host=gateway only for server-side tasks. Use node= to target a specific node by name or ID prefix. " +
+        "Use platform= to target a specific OS (e.g. platform=windows).",
     );
   }
 
