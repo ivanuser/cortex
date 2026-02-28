@@ -656,7 +656,8 @@ export function buildAgentSystemPrompt(params: {
       .join(", ");
     lines.push(
       `Connected nodes: ${nodeList}`,
-      "Use exec with host=node to run commands on a connected node. Use platform= to target a specific OS (e.g. platform=windows).",
+      "Commands run on the user's machine (connected node) by default, NOT on the gateway server. " +
+        "Use host=gateway only for server-side tasks. Use platform= to target a specific OS (e.g. platform=windows).",
     );
   }
 

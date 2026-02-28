@@ -43,6 +43,7 @@ import {
   truncateMiddle,
 } from "./bash-tools.shared.js";
 import { assertSandboxPath } from "./sandbox-paths.js";
+import { listNodes } from "./tools/nodes-utils.js";
 
 export type { BashSandboxConfig } from "./bash-tools.shared.js";
 export type {
@@ -283,12 +284,27 @@ export function createExecTool(
       const configuredHost = defaults?.host ?? "sandbox";
       const requestedHost = normalizeExecHost(params.host) ?? null;
       // When configured as "auto", the agent can freely switch between gateway and node.
-      // Resolve "auto" to the concrete host: use agent's request, or default to gateway.
+      // Default: prefer node if a system-capable node is connected (user's machine),
+      // fall back to gateway only if no nodes are available or agent explicitly requests it.
       let host: ExecHost;
       if (configuredHost === "auto") {
-        // Auto mode: agent picks gateway or node per-call. Default to gateway.
-        const effective = requestedHost === "node" ? "node" : "gateway";
-        host = effective;
+        if (requestedHost === "gateway" || requestedHost === "node") {
+          // Agent explicitly chose — respect it
+          host = requestedHost;
+        } else {
+          // Auto-resolve: prefer connected node with system.run capability.
+          // User's desktop machine should be the default target, not the server.
+          let hasSystemNode = false;
+          try {
+            const nodes = await listNodes({});
+            hasSystemNode = nodes.some(
+              (n) => n.connected && Array.isArray(n.commands) && n.commands.includes("system.run"),
+            );
+          } catch {
+            // Can't reach node list — fall back to gateway
+          }
+          host = hasSystemNode ? "node" : "gateway";
+        }
       } else {
         host = requestedHost ?? configuredHost;
         if (!elevatedRequested && requestedHost && requestedHost !== configuredHost) {
