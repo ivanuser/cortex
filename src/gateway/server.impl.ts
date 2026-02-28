@@ -169,6 +169,14 @@ export async function startGatewayServer(
   port = 18789,
   opts: GatewayServerOptions = {},
 ): Promise<GatewayServer> {
+  // Initialize Sentry error tracking (no-ops if disabled or unavailable)
+  try {
+    const { initSentry } = await import("../sentry.js");
+    await initSentry();
+  } catch {
+    // Sentry module not available — continue without it
+  }
+
   const minimalTestGateway =
     process.env.VITEST === "1" && process.env.OPENCLAW_TEST_MINIMAL_GATEWAY === "1";
 
