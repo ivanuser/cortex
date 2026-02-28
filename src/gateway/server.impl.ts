@@ -169,7 +169,7 @@ export async function startGatewayServer(
   port = 18789,
   opts: GatewayServerOptions = {},
 ): Promise<GatewayServer> {
-  // Initialize Sentry error tracking (no-ops if disabled or unavailable)
+  // Initialize Sentry error tracking (zero-dep HTTP transport, safe to fail)
   try {
     const { initSentry } = await import("../sentry.js");
     await initSentry();
