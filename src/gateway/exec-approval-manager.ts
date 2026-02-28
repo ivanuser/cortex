@@ -39,6 +39,8 @@ type PendingEntry = {
 
 export class ExecApprovalManager {
   private pending = new Map<string, PendingEntry>();
+  private resolvedHistory: ExecApprovalRecord[] = [];
+  private static readonly MAX_HISTORY = 100;
 
   create(
     request: ExecApprovalRequestPayload,
@@ -91,6 +93,8 @@ export class ExecApprovalManager {
       record.decision = undefined;
       record.resolvedBy = null;
       resolvePromise(null);
+      // Track in history as expired/timed-out
+      this.addToHistory(record);
       // Keep entry briefly for in-flight awaitDecision calls
       setTimeout(() => {
         // Compare against captured entry instance, not re-fetched from map
@@ -129,6 +133,8 @@ export class ExecApprovalManager {
     // Resolve the promise first, then delete after a grace period.
     // This allows in-flight awaitDecision calls to find the resolved entry.
     pending.resolve(decision);
+    // Track in history
+    this.addToHistory(pending.record);
     setTimeout(() => {
       // Only delete if the entry hasn't been replaced
       if (this.pending.get(recordId) === pending) {
@@ -150,5 +156,33 @@ export class ExecApprovalManager {
   awaitDecision(recordId: string): Promise<ExecApprovalDecision | null> | null {
     const entry = this.pending.get(recordId);
     return entry?.promise ?? null;
+  }
+
+  /**
+   * List currently pending (unresolved) approval requests.
+   */
+  listPending(): ExecApprovalRecord[] {
+    const now = Date.now();
+    const results: ExecApprovalRecord[] = [];
+    for (const entry of this.pending.values()) {
+      if (entry.record.resolvedAtMs === undefined && entry.record.expiresAtMs > now) {
+        results.push(entry.record);
+      }
+    }
+    return results.toSorted((a, b) => b.createdAtMs - a.createdAtMs);
+  }
+
+  /**
+   * Get resolved approval history (most recent first).
+   */
+  getHistory(limit = 50): ExecApprovalRecord[] {
+    return this.resolvedHistory.slice(0, limit);
+  }
+
+  private addToHistory(record: ExecApprovalRecord): void {
+    this.resolvedHistory.unshift(record);
+    if (this.resolvedHistory.length > ExecApprovalManager.MAX_HISTORY) {
+      this.resolvedHistory.length = ExecApprovalManager.MAX_HISTORY;
+    }
   }
 }

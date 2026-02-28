@@ -354,6 +354,56 @@
       untrack(() => loadApprovals());
     }
   });
+
+  // Fetch pending + history from gateway on connect / page load
+  async function loadApprovalQueue() {
+    try {
+      const res = await gateway.call<{
+        pending: ApprovalRequest[];
+        history: Array<{
+          id: string;
+          request?: ApprovalRequest['request'];
+          decision: string | null;
+          createdAtMs: number;
+          expiresAtMs: number;
+          resolvedAtMs: number | null;
+          resolvedBy: string | null;
+        }>;
+      }>('exec.approval.list', {});
+      // Merge pending (avoid duplicates from live events)
+      const existingIds = new Set(pendingApprovals.map((a) => a.id));
+      for (const p of res.pending ?? []) {
+        if (!existingIds.has(p.id)) {
+          pendingApprovals = [...pendingApprovals, p];
+        }
+      }
+      // Load history
+      const historyIds = new Set(resolvedHistory.map((r) => r.id));
+      const newHistory: ResolvedApproval[] = [];
+      for (const h of res.history ?? []) {
+        if (!historyIds.has(h.id)) {
+          newHistory.push({
+            id: h.id,
+            decision: (h.decision === 'allow-once' || h.decision === 'allow-always') ? 'approve' : 'deny',
+            request: h.request,
+            resolvedAtMs: h.resolvedAtMs ?? h.createdAtMs,
+            command: h.request?.command,
+          });
+        }
+      }
+      if (newHistory.length > 0) {
+        resolvedHistory = [...newHistory, ...resolvedHistory].slice(0, 50);
+      }
+    } catch {
+      // exec.approval.list may not exist on older gateways — silent fail
+    }
+  }
+
+  $effect(() => {
+    if (conn.state.status === 'connected' && activeTab === 'queue') {
+      untrack(() => loadApprovalQueue());
+    }
+  });
 </script>
 
 <svelte:head>

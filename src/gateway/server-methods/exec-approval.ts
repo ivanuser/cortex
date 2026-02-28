@@ -18,6 +18,33 @@ export function createExecApprovalHandlers(
   opts?: { forwarder?: ExecApprovalForwarder },
 ): GatewayRequestHandlers {
   return {
+    "exec.approval.list": async ({ params, respond }) => {
+      const p = params as { limit?: number } | undefined;
+      const limit = typeof p?.limit === "number" ? Math.min(Math.max(p.limit, 1), 100) : 50;
+      const pending = manager.listPending();
+      const history = manager.getHistory(limit);
+      respond(
+        true,
+        {
+          pending: pending.map((r) => ({
+            id: r.id,
+            request: r.request,
+            createdAtMs: r.createdAtMs,
+            expiresAtMs: r.expiresAtMs,
+          })),
+          history: history.map((r) => ({
+            id: r.id,
+            request: r.request,
+            decision: r.decision ?? null,
+            createdAtMs: r.createdAtMs,
+            expiresAtMs: r.expiresAtMs,
+            resolvedAtMs: r.resolvedAtMs ?? null,
+            resolvedBy: r.resolvedBy ?? null,
+          })),
+        },
+        undefined,
+      );
+    },
     "exec.approval.request": async ({ params, respond, context, client }) => {
       if (!validateExecApprovalRequestParams(params)) {
         respond(
