@@ -1,84 +1,89 @@
 /**
  * Sentry integration for Cortex Gateway.
  *
- * Initializes error tracking + performance monitoring.
- * Gracefully no-ops if @sentry/node isn't available.
+ * Uses @sentry/core directly to avoid @sentry/node's eager OTel imports
+ * (Fastify, Prisma, Express, etc.) which fail when those packages aren't installed.
+ *
+ * We only need: error capture, unhandled rejection/exception hooks, breadcrumbs.
  */
 
 import { version } from "../package.json" with { type: "json" };
 
-let sentryModule: typeof import("@sentry/node") | null = null;
-let initialized = false;
-
 const SENTRY_DSN = "https://af877b470afb42d20e56491efa42b71a@sentry.honercloud.com/4";
+
+interface SentryLike {
+  init(opts: Record<string, unknown>): void;
+  captureException(err: unknown, hint?: Record<string, unknown>): void;
+  captureMessage(msg: string, level?: string): void;
+  setTag(key: string, value: string): void;
+  addBreadcrumb(bc: Record<string, unknown>): void;
+}
+
+let sentry: SentryLike | null = null;
+let initialized = false;
 
 export async function initSentry(): Promise<void> {
   if (initialized) {
     return;
   }
-
-  // Allow disabling via env
   if (process.env.SENTRY_DISABLED === "1" || process.env.SENTRY_DISABLED === "true") {
     return;
   }
 
-  // Allow DSN override via env
   const dsn = process.env.SENTRY_DSN || SENTRY_DSN;
 
   try {
-    sentryModule = await import("@sentry/node");
+    // Use @sentry/core to avoid @sentry/node's heavy OTel auto-instrumentation imports
+    const core = await import("@sentry/core");
 
-    sentryModule.init({
+    core.init({
       dsn,
       environment: process.env.NODE_ENV || "production",
       release: `cortex-gateway@${version}`,
-
-      // Performance: sample 10% of transactions
       tracesSampleRate: 0.1,
-
-      // Disable default integrations that auto-detect frameworks (Fastify/Express need @fastify/otel etc.)
-      // Only use core error capture integrations
       defaultIntegrations: false,
-      integrations: [
-        sentryModule.inboundFiltersIntegration(),
-        sentryModule.linkedErrorsIntegration(),
-        sentryModule.onUncaughtExceptionIntegration(),
-        sentryModule.onUnhandledRejectionIntegration({ mode: "warn" }),
-        sentryModule.contextLinesIntegration(),
-        sentryModule.nodeContextIntegration(),
-      ],
-
-      // Scrub sensitive data
-      beforeSend(event) {
-        // Remove token values from extras/breadcrumbs
-        if (event.extra) {
-          for (const key of Object.keys(event.extra)) {
+      integrations: [core.inboundFiltersIntegration(), core.linkedErrorsIntegration()],
+      beforeSend(event: Record<string, unknown>) {
+        // Scrub tokens from extras
+        const extra = event.extra as Record<string, unknown> | undefined;
+        if (extra) {
+          for (const key of Object.keys(extra)) {
             if (/token|password|secret|key|auth|dsn/i.test(key)) {
-              event.extra[key] = "[REDACTED]";
+              extra[key] = "[REDACTED]";
             }
           }
         }
-
-        if (event.breadcrumbs) {
-          event.breadcrumbs = event.breadcrumbs.map((bc) => {
+        // Scrub ctx_ tokens from breadcrumb messages
+        const breadcrumbs = event.breadcrumbs as Array<{ message?: string }> | undefined;
+        if (breadcrumbs) {
+          for (const bc of breadcrumbs) {
             if (bc.message) {
               bc.message = bc.message.replace(/ctx_[a-f0-9]+/g, "ctx_[REDACTED]");
             }
-            return bc;
-          });
+          }
         }
-
         return event;
       },
-
-      // Ignore noisy expected errors
       ignoreErrors: ["ECONNRESET", "EPIPE", "ENOTFOUND", "socket hang up", "write after end"],
     });
 
+    sentry = core as unknown as SentryLike;
     initialized = true;
+
+    // Set up global unhandled rejection/exception capture
+    process.on("unhandledRejection", (reason) => {
+      if (sentry && reason instanceof Error) {
+        sentry.captureException(reason);
+      }
+    });
+    process.on("uncaughtException", (err) => {
+      if (sentry) {
+        sentry.captureException(err);
+      }
+    });
+
     console.log(`[sentry] initialized for cortex-gateway@${version}`);
   } catch (err) {
-    // @sentry/node not installed or init failed — silent no-op
     if ((err as NodeJS.ErrnoException)?.code !== "MODULE_NOT_FOUND") {
       console.warn("[sentry] failed to initialize:", err);
     }
@@ -86,24 +91,24 @@ export async function initSentry(): Promise<void> {
 }
 
 export function captureException(err: Error, context?: Record<string, unknown>): void {
-  if (!sentryModule || !initialized) {
+  if (!sentry) {
     return;
   }
-  sentryModule.captureException(err, { extra: context });
+  sentry.captureException(err, { extra: context });
 }
 
 export function captureMessage(msg: string, level: "info" | "warning" | "error" = "info"): void {
-  if (!sentryModule || !initialized) {
+  if (!sentry) {
     return;
   }
-  sentryModule.captureMessage(msg, level);
+  sentry.captureMessage(msg, level);
 }
 
 export function setTag(key: string, value: string): void {
-  if (!sentryModule || !initialized) {
+  if (!sentry) {
     return;
   }
-  sentryModule.setTag(key, value);
+  sentry.setTag(key, value);
 }
 
 export function addBreadcrumb(
@@ -111,8 +116,8 @@ export function addBreadcrumb(
   message: string,
   level: "info" | "warning" | "error" = "info",
 ): void {
-  if (!sentryModule || !initialized) {
+  if (!sentry) {
     return;
   }
-  sentryModule.addBreadcrumb({ category, message, level });
+  sentry.addBreadcrumb({ category, message, level });
 }
