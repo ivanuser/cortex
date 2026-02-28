@@ -1127,6 +1127,14 @@
                   <!-- Info row -->
                   <div class="{viewMode === 'list' ? 'flex items-center gap-6 flex-1' : ''}">
                     <div class="{viewMode === 'list' ? 'flex items-center gap-4 text-xs text-text-muted min-w-[200px]' : 'flex items-center gap-3 text-xs text-text-muted mb-3'}">
+                      {#if typeof node.platform === 'string' && node.platform}
+                        {@const platformLower = String(node.platform).toLowerCase()}
+                        {@const platformIcon = platformLower === 'windows' ? '🪟' : platformLower === 'linux' ? '🐧' : platformLower === 'macos' || platformLower === 'darwin' ? '🍎' : '💻'}
+                        {@const platformColor = platformLower === 'windows' ? 'bg-blue-500/15 text-blue-400 border-blue-500/25' : platformLower === 'linux' ? 'bg-amber-500/15 text-amber-400 border-amber-500/25' : platformLower === 'macos' || platformLower === 'darwin' ? 'bg-gray-500/15 text-gray-300 border-gray-500/25' : 'bg-bg-tertiary text-text-secondary border-border-default'}
+                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold border {platformColor}">
+                          {platformIcon} {node.platform}
+                        </span>
+                      {/if}
                       {#if typeof node.remoteIp === 'string'}
                         <span class="flex items-center gap-1 font-mono">
                           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
