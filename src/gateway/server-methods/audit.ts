@@ -45,10 +45,14 @@ export const auditHandlers: GatewayRequestHandlers = {
     }
   },
 
-  "audit.stats": ({ respond }) => {
+  "audit.stats": ({ params, respond }) => {
     try {
       const logger = AuditLogger.getInstance();
-      const stats = logger.stats();
+      const filters: { since?: number } = {};
+      if (typeof params.since === "number") {
+        filters.since = params.since;
+      }
+      const stats = logger.stats(Object.keys(filters).length > 0 ? filters : undefined);
       respond(true, stats, undefined);
     } catch (err) {
       respond(

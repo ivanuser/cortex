@@ -215,7 +215,7 @@ export class AuditLogger {
   }
 
   /** Get summary statistics. */
-  stats(): AuditStats {
+  stats(filters?: { since?: number }): AuditStats {
     if (!this.db) {
       return {
         total: 0,
@@ -227,32 +227,39 @@ export class AuditLogger {
       };
     }
     try {
-      const totalRow = this.db.prepare("SELECT COUNT(*) as cnt FROM audit_log").get() as {
+      const whereClause = filters?.since ? " WHERE created_at >= ?" : "";
+      const sinceParams = filters?.since ? [filters.since] : [];
+
+      const totalRow = this.db
+        .prepare(`SELECT COUNT(*) as cnt FROM audit_log${whereClause}`)
+        .get(...sinceParams) as {
         cnt: number;
       };
       const failureRow = this.db
-        .prepare("SELECT COUNT(*) as cnt FROM audit_log WHERE result != 'success'")
-        .get() as { cnt: number };
+        .prepare(
+          `SELECT COUNT(*) as cnt FROM audit_log WHERE result != 'success'${filters?.since ? " AND created_at >= ?" : ""}`,
+        )
+        .get(...sinceParams) as { cnt: number };
 
       const actionRows = this.db
         .prepare(
-          "SELECT action, COUNT(*) as cnt FROM audit_log GROUP BY action ORDER BY cnt DESC LIMIT 50",
+          `SELECT action, COUNT(*) as cnt FROM audit_log${whereClause} GROUP BY action ORDER BY cnt DESC LIMIT 50`,
         )
-        .all() as Array<{ action: string; cnt: number }>;
+        .all(...sinceParams) as Array<{ action: string; cnt: number }>;
 
       const actorRows = this.db
         .prepare(
-          "SELECT actor_id, COUNT(*) as cnt FROM audit_log WHERE actor_id IS NOT NULL GROUP BY actor_id ORDER BY cnt DESC LIMIT 50",
+          `SELECT actor_id, COUNT(*) as cnt FROM audit_log WHERE actor_id IS NOT NULL${filters?.since ? " AND created_at >= ?" : ""} GROUP BY actor_id ORDER BY cnt DESC LIMIT 50`,
         )
-        .all() as Array<{ actor_id: string; cnt: number }>;
+        .all(...sinceParams) as Array<{ actor_id: string; cnt: number }>;
 
       const oldestRow = this.db
-        .prepare("SELECT timestamp FROM audit_log ORDER BY created_at ASC LIMIT 1")
-        .get() as { timestamp: string } | undefined;
+        .prepare(`SELECT timestamp FROM audit_log${whereClause} ORDER BY created_at ASC LIMIT 1`)
+        .get(...sinceParams) as { timestamp: string } | undefined;
 
       const newestRow = this.db
-        .prepare("SELECT timestamp FROM audit_log ORDER BY created_at DESC LIMIT 1")
-        .get() as { timestamp: string } | undefined;
+        .prepare(`SELECT timestamp FROM audit_log${whereClause} ORDER BY created_at DESC LIMIT 1`)
+        .get(...sinceParams) as { timestamp: string } | undefined;
 
       const byAction: Record<string, number> = {};
       for (const row of actionRows) {

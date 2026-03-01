@@ -99,7 +99,10 @@
     if (conn.state.status !== 'connected') return;
     statsLoading = true;
     try {
-      const res = await gateway.call<AuditStats>('audit.stats', {});
+      const params: Record<string, unknown> = {};
+      const since = getTimeSince();
+      if (since) params.since = since;
+      const res = await gateway.call<AuditStats>('audit.stats', params);
       untrack(() => {
         stats = res;
       });
@@ -182,6 +185,7 @@
   <title>Audit Log — Cortex</title>
 </svelte:head>
 
+<div class="h-full overflow-y-auto">
 <div class="p-4 md:p-6 max-w-[1400px] mx-auto space-y-6">
   <!-- Header -->
   <div class="flex items-center justify-between flex-wrap gap-3">
@@ -259,7 +263,7 @@
     <div class="flex items-center gap-1 bg-bg-primary/50 rounded-lg p-0.5">
       {#each timeRanges as range}
         <button
-          onclick={() => { timeRange = range.value; void fetchEntries(); }}
+          onclick={() => { timeRange = range.value; void fetchEntries(); void fetchStats(); }}
           class="px-2.5 py-1 text-xs rounded-md transition-colors
             {timeRange === range.value ? 'bg-accent-cyan/20 text-accent-cyan font-medium' : 'text-text-muted hover:text-text-primary'}"
         >
@@ -408,4 +412,5 @@
       <p class="text-sm mt-1">Events will appear here as gateway operations are performed.</p>
     </div>
   {/if}
+</div>
 </div>
