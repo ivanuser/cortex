@@ -27,6 +27,7 @@ const CronCommonOptionalFields = {
   description: Type.Optional(Type.String()),
   enabled: Type.Optional(Type.Boolean()),
   deleteAfterRun: Type.Optional(Type.Boolean()),
+  notify: Type.Optional(Type.Boolean()),
 };
 
 function cronIdOrJobIdParams(extraFields: Record<string, TSchema>) {
