@@ -1079,7 +1079,8 @@
       <!-- Node list/grid + detail drawer -->
       <div class="flex gap-4 {selectedNode ? '' : ''}">
         <!-- Node cards -->
-        <div class="flex-1 min-w-0 flex flex-col gap-4 transition-all duration-300">
+        <div class="flex-1 min-w-0 flex flex-col gap-4 transition-all duration-300 {selectedNode ? 'mr-[440px]' : ''}"
+        >
         <div class="{viewMode === 'grid'
           ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4'
           : 'flex flex-col gap-3'}">
@@ -1193,7 +1194,7 @@
           {@const displayName = (typeof selectedNode.displayName === 'string' && selectedNode.displayName.trim()) || nodeId}
           {@const caps = getNodeCaps(selectedNode)}
           {@const commands = getNodeCommands(selectedNode)}
-          <div class="w-[420px] flex-shrink-0 rounded-xl border border-accent-cyan/20 bg-bg-secondary/80 overflow-hidden animate-slide-in-right self-start sticky top-0 max-h-[calc(100vh-12rem)] flex flex-col">
+          <div class="fixed right-4 top-20 bottom-4 w-[420px] rounded-xl border border-accent-cyan/20 bg-bg-secondary/95 backdrop-blur-sm overflow-hidden shadow-2xl shadow-accent-cyan/5 z-50 flex flex-col animate-slide-in-right">
                   <!-- Drawer header -->
                   <div class="flex items-center justify-between px-4 py-3 border-b border-border-default bg-bg-tertiary/50">
                     <div class="flex items-center gap-2 min-w-0">
