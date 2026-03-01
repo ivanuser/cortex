@@ -521,6 +521,8 @@ export const nodeHandlers: GatewayRequestHandlers = {
           nodeId,
           displayName: live?.displayName ?? paired?.displayName,
           platform: live?.platform ?? paired?.platform,
+          arch: live?.arch,
+          hostname: live?.hostname,
           version: live?.version ?? paired?.version,
           coreVersion: live?.coreVersion ?? paired?.coreVersion,
           uiVersion: live?.uiVersion ?? paired?.uiVersion,

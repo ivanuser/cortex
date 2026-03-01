@@ -7,6 +7,8 @@ export type NodeSession = {
   client: GatewayWsClient;
   displayName?: string;
   platform?: string;
+  arch?: string;
+  hostname?: string;
   version?: string;
   coreVersion?: string;
   uiVersion?: string;
@@ -61,6 +63,8 @@ export class NodeRegistry {
       client,
       displayName: connect.client.displayName,
       platform: connect.client.platform,
+      arch: connect.client.arch,
+      hostname: connect.client.hostname,
       version: connect.client.version,
       coreVersion: (connect as { coreVersion?: string }).coreVersion,
       uiVersion: (connect as { uiVersion?: string }).uiVersion,

@@ -37,6 +37,8 @@ export type GatewayClientInfo = {
   displayName?: string;
   version: string;
   platform: string;
+  arch?: string;
+  hostname?: string;
   deviceFamily?: string;
   modelIdentifier?: string;
   mode: GatewayClientMode;

@@ -27,6 +27,8 @@ export const ConnectParamsSchema = Type.Object(
         displayName: Type.Optional(NonEmptyString),
         version: NonEmptyString,
         platform: NonEmptyString,
+        arch: Type.Optional(NonEmptyString),
+        hostname: Type.Optional(NonEmptyString),
         deviceFamily: Type.Optional(NonEmptyString),
         modelIdentifier: Type.Optional(NonEmptyString),
         mode: GatewayClientModeSchema,
