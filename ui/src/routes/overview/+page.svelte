@@ -327,26 +327,6 @@
           </div>
         {/if}
 
-        <!-- Gateway Snapshot (collapsed) -->
-        {#if debugStatus}
-          <details class="rounded-xl border border-border-default bg-bg-secondary/50 overflow-hidden">
-            <summary class="px-4 py-3 text-sm font-semibold text-text-primary cursor-pointer hover:bg-bg-hover/30 transition-colors">
-              Gateway Internals
-            </summary>
-            <div class="px-4 py-3 border-t border-border-default/50">
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {#each Object.entries(debugStatus).filter(([k]) => typeof debugStatus![k] !== 'object') as [key, value]}
-                  <div>
-                    <div class="text-[10px] text-text-muted uppercase tracking-wider">{key}</div>
-                    <div class="text-xs text-text-secondary font-mono truncate" title={String(value)}>
-                      {String(value)}
-                    </div>
-                  </div>
-                {/each}
-              </div>
-            </div>
-          </details>
-        {/if}
       </div>
 
       <!-- Right Sidebar -->
