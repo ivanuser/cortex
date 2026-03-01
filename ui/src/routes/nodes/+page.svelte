@@ -1076,8 +1076,10 @@
       </div>
 
     {:else}
-      <!-- Node list/grid -->
-      <div class="flex flex-col gap-4">
+      <!-- Node list/grid + detail drawer -->
+      <div class="flex gap-4 {selectedNode ? '' : ''}">
+        <!-- Node cards -->
+        <div class="flex-1 min-w-0 flex flex-col gap-4 transition-all duration-300">
         <div class="{viewMode === 'grid'
           ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4'
           : 'flex flex-col gap-3'}">
@@ -1089,7 +1091,7 @@
             {@const caps = getNodeCaps(node)}
             {@const commands = getNodeCommands(node)}
 
-            <div class="{isExpanded && viewMode === 'grid' ? 'col-span-full' : ''}">
+            <div>
               <button
                 onclick={() => toggleExpand(nodeId)}
                 class="w-full text-left glass rounded-xl border transition-all duration-300 cursor-pointer
@@ -1177,18 +1179,38 @@
                     </div>
                   </div>
 
-                  <!-- Expand indicator -->
-                  <div class="{viewMode === 'list' ? 'ml-2' : 'mt-3 flex justify-center'}">
-                    <svg class="w-4 h-4 text-text-muted transition-transform duration-200 {isExpanded ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
                 </div>
               </button>
+            </div>
+          {/each}
+        </div>
+        </div>
 
-              <!-- ═══ EXPANDED DETAIL PANEL ═══ -->
-              {#if isExpanded && selectedNode}
-                <div class="mt-2 rounded-xl border border-accent-cyan/20 bg-bg-secondary/80 overflow-hidden animate-slide-in-up">
+        <!-- ═══ DETAIL SIDE PANEL (DRAWER) ═══ -->
+        {#if selectedNode}
+          {@const nodeId = String(selectedNode.nodeId ?? selectedNode.id ?? '')}
+          {@const status = getNodeStatus(selectedNode)}
+          {@const displayName = (typeof selectedNode.displayName === 'string' && selectedNode.displayName.trim()) || nodeId}
+          {@const caps = getNodeCaps(selectedNode)}
+          {@const commands = getNodeCommands(selectedNode)}
+          <div class="w-[420px] flex-shrink-0 rounded-xl border border-accent-cyan/20 bg-bg-secondary/80 overflow-hidden animate-slide-in-right self-start sticky top-0 max-h-[calc(100vh-12rem)] flex flex-col">
+                  <!-- Drawer header -->
+                  <div class="flex items-center justify-between px-4 py-3 border-b border-border-default bg-bg-tertiary/50">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <span class="block w-2.5 h-2.5 rounded-full {getStatusColor(status)} {status === 'online' ? 'glow-pulse' : ''}"></span>
+                      <h3 class="text-sm font-semibold text-text-primary truncate">{displayName}</h3>
+                      <span class="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full
+                        {status === 'online' ? 'bg-accent-green/15 text-accent-green border border-accent-green/20' :
+                         status === 'stale' ? 'bg-accent-amber/15 text-accent-amber border border-accent-amber/20' :
+                         'bg-red-500/10 text-red-400 border border-red-500/20'}">
+                        {status}
+                      </span>
+                    </div>
+                    <button onclick={() => { expandedNodeId = ''; }} class="p-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+
                   <!-- Tab bar -->
                   <div class="flex border-b border-border-default bg-bg-tertiary/50">
                     <button
@@ -1230,14 +1252,14 @@
                   </div>
 
                   <!-- Tab content -->
-                  <div class="p-5">
+                  <div class="p-4 overflow-y-auto flex-1">
                     {#if detailTab === 'info'}
                       <!-- ─── INFO TAB ─── -->
-                      <div class="space-y-5">
+                      <div class="space-y-4">
                         <!-- System Info Grid -->
                         <div>
                           <h4 class="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">System Information</h4>
-                          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div class="grid grid-cols-2 gap-2">
                             <div class="rounded-lg border border-border-default bg-bg-primary/50 p-3">
                               <span class="text-[10px] uppercase tracking-wider text-text-muted block mb-1">Node ID</span>
                               <span class="text-xs text-text-primary font-mono break-all">{nodeId}</span>
@@ -1503,11 +1525,8 @@
                       </div>
                     {/if}
                   </div>
-                </div>
-              {/if}
-            </div>
-          {/each}
-        </div>
+          </div>
+        {/if}
       </div>
     {/if}
   </div>
