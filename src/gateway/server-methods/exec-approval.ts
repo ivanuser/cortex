@@ -1,3 +1,4 @@
+import { AuditLogger } from "../../audit/audit-logger.js";
 import type { ExecApprovalForwarder } from "../../infra/exec-approval-forwarder.js";
 import {
   DEFAULT_EXEC_APPROVAL_TIMEOUT_MS,
@@ -230,6 +231,66 @@ export function createExecApprovalHandlers(
           context.logGateway?.error?.(`exec approvals: forward resolve failed: ${String(err)}`);
         });
       respond(true, { ok: true }, undefined);
+    },
+
+    /**
+     * exec.approval.report — Informational: a node (e.g. Synapse) reports a
+     * local approval decision so the gateway can log it for audit visibility.
+     * This does NOT gate execution — it's purely for audit trail and Control UI.
+     */
+    "exec.approval.report": async ({ params, respond, client, context }) => {
+      const p = params as {
+        command?: string;
+        approved?: boolean;
+        mode?: string;
+        source?: string;
+        nodeId?: string;
+      };
+
+      if (typeof p.command !== "string" || typeof p.approved !== "boolean") {
+        respond(
+          false,
+          undefined,
+          errorShape(
+            ErrorCodes.INVALID_REQUEST,
+            "command (string) and approved (boolean) required",
+          ),
+        );
+        return;
+      }
+
+      const report = {
+        command: p.command,
+        approved: p.approved,
+        mode: p.mode ?? "unknown",
+        source: p.source ?? "unknown",
+        nodeId: p.nodeId ?? client?.connect?.device?.id ?? null,
+        reportedBy: client?.connect?.client?.displayName ?? client?.connect?.client?.id ?? null,
+        ts: Date.now(),
+      };
+
+      // Log to audit
+      try {
+        const logger = AuditLogger.getInstance();
+        logger.log({
+          action: "exec.approval.report",
+          actor: report.reportedBy ?? report.source,
+          target: report.command,
+          result: report.approved ? "approved" : "denied",
+          meta: {
+            mode: report.mode,
+            source: report.source,
+            nodeId: report.nodeId,
+          },
+        });
+      } catch {
+        // Audit logging is best-effort
+      }
+
+      // Broadcast to all connected clients (Control UI can show these)
+      context.broadcast("exec.approval.reported", report, { dropIfSlow: true });
+
+      respond(true, { ok: true, logged: true }, undefined);
     },
   };
 }
