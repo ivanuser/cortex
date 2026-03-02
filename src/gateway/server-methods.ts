@@ -67,10 +67,10 @@ function resolveAuditConfig(): { enabled: boolean; level: AuditLevel } {
       | { audit?: { enabled?: boolean; level?: string } }
       | undefined;
     const enabled = security?.audit?.enabled !== false; // default true
-    const level = (security?.audit?.level as AuditLevel) ?? "sensitive";
+    const level = (security?.audit?.level as AuditLevel) ?? "all";
     return { enabled, level };
   } catch {
-    return { enabled: true, level: "sensitive" };
+    return { enabled: true, level: "all" };
   }
 }
 
