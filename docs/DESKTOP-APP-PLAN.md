@@ -2,8 +2,8 @@
 
 > **Goal:** Build native Windows and Linux desktop apps that provide full node capabilities (canvas, screen, camera, notifications) — matching what the macOS OpenClaw app already does.
 >
-> **Status:** ✅ Phases 0–2 and 4 COMPLETE. Phase 3 (All-in-One) planned for Q2 2026.
-> **Current Version:** v0.9.9 (February 27, 2026)
+> **Status:** ✅ Phases 0–2 and 4 COMPLETE. Phase 5 (Autonomous Work Companion) COMPLETE. Phase 3 (All-in-One) planned for Q2 2026.
+> **Current Version:** v0.11.21 (March 2, 2026)
 
 ## The Problem
 
@@ -35,7 +35,13 @@ A native desktop app for Windows and Linux that:
 8. ✅ **File Manager** for workspace file browsing, upload, and download
 9. ✅ **Multi-gateway profiles** with add/edit/switch/delete
 10. ✅ **Auto-update** with signed bundles
-11. 📋 **Can optionally run the gateway** itself (all-in-one mode) — Phase 3
+11. ✅ **Local execution** — agents run system commands natively (`system.run`)
+12. ✅ **Task Panel** — autonomous task execution with scheduling
+13. ✅ **F#%$-it Mode** — auto-approve all agent commands for full autonomy
+14. ✅ **Voice/TTS** — Web Speech API + KittenTTS local AI engine
+15. ✅ **Approval bridge** — report decisions back to gateway audit trail
+16. ✅ **Task recovery** — running tasks survive gateway reconnects
+17. 📋 **Can optionally run the gateway** itself (all-in-one mode) — Phase 3
 
 ## Technology: Tauri v2
 
@@ -178,7 +184,85 @@ Both authenticate via `ctx_` API token. This separation allows the chat and node
 - [x] Start on boot option (autostart plugin)
 - [x] Minimize to tray on close
 
-## Feature Summary (v0.9.9)
+### ✅ Phase 5: Autonomous Work Companion (COMPLETE - Feb 27 – Mar 2)
+
+**Goal**: Transform Synapse from a chat client into a full autonomous work companion
+
+#### v0.10.x — Chat Polish & UX (Feb 27-28)
+
+- [x] Chat export, search, thinking display, session delete
+- [x] Smart auto-scroll with word count and scroll-to-bottom indicator
+- [x] Command palette (`Ctrl+K`) for quick actions
+- [x] Message reactions (👍/👎)
+
+#### v0.11.0 — Local Execution (Feb 28)
+
+- [x] `system.run` capability — agents execute local shell commands
+- [x] `system.which` — check for installed binaries
+- [x] `system.notify` — native OS notifications from commands
+- [x] Local file browser (browse Desktop, Downloads, Documents, Pictures)
+- [x] Task Panel — autonomous task execution with scheduled tasks
+- [x] Cross-platform `system.run` (spawn binary directly on all platforms)
+
+#### v0.11.1–v0.11.3 — Sentry Integration (Feb 28)
+
+- [x] `@sentry/svelte` error tracking integration
+- [x] Session Replay (100% on error, 0% normal sessions)
+- [x] Internal IP for Sentry DSN (Cloudflare tunnel blocks envelope API)
+- [x] Windows `system.run` cross-platform fix
+- [x] Local files forbidden path fix, device capture dropdown contrast fix
+
+#### v0.11.4–v0.11.7 — CI + Platform Fixes (Feb 28 – Mar 1)
+
+- [x] Windows CI cache-nuke (Test-Path before Remove-Item)
+- [x] Nuke cached Tauri binary before build (stale binary fix)
+- [x] Task completion status fix (sessionKey canonicalization)
+- [x] Machine context injection into task prompts
+- [x] Hostname-based node display names + richer platform metadata
+
+#### v0.11.8–v0.11.9 — F#%$-it Mode (Mar 1)
+
+- [x] **F#%$-it Mode**: Auto-approve all agent commands — full autonomous operation
+- [x] Blinking F#%$-it Mode badge in header bar with hide option
+- [x] F#%$-it auto-approve moved to `App.svelte` (always mounted, survives panel switches)
+- [x] Hostname-based node display names
+
+#### v0.11.11–v0.11.12 — Task Scheduling (Mar 1)
+
+- [x] Schedule tasks for later with presets (15min, 1h, tomorrow, custom datetime)
+- [x] Task completion when TaskPanel is not visible (background task tracking)
+
+#### v0.11.13–v0.11.15 — Canvas Fixes (Mar 1)
+
+- [x] Canvas snapshot: native window capture via `xcap` crate + JavaScript fallback
+- [x] Canvas white screen fix on Linux (WebKitGTK initialization issue)
+
+#### v0.11.16 — Approval Bridge + TTS Foundation (Mar 1)
+
+- [x] Approval bridge to gateway (`exec.approval.report` RPC integration)
+- [x] TTS foundation: Web Speech API integration for voice output
+
+#### v0.11.17 — Voice/TTS (Mar 1)
+
+- [x] TTS speak button on messages + settings panel
+- [x] Canvas blank screen additional fix
+
+#### v0.11.18 — Task Recovery (Mar 1–2)
+
+- [x] Task recovery on gateway reconnect — running tasks survive connection drops
+
+#### v0.11.19–v0.11.20 — TTS Fixes (Mar 2)
+
+- [x] TTS speak button rendering fixes (non-reactive guard removal, own styling)
+
+#### v0.11.21 — KittenTTS (Mar 2)
+
+- [x] **KittenTTS integration**: Local AI text-to-speech engine
+- [x] Python ONNX runtime with 8 voice models
+- [x] Rust backend bridge for native performance
+- [x] Fully offline voice synthesis — no cloud dependency
+
+## Feature Summary (v0.11.21)
 
 ### Chat
 
@@ -187,14 +271,56 @@ Both authenticate via `ctx_` API token. This separation allows the chat and node
 - Inline image rendering (camera snaps, screenshots, generated images)
 - Image attachments (drag & drop or paste)
 - Markdown rendering with code blocks
+- Message reactions (👍/👎)
+- Chat export to file
+- Chat search across conversations
+- Thinking display for reasoning models
 - Message history persisted across sessions
-- Keyboard shortcuts: `Ctrl+N` new chat, `Ctrl+Shift+C` copy last, `Ctrl+/` reference
+- Keyboard shortcuts: `Ctrl+N` new chat, `Ctrl+Shift+C` copy last, `Ctrl+K` command palette, `Ctrl+/` reference
+
+### Voice / TTS
+
+- **Web Speech API**: Browser-native text-to-speech with system voices
+- **KittenTTS**: Local AI voice engine — Python ONNX runtime, 8 voice models, Rust backend
+- TTS speak button on each message
+- Voice settings panel (engine selection, voice picker)
+- Fully offline — no cloud TTS dependency
+
+### Task System
+
+- **Task Panel**: Autonomous task execution (Cowork-style)
+- **Task scheduling**: Schedule tasks for later (15min, 1h, tomorrow, custom datetime)
+- **Task recovery**: Running tasks survive gateway reconnects
+- **F#%$-it Mode**: Auto-approve all agent commands — full autonomous operation
+- Blinking mode badge in header with hide option
+
+### Local Execution
+
+- `system.run` — agents execute local shell commands natively
+- `system.which` — check for installed binaries
+- `system.notify` — trigger native OS notifications from commands
+- Local file browser (Desktop, Downloads, Documents, Pictures)
+- Cross-platform execution (Linux + Windows)
+
+### Approval Bridge
+
+- Report approval decisions back to gateway audit trail
+- `exec.approval.report` RPC integration
+- Synapse approvals visible in gateway audit page
 
 ### File Management
 
 - File Manager panel with browse/upload/download
+- Local file browser for common directories
 - Tauri native file dialog + HTML fallback for uploads
 - Binary file support via base64 encoding
+
+### Canvas
+
+- Canvas host via native WebView with full OS chrome
+- Canvas snapshot: native window capture via `xcap` + JS fallback
+- White screen fix on Linux (WebKitGTK)
+- Blank screen additional fix
 
 ### Profiles & Settings
 
@@ -202,6 +328,7 @@ Both authenticate via `ctx_` API token. This separation allows the chat and node
 - Gateway panel with connection status and auto-start toggle
 - Node settings with capability toggles
 - Notification controls (enable/disable)
+- TTS engine and voice settings
 
 ### System Integration
 
@@ -209,6 +336,15 @@ Both authenticate via `ctx_` API token. This separation allows the chat and node
 - Native OS notifications
 - Auto-reconnect with exponential backoff
 - Auto-update with signed bundles
+- Sentry error tracking + Session Replay
+- Smart auto-scroll with word count indicator
+- Command palette (`Ctrl+K`)
+
+### Monitoring
+
+- Sentry error tracking (`@sentry/svelte`)
+- Session Replay (100% on error, inputs masked)
+- Internal IP DSN for LAN ingest
 
 ## CI/CD Pipeline
 
@@ -252,14 +388,16 @@ main branch push
 
 ## What's Next for v1.0
 
-1. **Auto-update end-to-end testing** — verify update banner + one-click install
-2. **Voice/TTS integration** — audio playback in chat
-3. **Improved markdown** — better code blocks, tables, syntax highlighting
-4. **Chat export** — save conversations to file
-5. **Chat search** — search across past conversations
-6. **All-in-One Mode** — embedded gateway for zero-config setup
+1. ✅ ~~Voice/TTS integration~~ — Web Speech API + KittenTTS — **DONE**
+2. ✅ ~~Chat export~~ — save conversations to file — **DONE**
+3. ✅ ~~Chat search~~ — search across past conversations — **DONE**
+4. **Auto-update end-to-end testing** — verify update banner + one-click install
+5. **Improved markdown** — better code blocks, tables, syntax highlighting
+6. **KittenTTS voice expansion** — additional voice models and quality tuning
+7. **Browser capability** — CDP browser control from desktop app
+8. **All-in-One Mode** — embedded gateway for zero-config setup (Phase 3)
 
 ---
 
-_Cortex Synapse v0.9.9 — February 27, 2026_
-_From concept to near-v1.0 in 3 days._
+_Cortex Synapse v0.11.21 — March 2, 2026_
+_From concept to autonomous work companion in 6 days._

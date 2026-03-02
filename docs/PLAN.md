@@ -1,7 +1,7 @@
 # 🧠 CORTEX — Project Plan
 
-**Version:** v3.10.11
-**Date:** February 27, 2026
+**Version:** v3.10.15
+**Date:** March 2, 2026
 **Author:** Ivan Honer
 **Repository:** https://gitlab.honercloud.com/llm/cortex-fork
 **Status:** Production Ready
@@ -440,43 +440,194 @@ Implemented 4 role levels:
 
 **Outcome:** Near-complete desktop client — Phases 1, 2, and 4 of the original roadmap largely achieved
 
+### ✅ Sentry Integration (February 28, 2026)
+
+**Goal:** Error tracking and monitoring for gateway and desktop app
+
+**Gateway (cortex-gateway):**
+
+- Attempted `@sentry/node` → unusable in bundled apps (30+ OTel transitive dependencies)
+- Tried `@sentry/node-core` and `@sentry/core` — still pulled in auto-detect integrations
+- **Final solution**: Zero-dependency HTTP envelope API — direct `POST` to Sentry envelope endpoint
+- Used internal IP (`192.168.1.170:9000`) for LAN ingest — Cloudflare tunnel blocks envelope endpoint with 403
+- Project: `cortex-gateway` (id 4)
+
+**Synapse (cortex-synapse):**
+
+- `@sentry/svelte` with Session Replay (100% on error, 0% normal)
+- Inputs masked, text and media visible
+- Internal IP for DSN (same CF tunnel issue)
+- Project: `cortex-synapse` (id 3)
+
+**Infrastructure:**
+
+- Sentry self-hosted at `192.168.1.170` (sentry.honercloud.com for UI)
+- New Issue Alert + Error Spike Alert (>10 events/hour) for both projects
+- Honercloud Infrastructure dashboard (cross-project overview)
+- Cortex Synapse Desktop App Health dashboard
+
+**Outcome:** Production error tracking with zero bloat on the gateway side
+
+### ✅ Smart Exec Routing (February 28, 2026)
+
+**Goal:** Intelligent command routing across nodes
+
+- **Auto-host**: When a system-capable node is connected, `exec` defaults to node instead of gateway host
+- **Platform targeting**: Route commands to the right OS (Windows/Linux/macOS) based on context
+- **Node context injection**: System prompts include node ID prefix when display names collide
+- System prompt shows node ID prefix when display names collide for disambiguation
+
+**Outcome:** Agents can seamlessly execute commands on the most appropriate node without manual targeting
+
+### ✅ Gateway v3.10.10–v3.10.15 (February 27 – March 2, 2026)
+
+**Goal:** Gateway enhancements for Synapse integration, monitoring, and admin UX
+
+- **v3.10.10**: `exec.approval.list` RPC method + approval history tracking, `tick` keepalive handler with auth bypass, platform badge on node cards (Windows/Linux/macOS emoji)
+- **v3.10.11**: Accept `arch` + `hostname` in connect frame and expose in `node.list`, node detail side drawer UI (fixed-position overlay)
+- **v3.10.12**: Audit page scroll fix, time-aware stats, overview page overhaul (hero header, metric cards, activity feed, node fleet, health sidebar)
+- **v3.10.13**: Added `notify` to `CronAddParams` schema (`additionalProperties:false` was rejecting cron jobs with notify flag)
+- **v3.10.14**: Default audit level changed from `"sensitive"` to `"all"`, `decodeURIComponent` wrapped in try-catch to prevent URI malformed crashes in markdown.ts
+- **v3.10.15**: `exec.approval.report` RPC method — allows Synapse to report approval decisions back to the gateway audit trail
+
+**Additional fixes:**
+
+- Desktop app origin fixes: `tauri://` and `capacitor://` treated as secure contexts for Control UI
+- Scopes preserved for desktop app origins
+- `cortex-synapse` client ID added to known clients
+- Canvas host URL fix for Cloudflare tunnel access
+
+**Outcome:** Polished admin experience, full Synapse integration, and robust cron/audit infrastructure
+
+### ✅ Synapse v0.10.0–v0.11.21 (February 27 – March 2, 2026)
+
+**Goal:** Transform Synapse from chat client into a full autonomous work companion
+
+**v0.10.0 — Chat Polish:**
+
+- Chat export, search, thinking display, session delete
+- Smart auto-scroll with word count and scroll-to-bottom indicator
+- Command palette (`Ctrl+K`) and message reactions (👍/👎)
+
+**v0.11.0 — Local Execution (Cowork-style):**
+
+- `system.run`, `system.which`, `system.notify` capabilities — agents can execute local commands
+- Local file browser (browse Desktop, Downloads, Documents, Pictures)
+- Task Panel for autonomous task execution with scheduled tasks
+- Cross-platform `system.run` (spawn binary directly on all platforms)
+
+**v0.11.3 — Sentry + UI:**
+
+- Sentry error tracking + Session Replay integration
+- Internal IP for Sentry DSN (CF tunnel workaround)
+- Local files forbidden path fix, device capture dropdown contrast fix
+
+**v0.11.4–v0.11.7 — CI + Platform:**
+
+- Windows CI cache fixes, Tauri binary cache-nuke before build
+- Task completion status fix (sessionKey canonicalization)
+- Machine context injection into task prompts
+- Hostname-based node display names + richer platform metadata
+
+**v0.11.8–v0.11.9 — F#%$-it Mode:**
+
+- Hostname-based node display names + richer platform metadata
+- **F#%$-it Mode**: Auto-approve all agent commands — toggle for full autonomous operation
+- Blinking F#%$-it Mode badge in header bar with hide option
+- F#%$-it auto-approve moved to `App.svelte` (always mounted, survives panel switches)
+
+**v0.11.11–v0.11.12 — Task Scheduling:**
+
+- Schedule tasks for later with presets (15min, 1h, tomorrow, custom datetime)
+- Task completion when TaskPanel is not visible (background task tracking)
+
+**v0.11.13–v0.11.15 — Canvas Fixes:**
+
+- Canvas snapshot: native window capture via `xcap` + JavaScript fallback
+- Canvas white screen fix on Linux (WebKitGTK initialization issue)
+
+**v0.11.16 — Approval Bridge + TTS Foundation:**
+
+- Approval bridge to gateway (`exec.approval.report` integration)
+- TTS foundation: Web Speech API integration for voice output
+
+**v0.11.17 — Voice/TTS:**
+
+- TTS speak button on messages + settings panel
+- Canvas blank screen fix (additional)
+
+**v0.11.18 — Task Recovery:**
+
+- Task recovery on gateway reconnect — running tasks survive connection drops
+
+**v0.11.19–v0.11.20 — TTS Fixes:**
+
+- TTS speak button rendering fixes (non-reactive guard removal, own styling)
+
+**v0.11.21 — KittenTTS:**
+
+- **KittenTTS integration**: Local AI text-to-speech engine
+- Python ONNX runtime with 8 voice models
+- Rust backend bridge for native performance
+- No cloud dependency — fully offline voice synthesis
+
+**Outcome:** Synapse evolved from a chat client into an autonomous work companion with local execution, task scheduling, voice output, and full gateway integration
+
 ## 5. Current State
 
 ### Production Deployment
 
-- **Gateway Version**: v3.10.11 deployed on devclaw (.223)
-- **Test environment**: Full stack on devclaw with Cloudflare tunnel
-- **Desktop**: Synapse v0.9.9 (CI building)
+- **Gateway Version**: v3.10.15 deployed on openclaw (.242)
+- **Test environment**: Full stack on devclaw (.223) with Cloudflare tunnel
+- **Desktop**: Synapse v0.11.21 (CI building for Windows + Linux)
+- **Monitoring**: Sentry self-hosted at 192.168.1.170 — error tracking for gateway + Synapse
 
 ### Web UI Status
 
 - **16 admin pages** covering all gateway functionality
+- **Overhauled Overview page**: Hero header, metric cards, activity feed, node fleet, health sidebar
 - **Full chat interface** with rich markdown rendering
 - **Binary file rendering** in file viewer (images displayed inline)
+- **Node detail side drawer**: Fixed-position overlay with platform badges
+- **Audit page**: Scroll fix, time-aware stats, default level "all"
 - **Cyberpunk theme** with 8 presets + custom themes
 - **PWA support** with offline capability
 - **Mobile responsive** design
 
-### Desktop Status (Synapse v0.9.9)
+### Desktop Status (Synapse v0.11.21)
 
-- **Native chat** with full streaming, thinking indicators, and tool cards
+- **Native chat** with streaming, thinking indicators, tool cards, and reactions
 - **Dual WebSocket**: webchat connection (chat) + node connection (capabilities)
 - **Node capabilities**: Canvas host, screen capture, camera access
+- **Local execution**: `system.run`, `system.which`, `system.notify` — agents run commands natively
+- **Local file browser**: Browse Desktop, Downloads, Documents, Pictures
+- **Task Panel**: Autonomous task execution with scheduled tasks and cron integration
+- **F#%$-it Mode**: Auto-approve all agent commands for full autonomous operation
+- **Task scheduling**: Schedule tasks for later (presets + custom datetime)
+- **Task recovery**: Running tasks survive gateway reconnects
+- **Approval bridge**: Report approval decisions back to gateway audit trail
+- **Voice/TTS**: Web Speech API + KittenTTS local AI engine (8 voices, Python ONNX, Rust backend)
+- **Canvas fixes**: Native snapshot via xcap, white screen fix on Linux (WebKitGTK)
+- **Command palette**: `Ctrl+K` for quick actions
+- **Chat export/search**: Save and search conversations
 - **File Manager**: Browse, upload, download workspace files
 - **Multi-gateway profiles**: Add, edit, switch, delete gateway connections
 - **Native notifications**: OS-level alerts with toggle control
 - **System tray**: Minimize to tray, tray icon menu
-- **Keyboard shortcuts**: Ctrl+N, Ctrl+Shift+C, Ctrl+/
+- **Keyboard shortcuts**: Ctrl+N, Ctrl+Shift+C, Ctrl+K, Ctrl+/
 - **Auto-update**: Signed update bundles via GitLab package registry
 - **Auto-reconnect** with exponential backoff
+- **Sentry**: Error tracking + Session Replay (100% on error)
 
 ### Security Status
 
 - **3-phase security complete**:
-  - ✅ Audit logging with retention policies
+  - ✅ Audit logging with retention policies (default level: "all")
   - ✅ RBAC with 4 role levels (admin/operator/viewer/chat-only)
   - ✅ Method authorization with API tokens
   - ✅ Seamless auth with device pairing
+- **Smart exec routing**: Auto-host, platform targeting, node context injection
+- **Sentry monitoring**: Error tracking + alerts for gateway and Synapse
 
 ### Distribution
 
@@ -490,16 +641,24 @@ Implemented 4 role levels:
 
 ### 🔄 Synapse v1.0 Polish (In Progress)
 
+- ✅ ~~Voice/TTS integration~~: Web Speech API + KittenTTS local AI — **DONE**
+- ✅ ~~Chat export~~: Save conversations to file — **DONE**
+- ✅ ~~Chat search/history~~: Search across past conversations — **DONE**
 - **Auto-update end-to-end testing**: Verify update banner and one-click install
 - **Markdown rendering improvements**: Better code blocks and tables
-- **Voice/TTS integration**: Audio playback in chat
-- **Chat export**: Save conversations to file
-- **Chat search/history**: Search across past conversations
+- **KittenTTS voice expansion**: Additional voice models and quality tuning
+- **Browser capability**: CDP browser control from desktop app
 
 ### 🔄 Gateway Improvements
 
 - **Upstream rebase**: ~2,270 commits behind upstream OpenClaw (v2026.2.25)
 - **Anthropic API timeout investigation**: 600s timeouts on devclaw
+
+### 🔄 Monitoring & Observability
+
+- **Sentry webhook bridge**: Real-time error alerts from Sentry → OpenClaw chat via Ranaye Bot integration
+- **Performance monitoring**: Add Sentry performance/tracing to gateway
+- **Dashboard refinement**: Custom Sentry dashboards for infrastructure health
 
 ## 7. Roadmap
 
@@ -668,14 +827,14 @@ Implemented 4 role levels:
 
 ## Project Status Summary
 
-**✅ Completed**: Production-ready web UI with security hardening, full-featured desktop app with node capabilities, auto-update infrastructure, comprehensive documentation
+**✅ Completed**: Production-ready web UI with security hardening, full-featured desktop app with local execution and voice/TTS, Sentry error monitoring, smart exec routing, approval bridge, auto-update infrastructure, comprehensive documentation
 
-**🔄 In Progress**: Synapse v1.0 polish (markdown, voice, chat export), auto-update end-to-end testing, upstream rebase consideration
+**🔄 In Progress**: Synapse v1.0 final polish (markdown rendering, auto-update testing), KittenTTS voice expansion, Sentry webhook bridge, upstream rebase consideration
 
-**📋 Next**: All-in-one mode (embedded gateway), distributed security agents, public release
+**📋 Next**: All-in-one mode (embedded gateway), browser capability for desktop, distributed security agents, public release
 
-**Timeline**: ~8 days of intensive development (Feb 19-27) produced a complete replacement for OpenClaw's UI, a full desktop companion with node capabilities, and auto-update distribution — from zero to near-v1.0 in just over a week.
+**Timeline**: ~12 days of intensive development (Feb 19 – Mar 2) produced a complete replacement for OpenClaw's UI, an autonomous desktop companion with local execution, voice/TTS, task scheduling, and Sentry monitoring — from zero to production in under two weeks.
 
 ---
 
-_Cortex v3.10.11 — February 27, 2026_
+_Cortex v3.10.15 — March 2, 2026_
