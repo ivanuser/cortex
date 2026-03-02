@@ -222,7 +222,8 @@ export async function postProcessMarkdown(html: string): Promise<string> {
         
         if (codeMatch) {
           const lang = langMatch?.[1] || 'text';
-          const code = decodeURIComponent(codeMatch);
+          let code: string;
+          try { code = decodeURIComponent(codeMatch); } catch { code = codeMatch; }
           
           try {
             const highlighted = highlighter.codeToHtml(code, {
@@ -253,7 +254,8 @@ export async function postProcessMarkdown(html: string): Promise<string> {
         const mathMatch = block.match(/data-math="([^"]*)"/);
         const displayMatch = block.match(/data-display="([^"]*)"/);
         if (mathMatch) {
-          const math = decodeURIComponent(mathMatch[1]);
+          let math: string;
+          try { math = decodeURIComponent(mathMatch[1]); } catch { math = mathMatch[1]; }
           const displayMode = displayMatch?.[1] === 'true';
           try {
             const rendered = katex.renderToString(math, {
@@ -281,7 +283,8 @@ export async function postProcessMarkdown(html: string): Promise<string> {
         const idMatch = idMatchResult?.[1];
         
         if (diagramMatch && idMatch) {
-          const diagram = decodeURIComponent(diagramMatch);
+          let diagram: string;
+          try { diagram = decodeURIComponent(diagramMatch); } catch { diagram = diagramMatch; }
           
           try {
             const { svg } = await mermaid.render(idMatch, diagram);
