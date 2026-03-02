@@ -2,7 +2,7 @@
 
 > **The comprehensive reference for the Cortex AI Assistant Command Center.**
 >
-> Cortex v3.10+ · Last updated February 2026
+> Cortex v3.10.15 · Last updated March 2026
 
 <div style="background: var(--card); padding: 16px 20px; border-radius: 8px; margin: 24px 0; border-left: 4px solid var(--cyan);">
   <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
@@ -45,6 +45,7 @@
 23. [Configuration Reference](#23-configuration-reference)
 24. [CLI Reference](#24-cli-reference)
 25. [Troubleshooting](#25-troubleshooting)
+26. [Cortex Synapse (Desktop App)](#26-cortex-synapse-desktop-app)
 
 ---
 
@@ -111,6 +112,14 @@ Cortex follows a **Gateway + Nodes** architecture:
 - The Cortex UI running in any modern browser
 - Authenticates via device pairing or API tokens
 - Real-time WebSocket connection to the gateway
+
+**Desktop Clients (Cortex Synapse):**
+
+- Native Tauri v2 app for Windows and Linux (~10-15MB)
+- Dual WebSocket connection: webchat (chat) + node (capabilities)
+- Full node capabilities: canvas, screen, camera, local command execution
+- System tray integration, native notifications, auto-update
+- See [Section 26](#26-cortex-synapse-desktop-app) for details
 
 ### Quick Start
 
@@ -379,41 +388,63 @@ The input area at the bottom of the conversation panel provides:
 
 ## 4. Overview
 
-The **Overview** page is your gateway dashboard — a quick health check showing the most important metrics at a glance.
+The **Overview** page is your gateway command center — a comprehensive dashboard with real-time metrics, activity feeds, and fleet status at a glance.
 
-![Overview dashboard showing status cards for gateway health, sessions, models, and quick links](images/02-overview.png)
+![Overview dashboard showing hero header, metric cards, activity feed, and node fleet panel](images/02-overview.png)
 
-### Dashboard Cards
+### Hero Header
 
-The dashboard displays a grid of status cards:
+The top of the page features a hero header with:
 
-| Card          | Description                 | Values                                   |
-| ------------- | --------------------------- | ---------------------------------------- |
-| **STATUS**    | Gateway connection state    | Connected (green), Disconnected (red)    |
-| **UPTIME**    | Time since gateway started  | Duration or "n/a" if unavailable         |
-| **SESSIONS**  | Active session count        | Number + main session name               |
-| **MODELS**    | Available model count       | Total from all configured providers      |
-| **INSTANCES** | Connected clients and nodes | Count with "View all →" link             |
-| **CRON**      | Cron scheduler status       | Next run time, Enabled/Disabled badge    |
-| **AUTH**      | Authentication status       | Gateway device ID (truncated), auth mode |
+- **Gateway status** with animated pulse indicator (green = connected)
+- **Uptime** displayed as a human-readable duration
+- **Current version** badge
+- **Protocol version** indicator
 
-### Status Indicators
+### Metric Cards
 
-- **Green** border/text: Healthy, connected, active
-- **Yellow/Amber**: Unknown, degraded, or unavailable
-- **Purple**: Informational metrics (model count)
+A grid of metric cards provides key system numbers:
 
-### Quick Links
+| Card              | Description                   | Details                                        |
+| ----------------- | ----------------------------- | ---------------------------------------------- |
+| **Sessions**      | Active session count          | Breakdown by type (main, isolated, sub-agents) |
+| **Connected**     | Real-time connected instances | Nodes, webchat clients, and gateway            |
+| **Models**        | Available model count         | Total across all configured providers          |
+| **Cron Jobs**     | Active scheduled jobs         | Count with scheduler status indicator          |
+| **Token Usage**   | Token consumption stats       | Input/output breakdown, time-aware totals      |
+| **Cost Estimate** | Estimated API spend           | Aggregated across all sessions and models      |
 
-Each card links to its corresponding detail page:
+Each metric card is clickable and navigates to its corresponding detail page.
 
-- **Instances** → "View all →" navigates to the Instances page
-- **Cron** → "Manage jobs →" navigates to Cron Jobs
-- **Auth** → "Configure →" navigates to Gateway Configuration
+### Activity Feed
+
+The center of the page shows a real-time activity feed:
+
+- **Recent sessions** with last activity timestamps
+- **Cron job runs** with status indicators (success/fail)
+- **Agent turns** with token counts
+- **Time-relative formatting** ("2 minutes ago", "1 hour ago")
+
+### Node Fleet Panel
+
+A dedicated panel shows the status of your connected node fleet:
+
+- **Node cards** with hostname, platform, and capabilities
+- **Online/offline status** with connection duration
+- **Quick links** to node detail views
+
+### Health Sidebar
+
+The right side features a health sidebar:
+
+- **Connection quality** indicator
+- **Channel status** summary (connected/disconnected counts)
+- **Memory system** status
+- **Disk/resource** alerts if applicable
 
 ### Refresh
 
-Click the **Refresh** button in the top-right corner to re-fetch all dashboard data from the gateway.
+Click the **Refresh** button in the top-right corner to re-fetch all dashboard data from the gateway. The overview auto-refreshes on a slow interval to stay current.
 
 ---
 
@@ -511,15 +542,15 @@ Each connected instance is displayed as a card with:
 - **System Info**: Operating system, kernel version, and architecture
 - **Tags**: Role and capability badges:
 
-| Tag          | Description                 |
-| ------------ | --------------------------- |
-| **gateway**  | The gateway process itself  |
-| **webchat**  | A Cortex UI browser session |
-| **node**     | A connected node worker     |
-| **operator** | Device with operator role   |
-| **admin**    | Device with admin role      |
-| **viewer**   | Device with viewer role     |
-| **v3.10.2**  | Version badge               |
+| Tag          | Description                            |
+| ------------ | -------------------------------------- |
+| **gateway**  | The gateway process itself             |
+| **webchat**  | A Cortex UI browser session            |
+| **node**     | A connected node worker or Synapse app |
+| **operator** | Device with operator role              |
+| **admin**    | Device with admin role                 |
+| **viewer**   | Device with viewer role                |
+| **v3.10.15** | Version badge                          |
 
 - **Scopes**: Number of authorized scopes (e.g., "3 scopes")
 - **Details**: Expandable section with full connection metadata
@@ -727,9 +758,9 @@ The **Exec Approvals** page manages the command approval system — a security f
 
 ![Exec approvals page showing the queue and allowlist tabs for command approval management](images/08-approvals.png)
 
-### Two-Tab Interface
+### Three-Tab Interface
 
-The page has two tabs:
+The page has three tabs:
 
 #### Queue Tab
 
@@ -743,6 +774,18 @@ The **Queue** shows real-time pending command approval requests:
 - **Recent Decisions**: History of recently approved/denied commands for this session
 
 When the queue is empty, a green checkmark icon confirms "No pending approval requests" with the message "Requests will appear here in real-time when agents need permission."
+
+#### History Tab
+
+The **History** tab shows a complete log of all past approval decisions:
+
+- **Command**: The exact command that was requested
+- **Decision**: Approved or Denied, with color-coded badges
+- **Actor**: Who made the decision — CLI, web UI, or a connected Synapse desktop app
+- **Timestamp**: When the decision was made
+- **Source**: Whether the approval came from the gateway UI or was reported back from a Synapse desktop app via the approval bridge (`exec.approval.report`)
+
+> **Note:** Synapse desktop app approvals are bridged back to the gateway via the `exec.approval.report` RPC method, so all approval decisions — regardless of where they were made — appear in this unified history.
 
 #### Allowlist Tab
 
@@ -795,6 +838,8 @@ Quick-select buttons filter the log by time window:
 | **30d** | Last 30 days            |
 | **All** | All recorded events     |
 
+Time-aware statistics update based on the selected range — the stats bar at the top shows event counts and breakdowns scoped to your chosen time window.
+
 ### Action Type Filter
 
 The **All Actions** dropdown lets you filter by specific event types:
@@ -807,10 +852,11 @@ The **All Actions** dropdown lets you filter by specific event types:
 - `config.apply` — Gateway configuration was applied
 - `config.set` — A configuration value was changed
 - `device.role.set` — A device's role was changed
+- `exec.approval.report` — An exec approval decision was reported from a node/Synapse
 
 ### Log Table
 
-The audit log displays events in a table with three columns:
+The audit log displays events in a scrollable table with three columns:
 
 | Column     | Description                                                           |
 | ---------- | --------------------------------------------------------------------- |
@@ -818,7 +864,11 @@ The audit log displays events in a table with three columns:
 | **ACTION** | The event type in purple monospace text (e.g., `device.pair.approve`) |
 | **ACTOR**  | Who performed the action — either "cli" or a truncated device ID      |
 
-Each actor field has a clipboard icon for copying the full device ID.
+Each actor field has a clipboard icon for copying the full device ID. The log table supports smooth scrolling through large result sets.
+
+### Audit Level
+
+The audit system records events at the **"all"** level by default (as of v3.10.14), capturing every auditable action. This ensures complete visibility into gateway activity.
 
 ### Logged Events
 
@@ -829,6 +879,7 @@ The audit system tracks:
 - **Configuration**: Config changes, applies, and restarts
 - **Session**: Session creation, deletion, compaction
 - **Admin**: Role changes, device removals, security setting changes
+- **Exec Approvals**: Approval decisions reported from Synapse desktop apps
 
 > **Tip:** Use the audit log to track down "authorize.denied" events when debugging permission issues. The action field shows exactly which method was blocked (e.g., `authorize.denied:device.pair.list`).
 
@@ -1145,15 +1196,23 @@ The QR code encodes:
 - Role assignment
 - Expiration
 
-### Node Detail Panel
+### Node Detail Side Drawer
 
-Click a node card to expand its detail panel with three tabs:
+Click a node card to open a **side drawer** panel that slides in from the right with three tabs:
 
-| Tab                | Description                                         |
-| ------------------ | --------------------------------------------------- |
-| **Details**        | Full system info, capabilities, connection metadata |
-| **Invoke**         | Send commands directly to the node                  |
-| **Exec Allowlist** | Configure which commands this node can run          |
+| Tab                | Description                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------- |
+| **Details**        | Full system info, capabilities, connection metadata, hostname, architecture, OS, and uptime |
+| **Invoke**         | Send commands directly to the node                                                          |
+| **Exec Allowlist** | Configure which commands this node can run                                                  |
+
+The side drawer provides a richer detail view without navigating away from the fleet overview. It shows:
+
+- **Display name** (hostname-based, e.g., "AIcreations (linux)" rather than generic names)
+- **Platform metadata**: OS, architecture, kernel version
+- **Capabilities list**: canvas, screen, camera, system, browser — with status badges
+- **Connection info**: Connected since, protocol version, client ID
+- **Device identity**: Full Ed25519 hash with copy button
 
 ### Node Configuration
 
@@ -1434,17 +1493,21 @@ The debug console card contains:
 
 ### Common Methods
 
-| Method             | Description                      | Example Params                                |
-| ------------------ | -------------------------------- | --------------------------------------------- |
-| `status`           | Gateway status summary           | `{}`                                          |
-| `health`           | Health check with channel status | `{}`                                          |
-| `sessions.list`    | List all sessions                | `{}`                                          |
-| `models.list`      | List available models            | `{}`                                          |
-| `config.set`       | Set a config value               | `{"path": "logging.level", "value": "debug"}` |
-| `cron.list`        | List cron jobs                   | `{}`                                          |
-| `audit.query`      | Query audit log                  | `{"limit": 10}`                               |
-| `device.pair.list` | List paired devices              | `{}`                                          |
-| `logs.tail`        | Tail gateway logs                | `{"limit": 50}`                               |
+| Method                 | Description                             | Example Params                                |
+| ---------------------- | --------------------------------------- | --------------------------------------------- |
+| `status`               | Gateway status summary                  | `{}`                                          |
+| `health`               | Health check with channel status        | `{}`                                          |
+| `sessions.list`        | List all sessions                       | `{}`                                          |
+| `models.list`          | List available models                   | `{}`                                          |
+| `config.set`           | Set a config value                      | `{"path": "logging.level", "value": "debug"}` |
+| `cron.list`            | List cron jobs                          | `{}`                                          |
+| `audit.query`          | Query audit log                         | `{"limit": 10}`                               |
+| `audit.stats`          | Get audit statistics                    | `{"since": "24h"}`                            |
+| `device.pair.list`     | List paired devices                     | `{}`                                          |
+| `logs.tail`            | Tail gateway logs                       | `{"limit": 50}`                               |
+| `exec.approval.list`   | List pending exec approvals             | `{}`                                          |
+| `exec.approval.report` | Report an approval decision from a node | `{"requestId": "...", "decision": "approve"}` |
+| `tick`                 | Keepalive ping (no auth required)       | `{}`                                          |
 
 ### Use Cases
 
@@ -2300,6 +2363,51 @@ If you're stuck:
 
 ---
 
+## 26. Cortex Synapse (Desktop App)
+
+**Cortex Synapse** is the native desktop companion app for Windows and Linux, built with Tauri v2. It provides everything the web UI does, plus system-level integration that browsers can't offer.
+
+### What Synapse Adds
+
+| Capability           | Web UI | Synapse |
+| -------------------- | :----: | :-----: |
+| Chat + streaming     |   ✅   |   ✅    |
+| Admin pages          |   ✅   |   ❌    |
+| Canvas hosting       |   ❌   |   ✅    |
+| Screen capture       |   ❌   |   ✅    |
+| Camera access        |   ❌   |   ✅    |
+| Local command exec   |   ❌   |   ✅    |
+| System tray          |   ❌   |   ✅    |
+| Native notifications |   ❌   |   ✅    |
+| Local file browser   |   ❌   |   ✅    |
+| Voice/TTS            |   ❌   |   ✅    |
+| Auto-update          |   ❌   |   ✅    |
+| Task scheduling      |   ❌   |   ✅    |
+
+### Key Features
+
+- **Local Command Execution** (`system.run`): Agents can execute shell commands directly on your machine, with an approval flow for each command
+- **F#%$-it Mode**: Auto-approve all agent commands for full autonomous operation (toggle in settings or header bar)
+- **Task Panel**: Queue autonomous tasks that run in isolated sessions, with scheduling support (15min, 1h, tomorrow, custom datetime)
+- **Voice/TTS**: Dual-engine text-to-speech — Web Speech API (system voices) + KittenTTS (local AI, 8 voices, fully offline)
+- **Canvas**: Native WebView window for interactive visual content
+- **Multi-Gateway Profiles**: Connect to different gateways with saved profiles
+
+### Installation
+
+Download the latest release from the [GitLab releases page](https://gitlab.honercloud.com/llm/cortex-synapse/-/releases) or check [update.json](https://gitlab.honercloud.com/llm/cortex-synapse/-/raw/main/update.json) for the latest version.
+
+- **Windows**: `.msi` (WiX) or `.exe` (NSIS) installer
+- **Linux**: `.deb`, `.rpm`, or `.AppImage`
+
+### Auto-Update
+
+Synapse checks for updates automatically. When a new version is available, a banner appears with a one-click install button. Updates are signed with minisign for security.
+
+> **📖 Full details:** See **[DESKTOP-APP-PLAN.md](DESKTOP-APP-PLAN.md)** for the complete Synapse architecture, feature list, and development roadmap.
+
+---
+
 ## Appendix A: Environment Variables
 
 Cortex respects the following environment variables:
@@ -2325,16 +2433,18 @@ Cortex respects the following environment variables:
 
 ```
 ~/.openclaw/
-├── config.json            # Gateway configuration
+├── openclaw.json          # Gateway configuration
 ├── device-identity.json   # This device's Ed25519 keypair
 ├── device-pairing.json    # Paired device database
-├── cron.db               # Cron job database
-├── audit.db              # Audit log database
+├── tokens.db             # API token database (SQLite)
+├── cron.db               # Cron job database (SQLite)
+├── audit.db              # Audit log database (SQLite)
 ├── workspace/            # Default agent workspace
 │   ├── AGENTS.md
 │   ├── SOUL.md
 │   ├── USER.md
 │   ├── MEMORY.md
+│   ├── HEARTBEAT.md
 │   ├── memory/
 │   │   └── YYYY-MM-DD.md
 │   └── skills/
@@ -2349,4 +2459,4 @@ Cortex respects the following environment variables:
 
 ---
 
-_This documentation covers Cortex v3.10.x (current: v3.10.11). For the latest updates, check the [GitHub repository](https://github.com/ivanuser/cortex)._
+_This documentation covers Cortex v3.10.x (current: v3.10.15). For the latest updates, check the [GitHub repository](https://github.com/ivanuser/cortex)._
