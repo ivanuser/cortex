@@ -12,6 +12,8 @@ export const NodePairRequestParamsSchema = Type.Object(
     deviceFamily: Type.Optional(NonEmptyString),
     modelIdentifier: Type.Optional(NonEmptyString),
     caps: Type.Optional(Type.Array(NonEmptyString)),
+    arch: Type.Optional(NonEmptyString),
+    hostname: Type.Optional(NonEmptyString),
     commands: Type.Optional(Type.Array(NonEmptyString)),
     remoteIp: Type.Optional(NonEmptyString),
     silent: Type.Optional(Type.Boolean()),
