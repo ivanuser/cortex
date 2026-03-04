@@ -75,6 +75,7 @@
 
   // ─── Collapsible sections ──────────────────────
   let devicesExpanded = $state(false);
+  let invitesExpanded = $state(false);
 
   // ─── Capability icon map ───────────────────────
   const capIcons: Record<string, { icon: string; color: string; label: string; description: string }> = {
@@ -1069,41 +1070,56 @@
       {/if}
 
       {#if invites.length > 0}
-        <div class="mt-3 p-4 rounded-xl border border-border-default bg-bg-secondary/50">
-          <h3 class="text-sm font-semibold text-text-secondary mb-3">Active Invites <span class="text-xs text-text-muted font-normal ml-1">({invites.length})</span></h3>
-          <div class="space-y-2">
-            {#each invites as inv}
-              {@const invCode = String(inv.code ?? '')}
-              {@const invRoleVal = String(inv.role ?? 'operator')}
-              {@const invValid = Boolean(inv.valid)}
-              {@const invRevoked = Boolean(inv.revoked)}
-              {@const invUsedCount = Number(inv.used_count ?? 0)}
-              {@const invMaxUsesVal = inv.max_uses != null ? Number(inv.max_uses) : null}
-              {@const badgeClass = roleBadgeColors[invRoleVal] ?? roleBadgeColors['operator']}
-              <div class="flex items-center justify-between p-2.5 rounded-lg bg-bg-primary/50 border border-border-default {!invValid ? 'opacity-60' : ''}">
-                <div class="flex items-center gap-3 min-w-0">
-                  <div class="w-2 h-2 rounded-full flex-shrink-0 {invValid ? 'bg-accent-green' : invRevoked ? 'bg-red-500' : 'bg-text-muted'}"></div>
-                  <div class="min-w-0">
-                    <div class="flex items-center gap-2">
-                      <code class="text-xs font-mono text-text-primary truncate">{invCode.slice(0, 16)}…</code>
-                      <span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full border {badgeClass}">{invRoleVal}</span>
+        <div class="mt-3 rounded-xl border border-border-default bg-bg-secondary/50 overflow-hidden">
+          <button
+            onclick={() => invitesExpanded = !invitesExpanded}
+            class="w-full flex items-center justify-between p-3 hover:bg-bg-primary/30 transition-colors cursor-pointer"
+          >
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <span class="text-sm font-semibold text-text-secondary">Active Invites <span class="text-xs text-text-muted font-normal ml-1">({invites.length})</span></span>
+            </div>
+            <svg class="w-4 h-4 text-text-muted transition-transform {invitesExpanded ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {#if invitesExpanded}
+            <div class="px-3 pb-3 space-y-2">
+              {#each invites as inv}
+                {@const invCode = String(inv.code ?? '')}
+                {@const invRoleVal = String(inv.role ?? 'operator')}
+                {@const invValid = Boolean(inv.valid)}
+                {@const invRevoked = Boolean(inv.revoked)}
+                {@const invUsedCount = Number(inv.used_count ?? 0)}
+                {@const invMaxUsesVal = inv.max_uses != null ? Number(inv.max_uses) : null}
+                {@const badgeClass = roleBadgeColors[invRoleVal] ?? roleBadgeColors['operator']}
+                <div class="flex items-center justify-between p-2.5 rounded-lg bg-bg-primary/50 border border-border-default {!invValid ? 'opacity-60' : ''}">
+                  <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-2 h-2 rounded-full flex-shrink-0 {invValid ? 'bg-accent-green' : invRevoked ? 'bg-red-500' : 'bg-text-muted'}"></div>
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-2">
+                        <code class="text-xs font-mono text-text-primary truncate">{invCode.slice(0, 16)}…</code>
+                        <span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full border {badgeClass}">{invRoleVal}</span>
+                      </div>
+                      <p class="text-[10px] text-text-muted mt-0.5">
+                        {invUsedCount} use{invUsedCount !== 1 ? 's' : ''}{invMaxUsesVal != null ? ` / ${invMaxUsesVal}` : ''}
+                        {#if inv.expires_at} · expires {new Date(String(inv.expires_at)).toLocaleDateString()}{/if}
+                        {#if invRevoked} · <span class="text-red-400">revoked</span>{:else if !invValid} · <span class="text-text-muted">expired</span>{/if}
+                      </p>
                     </div>
-                    <p class="text-[10px] text-text-muted mt-0.5">
-                      {invUsedCount} use{invUsedCount !== 1 ? 's' : ''}{invMaxUsesVal != null ? ` / ${invMaxUsesVal}` : ''}
-                      {#if inv.expires_at} · expires {new Date(String(inv.expires_at)).toLocaleDateString()}{/if}
-                      {#if invRevoked} · <span class="text-red-400">revoked</span>{:else if !invValid} · <span class="text-text-muted">expired</span>{/if}
-                    </p>
                   </div>
+                  {#if invValid}
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                      <button onclick={() => copyToClipboard(getInviteUrl(invCode))} class="px-2 py-1 text-[10px] rounded bg-bg-tertiary border border-border-default text-text-muted hover:text-accent-cyan transition-colors" title="Copy invite URL">📋 URL</button>
+                      <button onclick={() => revokeInvite(invCode)} class="px-2 py-1 text-[10px] rounded bg-accent-red/10 text-accent-red border border-accent-red/20 hover:bg-accent-red/20 transition-colors">Revoke</button>
+                    </div>
+                  {/if}
                 </div>
-                {#if invValid}
-                  <div class="flex items-center gap-1.5 flex-shrink-0">
-                    <button onclick={() => copyToClipboard(getInviteUrl(invCode))} class="px-2 py-1 text-[10px] rounded bg-bg-tertiary border border-border-default text-text-muted hover:text-accent-cyan transition-colors" title="Copy invite URL">📋 URL</button>
-                    <button onclick={() => revokeInvite(invCode)} class="px-2 py-1 text-[10px] rounded bg-accent-red/10 text-accent-red border border-accent-red/20 hover:bg-accent-red/20 transition-colors">Revoke</button>
-                  </div>
-                {/if}
-              </div>
-            {/each}
-          </div>
+              {/each}
+            </div>
+          {/if}
         </div>
       {/if}
     </div>
