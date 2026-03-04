@@ -848,48 +848,140 @@
           </svg>
         </button>
         {#if devicesExpanded}
-          <div class="px-3 pb-3 space-y-2">
+          <div class="px-3 pb-3 space-y-3">
             {#each pairedDevices as device}
               {@const devId = String(device.deviceId ?? '')}
               {@const devName = String(device.displayName ?? device.clientId ?? devId)}
               {@const devRole = getDeviceRole(device)}
               {@const devIp = String(device.remoteIp ?? '')}
               {@const badgeClass = roleBadgeColors[devRole] ?? roleBadgeColors['operator']}
-              {@const isLanAutoApproved = String(device.approveReason ?? '') === 'lan-auto-approve'}
-              <div class="flex items-center justify-between p-2.5 rounded-lg bg-bg-primary/50 border border-border-default">
-                <div class="flex items-center gap-2.5 min-w-0">
-                  <div class="w-7 h-7 rounded-lg bg-accent-purple/20 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-3.5 h-3.5 text-accent-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div class="min-w-0">
-                    <div class="flex items-center gap-1.5 flex-wrap">
-                      <p class="text-xs font-medium text-text-primary truncate">{devName}</p>
-                      <span class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full border {badgeClass}">
-                        {devRole}
-                      </span>
-                      {#if isLanAutoApproved}
-                        <span class="px-1.5 py-0.5 text-[9px] font-medium rounded-full bg-accent-green/15 text-accent-green border border-accent-green/20" title="Auto-approved from local network">
-                          LAN
+              {@const platform = String(device.platform ?? '').toLowerCase()}
+              {@const clientId = String(device.clientId ?? '')}
+              {@const clientMode = String(device.clientMode ?? '')}
+              {@const approveReason = String(device.approveReason ?? '')}
+              {@const createdAtMs = typeof device.createdAtMs === 'number' ? device.createdAtMs : null}
+              {@const approvedAtMs = typeof device.approvedAtMs === 'number' ? device.approvedAtMs : null}
+              {@const securityRole = String(device.securityRole ?? '')}
+              
+              <!-- Platform icon and colors -->
+              {@const platformIcon = platform === 'windows' ? '🪟' : platform === 'linux' ? '🐧' : platform === 'macos' || platform === 'darwin' ? '🍎' : '💻'}
+              {@const platformColor = platform === 'windows' ? 'bg-blue-500/15 text-blue-400 border-blue-500/25' : platform === 'linux' ? 'bg-amber-500/15 text-amber-400 border-amber-500/25' : platform === 'macos' || platform === 'darwin' ? 'bg-gray-500/15 text-gray-300 border-gray-500/25' : 'bg-bg-tertiary text-text-secondary border-border-default'}
+              
+              <!-- Approval reason display -->
+              {@const approveReasonDisplay = approveReason === 'lan-auto-approve' ? 'LAN Auto' : approveReason === 'first-device' ? 'First Device' : approveReason === 'invite' ? 'Invite' : approveReason ? approveReason : 'Manual'}
+              {@const approveReasonColor = approveReason === 'lan-auto-approve' ? 'bg-accent-green/15 text-accent-green border-accent-green/20' : approveReason === 'first-device' ? 'bg-accent-cyan/15 text-accent-cyan border-accent-cyan/20' : approveReason === 'invite' ? 'bg-accent-purple/15 text-accent-purple border-accent-purple/20' : 'bg-bg-tertiary text-text-secondary border-border-default'}
+              
+              <div class="glass rounded-xl p-4 border border-border-default hover:border-accent-purple/30 transition-all">
+                <!-- Header row with platform icon, name, and role -->
+                <div class="flex items-start justify-between mb-3">
+                  <div class="flex items-center gap-3 min-w-0 flex-1">
+                    <!-- Platform icon -->
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center border flex-shrink-0 {platformColor}">
+                      <span class="text-lg">{platformIcon}</span>
+                    </div>
+                    
+                    <!-- Device name and info -->
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-2 flex-wrap mb-1">
+                        <h3 class="text-sm font-semibold text-text-primary">{devName}</h3>
+                        <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full border {badgeClass}">
+                          {devRole}
                         </span>
+                        {#if securityRole && securityRole !== devRole}
+                          <span class="px-1.5 py-0.5 text-[9px] font-medium rounded-md bg-bg-tertiary text-text-muted border border-border-default" title="Security Role">
+                            {securityRole}
+                          </span>
+                        {/if}
+                      </div>
+                      
+                      <!-- Client info -->
+                      {#if clientId || clientMode}
+                        <div class="flex items-center gap-2 text-xs text-text-muted mb-1">
+                          {#if clientId}
+                            <span class="flex items-center gap-1">
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              {clientId}
+                            </span>
+                          {/if}
+                          {#if clientMode}
+                            <span class="px-1.5 py-0.5 text-[9px] font-medium rounded-md bg-bg-tertiary text-text-secondary border border-border-default">
+                              {clientMode}
+                            </span>
+                          {/if}
+                        </div>
+                      {/if}
+                      
+                      <!-- IP address -->
+                      {#if devIp}
+                        <div class="flex items-center gap-1 text-xs text-text-muted font-mono">
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9" />
+                          </svg>
+                          {devIp}
+                        </div>
                       {/if}
                     </div>
-                    <p class="text-[10px] text-text-muted truncate">
-                      {devId.substring(0, 12)}…{#if devIp} · {devIp}{/if}
-                    </p>
+                  </div>
+                  
+                  <!-- Role dropdown -->
+                  <select
+                    class="px-2 py-1.5 text-xs rounded-lg bg-bg-input border border-border-default text-text-primary focus:outline-none focus:border-accent-purple/50 disabled:opacity-50 flex-shrink-0 ml-3"
+                    value={devRole}
+                    disabled={deviceRoleChanging === devId}
+                    onchange={(e) => setDeviceRole(devId, (e.target as HTMLSelectElement).value)}
+                  >
+                    {#each DEVICE_ROLES as r}
+                      <option value={r}>{r}</option>
+                    {/each}
+                  </select>
+                </div>
+                
+                <!-- Device ID row (copyable) -->
+                <div class="flex items-center gap-2 mb-3">
+                  <button
+                    onclick={() => copyToClipboard(devId)}
+                    class="flex items-center gap-2 px-3 py-1.5 text-xs font-mono bg-bg-tertiary hover:bg-bg-secondary border border-border-default rounded-lg text-text-secondary hover:text-accent-cyan transition-all group"
+                    title="Click to copy device ID"
+                  >
+                    <svg class="w-3 h-3 group-hover:text-accent-cyan transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    <span class="truncate max-w-[200px]">{devId}</span>
+                  </button>
+                  
+                  <!-- Approval reason badge -->
+                  <span class="px-2 py-0.5 text-[10px] font-medium rounded-md border {approveReasonColor}" title="Approval method">
+                    {approveReasonDisplay}
+                  </span>
+                </div>
+                
+                <!-- Timestamps row -->
+                <div class="flex items-center gap-4 text-xs text-text-muted">
+                  {#if createdAtMs}
+                    <div class="flex items-center gap-1">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>First seen {formatRelativeTime(createdAtMs)}</span>
+                    </div>
+                  {/if}
+                  {#if approvedAtMs}
+                    <div class="flex items-center gap-1">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Approved {formatRelativeTime(approvedAtMs)}</span>
+                    </div>
+                  {/if}
+                  
+                  <!-- Connection status placeholder (could be enhanced based on actual connection data) -->
+                  <div class="flex items-center gap-1 ml-auto">
+                    <span class="w-2 h-2 rounded-full bg-accent-green glow-pulse" title="Connected"></span>
+                    <span class="text-[10px] text-accent-green">Connected</span>
                   </div>
                 </div>
-                <select
-                  class="px-1.5 py-1 text-[11px] rounded-lg bg-bg-input border border-border-default text-text-primary focus:outline-none focus:border-accent-purple/50 disabled:opacity-50 flex-shrink-0"
-                  value={devRole}
-                  disabled={deviceRoleChanging === devId}
-                  onchange={(e) => setDeviceRole(devId, (e.target as HTMLSelectElement).value)}
-                >
-                  {#each DEVICE_ROLES as r}
-                    <option value={r}>{r}</option>
-                  {/each}
-                </select>
               </div>
             {/each}
           </div>
