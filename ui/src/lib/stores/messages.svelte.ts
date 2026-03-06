@@ -34,13 +34,29 @@ function extractContent(content: unknown): { text: string; thinkingContent?: str
         } else if (b.type === 'thinking' && typeof b.thinking === 'string') {
           thinkingContent = b.thinking;
         } else if (b.type === 'image') {
-          // Handle image content blocks (from chat.send attachments)
+          // Handle image content blocks from multiple formats:
+          // 1. Anthropic format: { source: { type: 'base64', data, media_type } }
+          // 2. Gateway format: { data: 'base64...', mimeType: 'image/png' }
+          // 3. URL format: { url: 'https://...' }
+          // 4. Data URL format: { data: 'data:image/...' }
           const source = b.source as Record<string, unknown> | undefined;
           if (source && source.type === 'base64' && typeof source.data === 'string') {
             const mediaType = (source.media_type as string) || 'image/png';
             images.push({
               mimeType: mediaType,
               dataUrl: `data:${mediaType};base64,${source.data}`
+            });
+          } else if (typeof b.data === 'string' && (b.data as string).startsWith('data:')) {
+            // Already a data URL
+            images.push({
+              mimeType: (b.mimeType as string) || 'image/png',
+              dataUrl: b.data as string
+            });
+          } else if (typeof b.data === 'string' && typeof b.mimeType === 'string') {
+            // Gateway format: raw base64 + mimeType
+            images.push({
+              mimeType: b.mimeType as string,
+              dataUrl: `data:${b.mimeType};base64,${b.data}`
             });
           } else if (typeof b.url === 'string') {
             // URL-based image
