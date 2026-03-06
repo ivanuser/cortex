@@ -3,6 +3,8 @@
   import { untrack } from 'svelte';
   import { getConnection } from '$lib/stores/connection.svelte';
   import { getToasts } from '$lib/stores/toasts.svelte';
+  import MatrixRain from '$lib/components/MatrixRain.svelte';
+  import CRTOverlay from '$lib/components/CRTOverlay.svelte';
 
   const conn = getConnection();
   const toasts = getToasts();
@@ -417,93 +419,88 @@
   <title>Cron Jobs — Cortex</title>
 </svelte:head>
 
-<div class="h-full overflow-y-auto">
-  <div class="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
-    <!-- Header -->
-    <div class="flex items-center justify-between flex-wrap gap-3">
-      <div>
-        <h1 class="text-2xl font-bold text-text-primary">Cron Jobs</h1>
-        <p class="text-sm text-text-muted mt-1">Schedule wakeups and recurring agent runs.</p>
-      </div>
-      <div class="flex items-center gap-3">
+<MatrixRain />
+<CRTOverlay />
+
+<div class="hud-page">
+  <div class="hud-page-topbar">
+    <a href="/overview" class="hud-back">&larr; OVERVIEW</a>
+    <div class="hud-page-title">CRON SCHEDULER</div>
+    <div></div>
+  </div>
+
+  <div class="hud-content">
+    <!-- Header actions -->
+    <div class="hud-header-row">
+      <div class="hud-status-group">
         {#if cronStatus}
-          <span class="px-3 py-1 rounded-full text-xs font-medium
-                      {cronStatus.enabled ? 'bg-accent-green/20 text-accent-green border border-accent-green/30'
-                                           : 'bg-red-500/20 text-red-400 border border-red-500/30'}">
-            {cronStatus.enabled ? '● Active' : '○ Disabled'}
+          <span class="hud-status-badge" class:active={cronStatus.enabled} class:inactive={!cronStatus.enabled}>
+            {cronStatus.enabled ? '// ACTIVE' : '// DISABLED'}
           </span>
         {/if}
+      </div>
+      <div class="hud-action-group">
         <button
           onclick={openCreateEditor}
           disabled={conn.state.status !== 'connected'}
-          class="px-4 py-2 rounded-lg text-sm font-medium bg-accent-cyan/20 text-accent-cyan
-                 border border-accent-cyan/40 hover:bg-accent-cyan/30 hover:shadow-[0_0_12px_rgba(0,229,255,0.25)]
-                 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          class="hud-btn hud-btn-primary"
         >
-          + Create Job
+          + CREATE JOB
         </button>
         <button
           onclick={loadAll}
           disabled={loading || conn.state.status !== 'connected'}
-          class="px-3 py-2 rounded-lg text-sm border border-border-default hover:border-accent-cyan
-                 text-text-secondary hover:text-accent-cyan transition-all
-                 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="hud-btn"
         >
-          ↻ Refresh
+          REFRESH
         </button>
       </div>
     </div>
 
     {#if error}
-      <div class="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{error}</div>
+      <div class="hud-error">{error}</div>
     {/if}
 
     <!-- Job count -->
-    <div class="text-xs text-text-muted">
-      {jobs.length} job{jobs.length !== 1 ? 's' : ''} · {jobs.filter(j => j.enabled).length} enabled
+    <div class="hud-meta">
+      {jobs.length} job{jobs.length !== 1 ? 's' : ''} // {jobs.filter(j => j.enabled).length} enabled
       {#if cronStatus?.nextRunMs}
-        · next tick {formatTime(Date.now() + cronStatus.nextRunMs)}
+        // next tick {formatTime(Date.now() + cronStatus.nextRunMs)}
       {/if}
     </div>
 
     <!-- ═══ Editor Panel ═══════════════════════ -->
     {#if editorOpen}
-      <div class="rounded-xl border border-accent-purple/40 bg-bg-secondary/80 backdrop-blur-sm
-                  shadow-[0_0_20px_rgba(124,77,255,0.15)]">
+      <div class="hud-panel hud-panel-editor">
         <!-- Editor header -->
-        <div class="flex items-center justify-between px-5 py-3 border-b border-border-default">
-          <h2 class="text-lg font-semibold text-accent-purple">
-            {editingJobId ? '✏️ Edit Job' : '✨ Create Job'}
-          </h2>
-          <button onclick={closeEditor} class="text-text-muted hover:text-text-primary text-lg transition-colors">✕</button>
+        <div class="hud-panel-header">
+          <span class="hud-panel-lbl">
+            {editingJobId ? 'EDIT JOB' : 'CREATE JOB'}
+          </span>
+          <button onclick={closeEditor} class="hud-btn-close">X</button>
         </div>
 
-        <div class="p-5 space-y-5">
+        <div class="hud-panel-body">
           <!-- Name -->
-          <div>
-            <label class="block text-xs font-medium text-text-muted mb-1.5">Job Name</label>
+          <div class="hud-field">
+            <label class="hud-label">JOB NAME</label>
             <input
               type="text"
               bind:value={formName}
               placeholder="e.g. daily-digest, heartbeat-check"
-              class="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default
-                     text-text-primary placeholder:text-text-muted/50 text-sm
-                     focus:outline-none focus:border-accent-purple/60 focus:shadow-[0_0_8px_rgba(124,77,255,0.2)]
-                     transition-all"
+              class="hud-input"
             />
           </div>
 
           <!-- Schedule section -->
-          <div>
-            <label class="block text-xs font-medium text-text-muted mb-2">Schedule Type</label>
-            <div class="flex gap-1 p-1 bg-bg-tertiary rounded-lg w-fit mb-3">
-              {#each [['at', '📅 One-shot'], ['every', '🔄 Recurring'], ['cron', '⏱ Cron']] as [val, label]}
+          <div class="hud-field">
+            <label class="hud-label">SCHEDULE TYPE</label>
+            <div class="hud-tab-group">
+              {#each [['at', 'ONE-SHOT'], ['every', 'RECURRING'], ['cron', 'CRON']] as [val, label]}
                 <button
                   onclick={() => formScheduleKind = val as 'at' | 'every' | 'cron'}
-                  class="px-3 py-1.5 rounded-md text-sm transition-all
-                        {formScheduleKind === val
-                          ? 'bg-accent-purple/30 text-accent-purple shadow-sm'
-                          : 'text-text-muted hover:text-text-secondary'}"
+                  class="hud-tab"
+                  class:active={formScheduleKind === val}
                 >
                   {label}
                 </button>
@@ -512,124 +509,111 @@
 
             <!-- At: datetime picker -->
             {#if formScheduleKind === 'at'}
-              <div>
-                <label class="block text-xs text-text-muted mb-1">Date & Time</label>
+              <div class="hud-field">
+                <label class="hud-label">DATE & TIME</label>
                 <input
                   type="datetime-local"
                   bind:value={formAtValue}
-                  class="px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default
-                         text-text-primary text-sm focus:outline-none focus:border-accent-purple/60 transition-all"
+                  class="hud-input"
                 />
               </div>
             {/if}
 
             <!-- Every: interval -->
             {#if formScheduleKind === 'every'}
-              <div>
-                <label class="block text-xs text-text-muted mb-1.5">Interval</label>
-                <div class="flex flex-wrap gap-1.5 mb-2">
+              <div class="hud-field">
+                <label class="hud-label">INTERVAL</label>
+                <div class="hud-preset-group">
                   {#each intervalPresets as preset}
                     <button
                       onclick={() => formEveryMs = preset.ms}
-                      class="px-3 py-1 rounded-md text-xs border transition-all
-                            {formEveryMs === preset.ms
-                              ? 'border-accent-cyan/50 bg-accent-cyan/20 text-accent-cyan'
-                              : 'border-border-default text-text-muted hover:border-accent-cyan/30 hover:text-text-secondary'}"
+                      class="hud-preset"
+                      class:active={formEveryMs === preset.ms}
                     >
                       {preset.label}
                     </button>
                   {/each}
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="hud-inline-group">
                   <input
                     type="number"
                     bind:value={formEveryMs}
                     min="1000"
                     step="1000"
-                    class="w-40 px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default
-                           text-text-primary text-sm focus:outline-none focus:border-accent-purple/60 transition-all"
+                    class="hud-input hud-input-narrow"
                   />
-                  <span class="text-xs text-text-muted">ms ({formatMs(formEveryMs)})</span>
+                  <span class="hud-hint">ms ({formatMs(formEveryMs)})</span>
                 </div>
               </div>
             {/if}
 
             <!-- Cron: expression -->
             {#if formScheduleKind === 'cron'}
-              <div class="space-y-3">
-                <div>
-                  <label class="block text-xs text-text-muted mb-1.5">Cron Expression</label>
-                  <input
-                    type="text"
-                    bind:value={formCronExpr}
-                    placeholder="*/5 * * * *"
-                    class="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default
-                           text-text-primary font-mono text-sm placeholder:text-text-muted/50
-                           focus:outline-none focus:border-accent-purple/60 transition-all"
-                  />
-                  {#if cronHumanReadable}
-                    <p class="mt-1 text-xs text-accent-cyan">→ {cronHumanReadable}</p>
-                  {/if}
-                </div>
+              <div class="hud-field">
+                <label class="hud-label">CRON EXPRESSION</label>
+                <input
+                  type="text"
+                  bind:value={formCronExpr}
+                  placeholder="*/5 * * * *"
+                  class="hud-input hud-input-mono"
+                />
+                {#if cronHumanReadable}
+                  <p class="hud-cron-desc">// {cronHumanReadable}</p>
+                {/if}
+              </div>
 
-                <!-- Cron presets -->
-                <div>
-                  <label class="block text-xs text-text-muted mb-1.5">Presets</label>
-                  <div class="flex flex-wrap gap-1.5">
-                    {#each cronPresets as preset}
-                      <button
-                        onclick={() => formCronExpr = preset.expr}
-                        class="px-2.5 py-1 rounded-md text-xs border transition-all
-                              {formCronExpr === preset.expr
-                                ? 'border-accent-cyan/50 bg-accent-cyan/20 text-accent-cyan'
-                                : 'border-border-default text-text-muted hover:border-accent-cyan/30 hover:text-text-secondary'}"
-                      >
-                        {preset.label}
-                      </button>
-                    {/each}
-                  </div>
+              <!-- Cron presets -->
+              <div class="hud-field">
+                <label class="hud-label">PRESETS</label>
+                <div class="hud-preset-group">
+                  {#each cronPresets as preset}
+                    <button
+                      onclick={() => formCronExpr = preset.expr}
+                      class="hud-preset"
+                      class:active={formCronExpr === preset.expr}
+                    >
+                      {preset.label}
+                    </button>
+                  {/each}
                 </div>
+              </div>
 
-                <!-- Timezone -->
-                <div>
-                  <label class="block text-xs text-text-muted mb-1">Timezone</label>
-                  <select
-                    bind:value={formCronTz}
-                    class="px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default
-                           text-text-primary text-sm focus:outline-none focus:border-accent-purple/60 transition-all"
-                  >
-                    {#each timezones as tz}
-                      <option value={tz}>{tz || '(default / UTC)'}</option>
-                    {/each}
-                  </select>
-                </div>
+              <!-- Timezone -->
+              <div class="hud-field">
+                <label class="hud-label">TIMEZONE</label>
+                <select
+                  bind:value={formCronTz}
+                  class="hud-input hud-select"
+                >
+                  {#each timezones as tz}
+                    <option value={tz}>{tz || '(default / UTC)'}</option>
+                  {/each}
+                </select>
               </div>
             {/if}
           </div>
 
           <!-- Session Target -->
-          <div>
-            <label class="block text-xs font-medium text-text-muted mb-2">Session Target</label>
-            <div class="flex gap-3">
-              {#each [['main', '🏠 Main Session', 'System event in main context'], ['isolated', '🔒 Isolated', 'Separate agent turn with its own session']] as [val, label, desc]}
+          <div class="hud-field">
+            <label class="hud-label">SESSION TARGET</label>
+            <div class="hud-target-group">
+              {#each [['main', 'MAIN SESSION', 'System event in main context'], ['isolated', 'ISOLATED', 'Separate agent turn with its own session']] as [val, label, desc]}
                 <button
                   onclick={() => formSessionTarget = val as 'main' | 'isolated'}
-                  class="flex-1 p-3 rounded-lg border text-left transition-all
-                        {formSessionTarget === val
-                          ? 'border-accent-purple/50 bg-accent-purple/10'
-                          : 'border-border-default hover:border-border-default/80'}"
+                  class="hud-target-btn"
+                  class:active={formSessionTarget === val}
                 >
-                  <div class="text-sm font-medium {formSessionTarget === val ? 'text-accent-purple' : 'text-text-secondary'}">{label}</div>
-                  <div class="text-xs text-text-muted mt-0.5">{desc}</div>
+                  <div class="hud-target-label">{label}</div>
+                  <div class="hud-target-desc">{desc}</div>
                 </button>
               {/each}
             </div>
           </div>
 
           <!-- Payload -->
-          <div>
-            <label class="block text-xs font-medium text-text-muted mb-2">
-              Payload — <span class="text-accent-cyan">{payloadKind}</span>
+          <div class="hud-field">
+            <label class="hud-label">
+              PAYLOAD // <span class="hud-accent-cyan">{payloadKind}</span>
             </label>
 
             {#if payloadKind === 'systemEvent'}
@@ -637,55 +621,46 @@
                 bind:value={formEventText}
                 rows={3}
                 placeholder="System event text to send to main session..."
-                class="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default
-                       text-text-primary text-sm placeholder:text-text-muted/50
-                       focus:outline-none focus:border-accent-purple/60 transition-all resize-y"
+                class="hud-input hud-textarea"
               ></textarea>
             {:else}
-              <div class="space-y-3">
+              <div class="hud-field-stack">
                 <textarea
                   bind:value={formAgentMessage}
                   rows={3}
                   placeholder="Message for the agent turn..."
-                  class="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default
-                         text-text-primary text-sm placeholder:text-text-muted/50
-                         focus:outline-none focus:border-accent-purple/60 transition-all resize-y"
+                  class="hud-input hud-textarea"
                 ></textarea>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label class="block text-xs text-text-muted mb-1">Model <span class="text-text-muted/60">(optional)</span></label>
+                <div class="hud-grid-3">
+                  <div class="hud-field">
+                    <label class="hud-label">MODEL <span class="hud-dim">(optional)</span></label>
                     <input
                       type="text"
                       bind:value={formAgentModel}
                       placeholder="e.g. claude-sonnet-4-20250514"
-                      class="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default
-                             text-text-primary text-sm placeholder:text-text-muted/50
-                             focus:outline-none focus:border-accent-purple/60 transition-all"
+                      class="hud-input"
                     />
                   </div>
-                  <div>
-                    <label class="block text-xs text-text-muted mb-1">Thinking</label>
+                  <div class="hud-field">
+                    <label class="hud-label">THINKING</label>
                     <select
                       bind:value={formAgentThinking}
-                      class="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default
-                             text-text-primary text-sm focus:outline-none focus:border-accent-purple/60 transition-all"
+                      class="hud-input hud-select"
                     >
                       <option value="">Off</option>
                       <option value="on">On</option>
                       <option value="stream">Stream</option>
                     </select>
                   </div>
-                  <div>
-                    <label class="block text-xs text-text-muted mb-1">Timeout <span class="text-text-muted/60">(seconds)</span></label>
+                  <div class="hud-field">
+                    <label class="hud-label">TIMEOUT <span class="hud-dim">(seconds)</span></label>
                     <input
                       type="number"
                       bind:value={formAgentTimeout}
                       min="0"
                       placeholder="300"
-                      class="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default
-                             text-text-primary text-sm placeholder:text-text-muted/50
-                             focus:outline-none focus:border-accent-purple/60 transition-all"
+                      class="hud-input"
                     />
                   </div>
                 </div>
@@ -695,43 +670,37 @@
 
           <!-- Delivery (isolated only) -->
           {#if formSessionTarget === 'isolated'}
-            <div>
-              <label class="block text-xs font-medium text-text-muted mb-2">Delivery</label>
-              <div class="flex gap-3 mb-3">
-                {#each [['none', 'None'], ['announce', '📢 Announce']] as [val, label]}
+            <div class="hud-field">
+              <label class="hud-label">DELIVERY</label>
+              <div class="hud-tab-group">
+                {#each [['none', 'NONE'], ['announce', 'ANNOUNCE']] as [val, label]}
                   <button
                     onclick={() => formDeliveryMode = val as 'none' | 'announce'}
-                    class="px-4 py-1.5 rounded-lg text-sm border transition-all
-                          {formDeliveryMode === val
-                            ? 'border-accent-cyan/50 bg-accent-cyan/15 text-accent-cyan'
-                            : 'border-border-default text-text-muted hover:text-text-secondary'}"
+                    class="hud-tab"
+                    class:active={formDeliveryMode === val}
                   >
                     {label}
                   </button>
                 {/each}
               </div>
               {#if formDeliveryMode === 'announce'}
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label class="block text-xs text-text-muted mb-1">Channel <span class="text-text-muted/60">(optional)</span></label>
+                <div class="hud-grid-2">
+                  <div class="hud-field">
+                    <label class="hud-label">CHANNEL <span class="hud-dim">(optional)</span></label>
                     <input
                       type="text"
                       bind:value={formDeliveryChannel}
                       placeholder="e.g. discord, telegram"
-                      class="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default
-                             text-text-primary text-sm placeholder:text-text-muted/50
-                             focus:outline-none focus:border-accent-purple/60 transition-all"
+                      class="hud-input"
                     />
                   </div>
-                  <div>
-                    <label class="block text-xs text-text-muted mb-1">To <span class="text-text-muted/60">(optional)</span></label>
+                  <div class="hud-field">
+                    <label class="hud-label">TO <span class="hud-dim">(optional)</span></label>
                     <input
                       type="text"
                       bind:value={formDeliveryTo}
                       placeholder="Channel ID or user"
-                      class="w-full px-3 py-2 rounded-lg bg-bg-tertiary border border-border-default
-                             text-text-primary text-sm placeholder:text-text-muted/50
-                             focus:outline-none focus:border-accent-purple/60 transition-all"
+                      class="hud-input"
                     />
                   </div>
                 </div>
@@ -740,39 +709,31 @@
           {/if}
 
           <!-- Options -->
-          <div class="flex items-center gap-6">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" bind:checked={formEnabled}
-                class="w-4 h-4 rounded border-border-default bg-bg-tertiary text-accent-cyan
-                       focus:ring-accent-purple/50 focus:ring-offset-0" />
-              <span class="text-sm text-text-secondary">Enabled</span>
+          <div class="hud-options-row">
+            <label class="hud-checkbox-label">
+              <input type="checkbox" bind:checked={formEnabled} class="hud-checkbox" />
+              <span>ENABLED</span>
             </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" bind:checked={formNotify}
-                class="w-4 h-4 rounded border-border-default bg-bg-tertiary text-accent-cyan
-                       focus:ring-accent-purple/50 focus:ring-offset-0" />
-              <span class="text-sm text-text-secondary">Notify on run</span>
+            <label class="hud-checkbox-label">
+              <input type="checkbox" bind:checked={formNotify} class="hud-checkbox" />
+              <span>NOTIFY ON RUN</span>
             </label>
           </div>
 
           <!-- Submit row -->
-          <div class="flex items-center justify-between pt-2 border-t border-border-default/50">
-            <button onclick={closeEditor} class="px-4 py-2 rounded-lg text-sm text-text-muted hover:text-text-secondary transition-colors">
-              Cancel
+          <div class="hud-submit-row">
+            <button onclick={closeEditor} class="hud-btn">
+              CANCEL
             </button>
             <button
               onclick={submitForm}
               disabled={!formValid || saving}
-              class="px-6 py-2 rounded-lg text-sm font-medium transition-all
-                     disabled:opacity-40 disabled:cursor-not-allowed
-                     {formValid
-                       ? 'bg-accent-purple/25 text-accent-purple border border-accent-purple/50 hover:bg-accent-purple/35 hover:shadow-[0_0_16px_rgba(124,77,255,0.3)]'
-                       : 'bg-bg-tertiary text-text-muted border border-border-default'}"
+              class="hud-btn hud-btn-primary"
             >
               {#if saving}
-                Saving...
+                SAVING...
               {:else}
-                {editingJobId ? '💾 Update Job' : '✨ Create Job'}
+                {editingJobId ? 'UPDATE JOB' : 'CREATE JOB'}
               {/if}
             </button>
           </div>
@@ -782,66 +743,61 @@
 
     <!-- ═══ Jobs List ═══════════════════════ -->
     {#if loading}
-      <div class="space-y-3">
+      <div class="hud-loading-list">
         {#each Array(3) as _}
-          <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-4 animate-pulse">
-            <div class="h-5 w-48 bg-bg-tertiary rounded mb-2"></div>
-            <div class="h-4 w-32 bg-bg-tertiary rounded"></div>
+          <div class="hud-panel hud-skeleton">
+            <div class="hud-skeleton-bar wide"></div>
+            <div class="hud-skeleton-bar narrow"></div>
           </div>
         {/each}
       </div>
     {:else if jobs.length === 0}
-      <div class="text-center py-16 text-text-muted">
-        <div class="text-4xl mb-3">⏰</div>
-        <p class="text-lg mb-1">No cron jobs configured</p>
-        <p class="text-sm mb-4">Create your first scheduled job to get started.</p>
+      <div class="hud-empty">
+        <div class="hud-empty-icon">[ ]</div>
+        <p class="hud-empty-title">NO CRON JOBS CONFIGURED</p>
+        <p class="hud-empty-sub">Create your first scheduled job to get started.</p>
         <button
           onclick={openCreateEditor}
-          class="px-4 py-2 rounded-lg text-sm font-medium bg-accent-purple/20 text-accent-purple
-                 border border-accent-purple/40 hover:bg-accent-purple/30 transition-all"
+          class="hud-btn hud-btn-primary"
         >
-          + Create Job
+          + CREATE JOB
         </button>
       </div>
     {:else}
-      <div class="space-y-3">
+      <div class="hud-job-list">
         {#each jobs as job (job.id)}
-          <div class="rounded-xl border bg-bg-secondary/50 transition-all duration-200
-                      {job.enabled ? 'border-border-default hover:border-border-default/80' : 'border-border-default/50 opacity-60'}
-                      {expandedJobId === job.id ? 'shadow-[0_0_12px_rgba(0,229,255,0.1)]' : ''}">
+          <div class="hud-panel hud-job-card" class:disabled={!job.enabled} class:expanded={expandedJobId === job.id}>
             <!-- Job header -->
-            <div class="flex items-center gap-3 p-4">
+            <div class="hud-job-header">
               <!-- Enable/disable toggle -->
               <button
                 onclick={() => toggleJob(job)}
                 disabled={busy}
-                class="w-10 h-6 rounded-full transition-colors relative flex-shrink-0 cursor-pointer
-                       {job.enabled ? 'bg-accent-green/30' : 'bg-bg-tertiary'}"
+                class="hud-toggle"
+                class:on={job.enabled}
                 title="{job.enabled ? 'Disable' : 'Enable'} job"
               >
-                <div class="absolute top-1 w-4 h-4 rounded-full transition-all duration-200
-                           {job.enabled ? 'left-5 bg-accent-green' : 'left-1 bg-text-muted'}"></div>
+                <div class="hud-toggle-knob"></div>
               </button>
 
               <!-- Job info (click to expand) -->
               <button
                 onclick={() => expandedJobId = expandedJobId === job.id ? null : job.id}
-                class="flex-1 text-left min-w-0"
+                class="hud-job-info"
               >
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="font-medium text-text-primary truncate">{job.name || job.id}</span>
-                  <span class="px-2 py-0.5 rounded text-xs
-                              {job.payload.kind === 'agentTurn' ? 'bg-accent-purple/20 text-accent-purple' : 'bg-accent-cyan/20 text-accent-cyan'}">
-                    {job.payload.kind === 'agentTurn' ? 'agent' : 'event'}
+                <div class="hud-job-name-row">
+                  <span class="hud-job-name">{job.name || job.id}</span>
+                  <span class="hud-badge" class:badge-agent={job.payload.kind === 'agentTurn'} class:badge-event={job.payload.kind !== 'agentTurn'}>
+                    {job.payload.kind === 'agentTurn' ? 'AGENT' : 'EVENT'}
                   </span>
-                  <span class="px-2 py-0.5 rounded text-xs bg-bg-tertiary text-text-muted">
+                  <span class="hud-badge badge-target">
                     {job.sessionTarget}
                   </span>
                 </div>
-                <div class="text-xs text-text-muted mt-1 flex items-center gap-3 flex-wrap">
+                <div class="hud-job-meta">
                   <span>{formatSchedule(job.schedule)}</span>
                   {#if job.nextRunAt}
-                    <span class="text-accent-cyan/70">Next: {formatTime(job.nextRunAt)}</span>
+                    <span class="hud-accent-cyan">Next: {formatTime(job.nextRunAt)}</span>
                   {/if}
                   {#if job.lastRunAt}
                     <span>Last: {formatTime(job.lastRunAt)}</span>
@@ -853,52 +809,44 @@
               </button>
 
               <!-- Action buttons -->
-              <div class="flex items-center gap-1 flex-shrink-0">
-                <!-- Edit -->
+              <div class="hud-job-actions">
                 <button
                   onclick={() => openEditEditor(job)}
                   disabled={busy}
-                  class="p-2 rounded-lg hover:bg-bg-hover text-text-muted hover:text-accent-purple transition-colors
-                         disabled:opacity-50"
+                  class="hud-icon-btn"
                   title="Edit job"
                 >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="hud-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
                 </button>
-                <!-- Run -->
                 <button
                   onclick={() => runJob(job)}
                   disabled={busy}
-                  class="p-2 rounded-lg hover:bg-bg-hover text-text-muted hover:text-accent-green transition-colors
-                         disabled:opacity-50"
+                  class="hud-icon-btn hud-icon-btn-run"
                   title="Run now"
                 >
-                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <svg class="hud-icon" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M8 5v14l11-7z" />
                   </svg>
                 </button>
-                <!-- History -->
                 <button
                   onclick={() => loadRuns(job.id)}
                   disabled={busy}
-                  class="p-2 rounded-lg hover:bg-bg-hover text-text-muted hover:text-accent-cyan transition-colors
-                         disabled:opacity-50"
+                  class="hud-icon-btn hud-icon-btn-history"
                   title="View run history"
                 >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="hud-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </button>
-                <!-- Delete -->
                 <button
                   onclick={() => removeJob(job)}
                   disabled={busy}
-                  class="p-2 rounded-lg hover:bg-bg-hover text-text-muted hover:text-red-400 transition-colors
-                         disabled:opacity-50"
+                  class="hud-icon-btn hud-icon-btn-delete"
                   title="Delete job"
                 >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="hud-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                 </button>
@@ -907,43 +855,43 @@
 
             <!-- Expanded detail -->
             {#if expandedJobId === job.id}
-              <div class="border-t border-border-default p-4 space-y-3 text-sm">
+              <div class="hud-job-detail">
                 {#if job.description}
-                  <div>
-                    <span class="text-text-muted text-xs">Description</span>
-                    <p class="text-text-secondary">{job.description}</p>
+                  <div class="hud-detail-field">
+                    <span class="hud-label">DESCRIPTION</span>
+                    <p>{job.description}</p>
                   </div>
                 {/if}
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="hud-detail-grid">
                   <div>
-                    <span class="text-text-muted text-xs block">Schedule</span>
-                    <span class="text-text-secondary font-mono text-xs">{formatSchedule(job.schedule)}</span>
+                    <span class="hud-label">SCHEDULE</span>
+                    <span class="hud-detail-value mono">{formatSchedule(job.schedule)}</span>
                   </div>
                   <div>
-                    <span class="text-text-muted text-xs block">Target</span>
-                    <span class="text-text-secondary">{job.sessionTarget}</span>
+                    <span class="hud-label">TARGET</span>
+                    <span class="hud-detail-value">{job.sessionTarget}</span>
                   </div>
                   <div>
-                    <span class="text-text-muted text-xs block">Notify</span>
-                    <span class="text-text-secondary">{job.notify ? 'Yes' : 'No'}</span>
+                    <span class="hud-label">NOTIFY</span>
+                    <span class="hud-detail-value">{job.notify ? 'Yes' : 'No'}</span>
                   </div>
                   <div>
-                    <span class="text-text-muted text-xs block">ID</span>
-                    <span class="text-text-secondary font-mono text-xs break-all">{job.id}</span>
+                    <span class="hud-label">ID</span>
+                    <span class="hud-detail-value mono break-all">{job.id}</span>
                   </div>
                 </div>
-                <div>
-                  <span class="text-text-muted text-xs block mb-1">Payload</span>
-                  <pre class="p-2 rounded bg-bg-tertiary text-text-secondary font-mono text-xs overflow-x-auto">{JSON.stringify(job.payload, null, 2)}</pre>
+                <div class="hud-detail-field">
+                  <span class="hud-label">PAYLOAD</span>
+                  <pre class="hud-pre">{JSON.stringify(job.payload, null, 2)}</pre>
                 </div>
                 {#if job.delivery}
-                  <div>
-                    <span class="text-text-muted text-xs block mb-1">Delivery</span>
-                    <pre class="p-2 rounded bg-bg-tertiary text-text-secondary font-mono text-xs">{JSON.stringify(job.delivery, null, 2)}</pre>
+                  <div class="hud-detail-field">
+                    <span class="hud-label">DELIVERY</span>
+                    <pre class="hud-pre">{JSON.stringify(job.delivery, null, 2)}</pre>
                   </div>
                 {/if}
                 {#if job.lastError}
-                  <div class="p-2 rounded bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+                  <div class="hud-error-inline">
                     Last error: {job.lastError}
                   </div>
                 {/if}
@@ -957,44 +905,44 @@
     <!-- ═══ Run History Panel ═══════════════ -->
     {#if selectedJobId}
       {@const selectedJob = jobs.find(j => j.id === selectedJobId)}
-      <div class="rounded-xl border border-accent-cyan/30 bg-bg-secondary/50 p-4
-                  shadow-[0_0_12px_rgba(0,229,255,0.08)]">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-semibold text-accent-cyan">
-            📋 Run History: {selectedJob?.name ?? selectedJobId}
-          </h2>
-          <div class="flex items-center gap-2">
+      <div class="hud-panel hud-panel-runs">
+        <div class="hud-panel-header">
+          <span class="hud-panel-lbl">
+            RUN HISTORY // {selectedJob?.name ?? selectedJobId}
+          </span>
+          <div class="hud-panel-header-actions">
             <button
               onclick={() => loadRuns(selectedJobId!)}
               disabled={runsLoading}
-              class="text-text-muted hover:text-accent-cyan text-xs transition-colors disabled:opacity-50"
+              class="hud-btn hud-btn-sm"
             >
-              ↻ Refresh
+              REFRESH
             </button>
             <button
               onclick={() => { selectedJobId = null; runs = []; }}
-              class="text-text-muted hover:text-text-primary text-xs transition-colors"
+              class="hud-btn hud-btn-sm"
             >
-              ✕ Close
+              CLOSE
             </button>
           </div>
         </div>
 
         {#if runsLoading}
-          <div class="text-text-muted text-sm py-4 text-center">Loading runs...</div>
+          <div class="hud-runs-empty">Loading runs...</div>
         {:else if runs.length === 0}
-          <div class="text-text-muted text-sm py-4 text-center">No run history available.</div>
+          <div class="hud-runs-empty">No run history available.</div>
         {:else}
-          <div class="space-y-2 max-h-80 overflow-y-auto">
+          <div class="hud-runs-list">
             {#each runs as run (run.id)}
-              <div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-bg-tertiary/50 text-xs">
-                <span class="w-2 h-2 rounded-full flex-shrink-0
-                            {run.status === 'ok' || run.status === 'success' ? 'bg-accent-green' :
-                             run.status === 'error' || run.status === 'failed' ? 'bg-red-500' :
-                             run.status === 'running' ? 'bg-accent-cyan animate-pulse' : 'bg-text-muted'}"></span>
-                <span class="text-text-muted w-28 flex-shrink-0">{formatTime(run.startedAt)}</span>
-                <span class="text-text-secondary flex-shrink-0 w-16">{formatDuration(run.durationMs)}</span>
-                <span class="text-text-secondary flex-1 truncate font-mono">
+              <div class="hud-run-row">
+                <span class="hud-run-dot"
+                  class:dot-ok={run.status === 'ok' || run.status === 'success'}
+                  class:dot-err={run.status === 'error' || run.status === 'failed'}
+                  class:dot-running={run.status === 'running'}
+                ></span>
+                <span class="hud-run-time">{formatTime(run.startedAt)}</span>
+                <span class="hud-run-duration">{formatDuration(run.durationMs)}</span>
+                <span class="hud-run-status">
                   {run.status}{run.error ? `: ${run.error}` : ''}
                 </span>
               </div>
@@ -1005,3 +953,781 @@
     {/if}
   </div>
 </div>
+
+<style>
+  /* ─── Page Layout ─────────────────────── */
+  .hud-page {
+    position: relative;
+    height: 100%;
+    overflow-y: auto;
+    background: linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(5,10,20,0.98) 100%);
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--color-accent-cyan, #00e5ff);
+  }
+
+  .hud-page-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--color-accent-cyan, #00e5ff);
+    background: rgba(0, 229, 255, 0.03);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(12px);
+  }
+
+  .hud-back {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--color-accent-cyan, #00e5ff);
+    text-decoration: none;
+    letter-spacing: 0.1em;
+    opacity: 0.7;
+    transition: opacity 0.2s, text-shadow 0.2s;
+  }
+  .hud-back:hover {
+    opacity: 1;
+    text-shadow: 0 0 8px var(--color-accent-cyan, #00e5ff);
+  }
+
+  .hud-page-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--color-accent-cyan, #00e5ff);
+    text-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+  }
+
+  .hud-content {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  /* ─── Header Row ──────────────────────── */
+  .hud-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .hud-status-group { display: flex; align-items: center; gap: 0.75rem; }
+  .hud-action-group { display: flex; align-items: center; gap: 0.75rem; }
+
+  .hud-status-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid;
+    letter-spacing: 0.1em;
+  }
+  .hud-status-badge.active {
+    color: var(--color-accent-green, #00ff88);
+    border-color: var(--color-accent-green, #00ff88);
+    background: rgba(0, 255, 136, 0.08);
+    text-shadow: 0 0 6px rgba(0, 255, 136, 0.4);
+  }
+  .hud-status-badge.inactive {
+    color: #ff4444;
+    border-color: #ff4444;
+    background: rgba(255, 68, 68, 0.08);
+  }
+
+  .hud-meta {
+    font-size: 0.75rem;
+    color: rgba(0, 229, 255, 0.5);
+    letter-spacing: 0.05em;
+  }
+
+  /* ─── Buttons ─────────────────────────── */
+  .hud-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    background: rgba(0, 229, 255, 0.05);
+    color: var(--color-accent-cyan, #00e5ff);
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    transition: all 0.2s;
+  }
+  .hud-btn:hover:not(:disabled) {
+    background: rgba(0, 229, 255, 0.15);
+    border-color: var(--color-accent-cyan, #00e5ff);
+    text-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.15);
+  }
+  .hud-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .hud-btn-primary {
+    border-color: var(--color-accent-cyan, #00e5ff);
+    background: rgba(0, 229, 255, 0.12);
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.1);
+  }
+  .hud-btn-primary:hover:not(:disabled) {
+    background: rgba(0, 229, 255, 0.25);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+  }
+
+  .hud-btn-sm {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .hud-btn-close {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9rem;
+    color: rgba(0, 229, 255, 0.5);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.2s, text-shadow 0.2s;
+  }
+  .hud-btn-close:hover {
+    color: var(--color-accent-cyan, #00e5ff);
+    text-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
+  }
+
+  /* ─── Panels ──────────────────────────── */
+  .hud-panel {
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    background: rgba(0, 10, 20, 0.7);
+    backdrop-filter: blur(6px);
+  }
+
+  .hud-panel-lbl {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: var(--color-accent-cyan, #00e5ff);
+    text-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+  }
+
+  .hud-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid rgba(0, 229, 255, 0.15);
+  }
+
+  .hud-panel-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .hud-panel-body {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .hud-panel-editor {
+    border-color: rgba(124, 77, 255, 0.4);
+    box-shadow: 0 0 20px rgba(124, 77, 255, 0.1);
+  }
+  .hud-panel-editor .hud-panel-lbl {
+    color: var(--color-accent-purple, #7c4dff);
+    text-shadow: 0 0 10px rgba(124, 77, 255, 0.3);
+  }
+  .hud-panel-editor .hud-panel-header {
+    border-bottom-color: rgba(124, 77, 255, 0.2);
+  }
+
+  .hud-panel-runs {
+    border-color: rgba(0, 229, 255, 0.3);
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.06);
+  }
+
+  /* ─── Form Elements ───────────────────── */
+  .hud-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .hud-field-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .hud-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: rgba(0, 229, 255, 0.5);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .hud-input {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(0, 10, 20, 0.8);
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    color: var(--color-accent-cyan, #00e5ff);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .hud-input::placeholder {
+    color: rgba(0, 229, 255, 0.2);
+  }
+  .hud-input:focus {
+    border-color: var(--color-accent-purple, #7c4dff);
+    box-shadow: 0 0 8px rgba(124, 77, 255, 0.2);
+  }
+
+  .hud-input-narrow { width: 10rem; }
+  .hud-input-mono { font-family: 'Share Tech Mono', monospace; }
+
+  .hud-textarea {
+    resize: vertical;
+    min-height: 3rem;
+  }
+
+  .hud-select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2300e5ff' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    padding-right: 2rem;
+  }
+
+  .hud-hint {
+    font-size: 0.7rem;
+    color: rgba(0, 229, 255, 0.4);
+  }
+
+  .hud-dim {
+    opacity: 0.6;
+  }
+
+  .hud-accent-cyan {
+    color: var(--color-accent-cyan, #00e5ff);
+  }
+
+  .hud-cron-desc {
+    font-size: 0.75rem;
+    color: var(--color-accent-cyan, #00e5ff);
+    opacity: 0.8;
+  }
+
+  .hud-inline-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  /* ─── Tabs / Presets ──────────────────── */
+  .hud-tab-group {
+    display: flex;
+    gap: 2px;
+  }
+
+  .hud-tab {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    padding: 0.4rem 0.75rem;
+    background: rgba(0, 10, 20, 0.6);
+    border: 1px solid rgba(0, 229, 255, 0.15);
+    color: rgba(0, 229, 255, 0.4);
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    transition: all 0.2s;
+  }
+  .hud-tab:hover { color: var(--color-accent-cyan, #00e5ff); }
+  .hud-tab.active {
+    background: rgba(124, 77, 255, 0.15);
+    border-color: var(--color-accent-purple, #7c4dff);
+    color: var(--color-accent-purple, #7c4dff);
+    text-shadow: 0 0 6px rgba(124, 77, 255, 0.4);
+  }
+
+  .hud-preset-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .hud-preset {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid rgba(0, 229, 255, 0.15);
+    background: transparent;
+    color: rgba(0, 229, 255, 0.4);
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+  }
+  .hud-preset:hover {
+    border-color: rgba(0, 229, 255, 0.4);
+    color: var(--color-accent-cyan, #00e5ff);
+  }
+  .hud-preset.active {
+    border-color: var(--color-accent-cyan, #00e5ff);
+    background: rgba(0, 229, 255, 0.12);
+    color: var(--color-accent-cyan, #00e5ff);
+    text-shadow: 0 0 6px rgba(0, 229, 255, 0.4);
+  }
+
+  /* ─── Target Buttons ──────────────────── */
+  .hud-target-group {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .hud-target-btn {
+    flex: 1;
+    padding: 0.75rem;
+    border: 1px solid rgba(0, 229, 255, 0.15);
+    background: rgba(0, 10, 20, 0.5);
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .hud-target-btn:hover {
+    border-color: rgba(0, 229, 255, 0.3);
+  }
+  .hud-target-btn.active {
+    border-color: var(--color-accent-purple, #7c4dff);
+    background: rgba(124, 77, 255, 0.08);
+  }
+
+  .hud-target-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    color: rgba(0, 229, 255, 0.5);
+    letter-spacing: 0.1em;
+  }
+  .hud-target-btn.active .hud-target-label {
+    color: var(--color-accent-purple, #7c4dff);
+    text-shadow: 0 0 6px rgba(124, 77, 255, 0.3);
+  }
+
+  .hud-target-desc {
+    font-size: 0.7rem;
+    color: rgba(0, 229, 255, 0.3);
+    margin-top: 0.25rem;
+  }
+
+  /* ─── Grids ───────────────────────────── */
+  .hud-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .hud-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 768px) {
+    .hud-grid-2, .hud-grid-3 {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ─── Checkboxes ──────────────────────── */
+  .hud-options-row {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .hud-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    color: rgba(0, 229, 255, 0.6);
+    letter-spacing: 0.05em;
+  }
+
+  .hud-checkbox {
+    appearance: none;
+    width: 1rem;
+    height: 1rem;
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    background: rgba(0, 10, 20, 0.8);
+    cursor: pointer;
+  }
+  .hud-checkbox:checked {
+    background: rgba(0, 229, 255, 0.2);
+    border-color: var(--color-accent-cyan, #00e5ff);
+    box-shadow: 0 0 6px rgba(0, 229, 255, 0.3);
+  }
+  .hud-checkbox:checked::after {
+    content: '';
+    display: block;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin: 0.175rem auto;
+    background: var(--color-accent-cyan, #00e5ff);
+  }
+
+  /* ─── Submit Row ──────────────────────── */
+  .hud-submit-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(0, 229, 255, 0.1);
+  }
+
+  /* ─── Error ───────────────────────────── */
+  .hud-error {
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(255, 68, 68, 0.3);
+    background: rgba(255, 68, 68, 0.06);
+    color: #ff4444;
+    font-size: 0.8rem;
+  }
+
+  .hud-error-inline {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgba(255, 68, 68, 0.3);
+    background: rgba(255, 68, 68, 0.06);
+    color: #ff4444;
+    font-size: 0.75rem;
+  }
+
+  /* ─── Loading / Empty ─────────────────── */
+  .hud-loading-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .hud-skeleton {
+    padding: 1rem;
+  }
+
+  .hud-skeleton-bar {
+    height: 0.75rem;
+    background: rgba(0, 229, 255, 0.06);
+    animation: hud-pulse 1.5s ease-in-out infinite;
+  }
+  .hud-skeleton-bar.wide { width: 12rem; margin-bottom: 0.5rem; }
+  .hud-skeleton-bar.narrow { width: 8rem; }
+
+  @keyframes hud-pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.7; }
+  }
+
+  .hud-empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: rgba(0, 229, 255, 0.4);
+  }
+
+  .hud-empty-icon {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+    opacity: 0.3;
+  }
+
+  .hud-empty-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 0.15em;
+    margin-bottom: 0.25rem;
+  }
+
+  .hud-empty-sub {
+    font-size: 0.8rem;
+    margin-bottom: 1.25rem;
+    opacity: 0.6;
+  }
+
+  /* ─── Job Cards ───────────────────────── */
+  .hud-job-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .hud-job-card {
+    transition: all 0.2s;
+  }
+  .hud-job-card:hover {
+    border-color: rgba(0, 229, 255, 0.35);
+  }
+  .hud-job-card.disabled {
+    opacity: 0.45;
+    border-color: rgba(0, 229, 255, 0.08);
+  }
+  .hud-job-card.expanded {
+    box-shadow: 0 0 15px rgba(0, 229, 255, 0.08);
+    border-color: rgba(0, 229, 255, 0.35);
+  }
+
+  .hud-job-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+  }
+
+  /* ─── Toggle ──────────────────────────── */
+  .hud-toggle {
+    width: 2.5rem;
+    height: 1.4rem;
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    background: rgba(0, 10, 20, 0.8);
+    position: relative;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .hud-toggle.on {
+    border-color: var(--color-accent-green, #00ff88);
+    background: rgba(0, 255, 136, 0.08);
+  }
+
+  .hud-toggle-knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 0.85rem;
+    height: 0.85rem;
+    background: rgba(0, 229, 255, 0.3);
+    transition: all 0.2s;
+  }
+  .hud-toggle.on .hud-toggle-knob {
+    left: calc(100% - 0.85rem - 2px);
+    background: var(--color-accent-green, #00ff88);
+    box-shadow: 0 0 6px rgba(0, 255, 136, 0.5);
+  }
+
+  /* ─── Job Info ────────────────────────── */
+  .hud-job-info {
+    flex: 1;
+    text-align: left;
+    background: none;
+    border: none;
+    cursor: pointer;
+    min-width: 0;
+    padding: 0;
+  }
+
+  .hud-job-name-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .hud-job-name {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--color-accent-cyan, #00e5ff);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hud-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    padding: 0.15rem 0.4rem;
+    letter-spacing: 0.1em;
+    border: 1px solid;
+  }
+  .hud-badge.badge-agent {
+    color: var(--color-accent-purple, #7c4dff);
+    border-color: rgba(124, 77, 255, 0.3);
+    background: rgba(124, 77, 255, 0.1);
+  }
+  .hud-badge.badge-event {
+    color: var(--color-accent-cyan, #00e5ff);
+    border-color: rgba(0, 229, 255, 0.3);
+    background: rgba(0, 229, 255, 0.1);
+  }
+  .hud-badge.badge-target {
+    color: rgba(0, 229, 255, 0.4);
+    border-color: rgba(0, 229, 255, 0.15);
+    background: rgba(0, 10, 20, 0.5);
+  }
+
+  .hud-job-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 0.25rem;
+    font-size: 0.7rem;
+    color: rgba(0, 229, 255, 0.35);
+  }
+
+  /* ─── Icon Buttons ────────────────────── */
+  .hud-job-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    flex-shrink: 0;
+  }
+
+  .hud-icon-btn {
+    padding: 0.4rem;
+    background: none;
+    border: 1px solid transparent;
+    color: rgba(0, 229, 255, 0.3);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .hud-icon-btn:hover:not(:disabled) {
+    color: var(--color-accent-purple, #7c4dff);
+    border-color: rgba(124, 77, 255, 0.2);
+  }
+  .hud-icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .hud-icon-btn-run:hover:not(:disabled) {
+    color: var(--color-accent-green, #00ff88);
+    border-color: rgba(0, 255, 136, 0.2);
+  }
+  .hud-icon-btn-history:hover:not(:disabled) {
+    color: var(--color-accent-cyan, #00e5ff);
+    border-color: rgba(0, 229, 255, 0.2);
+  }
+  .hud-icon-btn-delete:hover:not(:disabled) {
+    color: #ff4444;
+    border-color: rgba(255, 68, 68, 0.2);
+  }
+
+  .hud-icon {
+    width: 1rem;
+    height: 1rem;
+    display: block;
+  }
+
+  /* ─── Job Detail ──────────────────────── */
+  .hud-job-detail {
+    border-top: 1px solid rgba(0, 229, 255, 0.1);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    font-size: 0.8rem;
+    color: rgba(0, 229, 255, 0.6);
+  }
+
+  .hud-detail-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .hud-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 768px) {
+    .hud-detail-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .hud-detail-value {
+    font-size: 0.8rem;
+    color: rgba(0, 229, 255, 0.7);
+  }
+  .hud-detail-value.mono {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+  }
+
+  .break-all { word-break: break-all; }
+
+  .hud-pre {
+    padding: 0.5rem 0.75rem;
+    background: rgba(0, 10, 20, 0.8);
+    border: 1px solid rgba(0, 229, 255, 0.1);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: rgba(0, 229, 255, 0.6);
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* ─── Runs ────────────────────────────── */
+  .hud-runs-empty {
+    padding: 1.5rem;
+    text-align: center;
+    font-size: 0.8rem;
+    color: rgba(0, 229, 255, 0.35);
+  }
+
+  .hud-runs-list {
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    max-height: 20rem;
+    overflow-y: auto;
+  }
+
+  .hud-run-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.4rem 0.75rem;
+    background: rgba(0, 10, 20, 0.5);
+    border: 1px solid rgba(0, 229, 255, 0.05);
+    font-size: 0.7rem;
+  }
+
+  .hud-run-dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    flex-shrink: 0;
+    background: rgba(0, 229, 255, 0.3);
+  }
+  .hud-run-dot.dot-ok { background: var(--color-accent-green, #00ff88); box-shadow: 0 0 4px rgba(0, 255, 136, 0.5); }
+  .hud-run-dot.dot-err { background: #ff4444; box-shadow: 0 0 4px rgba(255, 68, 68, 0.5); }
+  .hud-run-dot.dot-running { background: var(--color-accent-cyan, #00e5ff); animation: hud-pulse 1s ease-in-out infinite; }
+
+  .hud-run-time {
+    color: rgba(0, 229, 255, 0.4);
+    width: 7rem;
+    flex-shrink: 0;
+  }
+
+  .hud-run-duration {
+    color: rgba(0, 229, 255, 0.5);
+    flex-shrink: 0;
+    width: 4rem;
+  }
+
+  .hud-run-status {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'Share Tech Mono', monospace;
+    color: rgba(0, 229, 255, 0.6);
+  }
+</style>

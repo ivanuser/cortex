@@ -4,6 +4,8 @@
   import { getConnection } from '$lib/stores/connection.svelte';
   import { getToasts } from '$lib/stores/toasts.svelte';
   import { formatRelativeTime } from '$lib/utils/time';
+  import MatrixRain from '$lib/components/MatrixRain.svelte';
+  import CRTOverlay from '$lib/components/CRTOverlay.svelte';
 
   const conn = getConnection();
   const toasts = getToasts();
@@ -140,7 +142,7 @@
 
   function resolveAgentEmoji(agent: AgentEntry): string {
     const e = identity?.emoji || agent.identity?.emoji || '';
-    return e.trim() || '🤖';
+    return e.trim() || '';
   }
 
   function formatBytes(bytes?: number): string {
@@ -151,21 +153,21 @@
   }
 
   function getFileIcon(name: string): string {
-    if (name.endsWith('.md')) return '📄';
-    if (name.endsWith('.json')) return '📋';
-    if (name.endsWith('.yml') || name.endsWith('.yaml')) return '⚙️';
-    if (name.endsWith('.ts') || name.endsWith('.js')) return '📜';
-    return '📎';
+    if (name.endsWith('.md')) return '[DOC]';
+    if (name.endsWith('.json')) return '[JSON]';
+    if (name.endsWith('.yml') || name.endsWith('.yaml')) return '[CFG]';
+    if (name.endsWith('.ts') || name.endsWith('.js')) return '[SRC]';
+    return '[FILE]';
   }
 
   // ─── Tabs Config ───────────────────────────
   const tabs: { key: TabKey; label: string; icon: string }[] = [
-    { key: 'overview', label: 'Overview', icon: '📊' },
-    { key: 'files', label: 'Files', icon: '📁' },
-    { key: 'tools', label: 'Tools', icon: '🔧' },
-    { key: 'skills', label: 'Skills', icon: '⚡' },
-    { key: 'channels', label: 'Channels', icon: '💬' },
-    { key: 'cron', label: 'Cron Jobs', icon: '⏰' },
+    { key: 'overview', label: 'OVERVIEW', icon: '>' },
+    { key: 'files', label: 'FILES', icon: '>' },
+    { key: 'tools', label: 'TOOLS', icon: '>' },
+    { key: 'skills', label: 'SKILLS', icon: '>' },
+    { key: 'channels', label: 'CHANNELS', icon: '>' },
+    { key: 'cron', label: 'CRON', icon: '>' },
   ];
 
   // Tool sections for the Tools tab
@@ -407,52 +409,51 @@
   <title>Agents — Cortex</title>
 </svelte:head>
 
-<div class="h-full flex flex-col overflow-hidden">
+<MatrixRain />
+<CRTOverlay />
+
+<div class="hud-page">
+  <!-- Top bar -->
+  <div class="hud-page-topbar">
+    <a href="/overview" class="hud-back">&larr; OVERVIEW</a>
+    <div class="hud-page-title">AGENTS</div>
+    <div></div>
+  </div>
+
   <!-- Header -->
-  <div class="px-4 md:px-6 py-4 border-b border-border-default flex items-center justify-between flex-shrink-0">
+  <div class="hud-header">
     <div>
-      <h1 class="text-xl font-bold text-text-primary flex items-center gap-2">
-        <span class="text-accent-cyan">🤖</span> Agents
-      </h1>
-      <p class="text-sm text-text-muted">Manage agent workspaces, tools, and identities.</p>
+      <h1 class="hud-h1">AGENTS</h1>
+      <p class="hud-subtitle">Manage agent workspaces, tools, and identities.</p>
     </div>
-    <button onclick={() => loadAgents()} disabled={loading}
-      class="px-3 py-1.5 rounded-lg text-sm border border-border-default hover:border-accent-cyan
-             text-text-secondary hover:text-accent-cyan transition-all disabled:opacity-50 flex items-center gap-1.5">
-      {#if loading}<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>{/if}
-      Refresh
+    <button onclick={() => loadAgents()} disabled={loading} class="hud-btn">
+      {#if loading}<span class="hud-spinner"></span>{/if}
+      REFRESH
     </button>
   </div>
 
-  <div class="flex-1 flex min-h-0 overflow-hidden">
+  <div class="hud-main">
     <!-- Agent list sidebar (hidden on mobile, replaced by dropdown) -->
-    <div class="hidden md:flex w-48 border-r border-border-default bg-bg-secondary/30 flex-col flex-shrink-0">
-      <div class="p-3 border-b border-border-default">
-        <div class="text-xs font-medium text-text-muted uppercase tracking-wider">
-          Agents
-        </div>
-        <div class="text-xs text-text-muted mt-0.5">{agents.length} configured</div>
+    <div class="hud-sidebar">
+      <div class="hud-sidebar-header">
+        <div class="hud-panel-lbl">AGENTS</div>
+        <div class="hud-count">{agents.length} configured</div>
       </div>
-      <div class="flex-1 overflow-y-auto">
+      <div class="hud-sidebar-list">
         {#each agents as agent (agent.id)}
           <button
             onclick={() => selectAgent(agent.id)}
-            class="w-full text-left px-3 py-3 transition-all border-l-2 group
-                   {selectedAgentId === agent.id
-                     ? 'border-accent-cyan bg-accent-cyan/5'
-                     : 'border-transparent hover:bg-bg-hover'}"
+            class="hud-agent-item {selectedAgentId === agent.id ? 'active' : ''}"
           >
-            <div class="flex items-center gap-2">
-              <span class="text-lg">{resolveAgentEmoji(agent)}</span>
-              <div class="min-w-0 flex-1">
-                <div class="text-sm font-medium truncate {selectedAgentId === agent.id ? 'text-accent-cyan' : 'text-text-primary group-hover:text-text-primary'}">
-                  {agent.identity?.name || agent.name || agent.id}
-                </div>
-                <div class="text-[10px] text-text-muted font-mono">{agent.id}</div>
+            <div class="hud-agent-item-inner">
+              <span class="hud-agent-emoji">{resolveAgentEmoji(agent) || '>'}</span>
+              <div class="hud-agent-info">
+                <div class="hud-agent-name">{agent.identity?.name || agent.name || agent.id}</div>
+                <div class="hud-agent-id">{agent.id}</div>
               </div>
             </div>
             {#if agent.id === defaultAgentId}
-              <span class="inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-semibold bg-accent-purple/20 text-accent-purple">default</span>
+              <span class="hud-badge hud-badge-purple">DEFAULT</span>
             {/if}
           </button>
         {/each}
@@ -460,16 +461,16 @@
     </div>
 
     <!-- Main content -->
-    <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+    <div class="hud-content">
       <!-- Mobile agent selector -->
       {#if agents.length > 0}
-        <div class="md:hidden flex-shrink-0 p-3 border-b border-border-default bg-bg-secondary/30">
+        <div class="hud-mobile-select">
           <select
             value={selectedAgentId ?? ''}
             onchange={(e) => selectAgent(e.currentTarget.value)}
-            class="w-full px-3 py-2 text-sm rounded-lg border border-border-default bg-bg-tertiary text-text-primary focus:outline-none focus:border-accent-cyan"
+            class="hud-select"
           >
-            <option value="" disabled>Select agent…</option>
+            <option value="" disabled>Select agent...</option>
             {#each agents as agent (agent.id)}
               <option value={agent.id}>
                 {agent.identity?.name ?? agent.name ?? agent.id}
@@ -481,38 +482,35 @@
       {/if}
 
       {#if !selectedAgent}
-        <div class="flex-1 flex items-center justify-center text-text-muted">
-          Select an agent to view details
+        <div class="hud-empty">
+          <span class="hud-empty-text">// SELECT AN AGENT TO VIEW DETAILS</span>
         </div>
       {:else}
         <!-- Agent header + tabs -->
-        <div class="flex-shrink-0 border-b border-border-default">
+        <div class="hud-agent-header">
           <!-- Agent identity bar -->
-          <div class="px-4 md:px-6 pt-4 pb-3 flex items-center justify-between flex-wrap gap-2">
-            <div class="flex items-center gap-3">
-              <span class="text-2xl">{resolveAgentEmoji(selectedAgent)}</span>
+          <div class="hud-identity-bar">
+            <div class="hud-identity-left">
+              <span class="hud-identity-emoji">{resolveAgentEmoji(selectedAgent) || '>'}</span>
               <div>
-                <h2 class="text-lg font-bold text-text-primary">{agentContext?.identityName ?? selectedAgent.id}</h2>
-                <p class="text-xs text-text-muted">Agent workspace and routing.</p>
+                <h2 class="hud-h2">{agentContext?.identityName ?? selectedAgent.id}</h2>
+                <p class="hud-subtitle">Agent workspace and routing.</p>
               </div>
             </div>
-            <div class="flex items-center gap-2 text-xs text-text-muted">
-              <span class="font-mono">{selectedAgent.id}</span>
+            <div class="hud-identity-right">
+              <span class="hud-mono">{selectedAgent.id}</span>
               {#if agentContext?.isDefault}
-                <span class="px-1.5 py-0.5 rounded bg-accent-purple/20 text-accent-purple text-[10px] uppercase font-semibold">default</span>
+                <span class="hud-badge hud-badge-purple">DEFAULT</span>
               {/if}
             </div>
           </div>
 
           <!-- Tab bar -->
-          <div class="flex gap-0 px-4 md:px-6 overflow-x-auto">
+          <div class="hud-tab-bar">
             {#each tabs as tab}
               <button
                 onclick={() => switchTab(tab.key)}
-                class="px-4 py-2 text-sm font-medium transition-all border-b-2 whitespace-nowrap
-                       {activeTab === tab.key
-                         ? 'border-accent-cyan text-accent-cyan bg-accent-cyan/5'
-                         : 'border-transparent text-text-muted hover:text-text-secondary hover:border-border-default'}"
+                class="hud-tab {activeTab === tab.key ? 'active' : ''}"
               >
                 {tab.label}
               </button>
@@ -521,54 +519,52 @@
         </div>
 
         <!-- Tab content -->
-        <div class="flex-1 overflow-y-auto">
+        <div class="hud-tab-content">
 
-          <!-- ═══ OVERVIEW TAB ═══ -->
+          <!-- OVERVIEW TAB -->
           {#if activeTab === 'overview'}
-            <div class="p-6 space-y-6">
+            <div class="hud-tab-inner">
               <!-- Overview grid -->
-              <div class="glass rounded-xl border border-border-default p-5">
-                <h3 class="text-sm font-semibold text-text-primary mb-1">Overview</h3>
-                <p class="text-xs text-text-muted mb-4">Workspace paths and identity metadata.</p>
-                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div class="hud-panel">
+                <h3 class="hud-panel-lbl">OVERVIEW</h3>
+                <p class="hud-subtitle">Workspace paths and identity metadata.</p>
+                <div class="hud-grid hud-grid-6">
                   <div>
-                    <div class="text-[10px] uppercase tracking-wider text-text-muted mb-1">Workspace</div>
-                    <div class="text-sm font-mono text-text-primary">{agentContext?.workspace}</div>
+                    <div class="hud-field-label">WORKSPACE</div>
+                    <div class="hud-field-value hud-mono">{agentContext?.workspace}</div>
                   </div>
                   <div>
-                    <div class="text-[10px] uppercase tracking-wider text-text-muted mb-1">Primary Model</div>
-                    <div class="text-sm font-mono text-text-primary">{agentContext?.model}</div>
+                    <div class="hud-field-label">PRIMARY MODEL</div>
+                    <div class="hud-field-value hud-mono">{agentContext?.model}</div>
                   </div>
                   <div>
-                    <div class="text-[10px] uppercase tracking-wider text-text-muted mb-1">Identity Name</div>
-                    <div class="text-sm text-text-primary">{agentContext?.identityName}</div>
+                    <div class="hud-field-label">IDENTITY NAME</div>
+                    <div class="hud-field-value">{agentContext?.identityName}</div>
                   </div>
                   <div>
-                    <div class="text-[10px] uppercase tracking-wider text-text-muted mb-1">Default</div>
-                    <div class="text-sm text-text-primary">{agentContext?.isDefault ? 'yes' : 'no'}</div>
+                    <div class="hud-field-label">DEFAULT</div>
+                    <div class="hud-field-value">{agentContext?.isDefault ? 'YES' : 'NO'}</div>
                   </div>
                   <div>
-                    <div class="text-[10px] uppercase tracking-wider text-text-muted mb-1">Identity Emoji</div>
-                    <div class="text-lg">{agentContext?.identityEmoji}</div>
+                    <div class="hud-field-label">IDENTITY EMOJI</div>
+                    <div class="hud-field-value" style="font-size:1.2rem;">{agentContext?.identityEmoji}</div>
                   </div>
                   <div>
-                    <div class="text-[10px] uppercase tracking-wider text-text-muted mb-1">Skills Filter</div>
-                    <div class="text-sm text-text-primary">{agentContext?.skillsLabel}</div>
+                    <div class="hud-field-label">SKILLS FILTER</div>
+                    <div class="hud-field-value">{agentContext?.skillsLabel}</div>
                   </div>
                 </div>
               </div>
 
               <!-- Model Selection -->
-              <div class="glass rounded-xl border border-border-default p-5">
-                <h3 class="text-sm font-semibold text-text-primary mb-1">Model Selection</h3>
-                <p class="text-xs text-text-muted mb-4">Primary model and fallback configuration.</p>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="hud-panel">
+                <h3 class="hud-panel-lbl">MODEL SELECTION</h3>
+                <p class="hud-subtitle">Primary model and fallback configuration.</p>
+                <div class="hud-grid hud-grid-2">
                   <div>
-                    <label class="block text-xs text-text-muted mb-1.5">Primary model (default)</label>
-                    <select bind:value={modelPrimary}
-                      class="w-full bg-bg-input border border-border-default rounded-lg px-3 py-2 text-sm text-text-primary
-                             focus:outline-none focus:border-accent-cyan transition-all">
-                      <option value="">— select —</option>
+                    <label class="hud-field-label">Primary model (default)</label>
+                    <select bind:value={modelPrimary} class="hud-select">
+                      <option value="">-- SELECT --</option>
                       {#each modelOptions as opt}
                         <option value={opt.value}>{opt.label}</option>
                       {/each}
@@ -578,68 +574,59 @@
                     </select>
                   </div>
                   <div>
-                    <label class="block text-xs text-text-muted mb-1.5">Fallbacks (comma-separated)</label>
+                    <label class="hud-field-label">Fallbacks (comma-separated)</label>
                     <input bind:value={modelFallbacks} placeholder="provider/model, provider/model"
-                      class="w-full bg-bg-input border border-border-default rounded-lg px-3 py-2 text-sm text-text-primary
-                             placeholder:text-text-muted/40 focus:outline-none focus:border-accent-cyan transition-all" />
+                      class="hud-input" />
                   </div>
                 </div>
-                <div class="flex justify-end gap-2 mt-4">
-                  <button onclick={() => loadConfig()} disabled={configSaving}
-                    class="px-3 py-1.5 rounded-lg text-xs border border-border-default text-text-secondary hover:text-text-primary transition-all">
-                    Reload Config
+                <div class="hud-actions">
+                  <button onclick={() => loadConfig()} disabled={configSaving} class="hud-btn hud-btn-secondary">
+                    RELOAD CONFIG
                   </button>
-                  <button onclick={saveConfig} disabled={configSaving}
-                    class="px-4 py-1.5 rounded-lg text-xs font-medium bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/30
-                           hover:bg-accent-cyan/30 transition-all disabled:opacity-50">
-                    {configSaving ? 'Saving…' : 'Save'}
+                  <button onclick={saveConfig} disabled={configSaving} class="hud-btn">
+                    {configSaving ? 'SAVING...' : 'SAVE'}
                   </button>
                 </div>
               </div>
             </div>
 
-          <!-- ═══ FILES TAB ═══ -->
+          <!-- FILES TAB -->
           {:else if activeTab === 'files'}
-            <div class="flex-1 flex min-h-0 h-full">
+            <div class="hud-files-layout">
               <!-- File list -->
-              <div class="w-56 border-r border-border-default bg-bg-tertiary/30 overflow-y-auto flex-shrink-0">
-                <div class="p-3 border-b border-border-default flex items-center justify-between">
-                  <span class="text-xs font-medium text-text-muted">Core Files</span>
+              <div class="hud-file-sidebar">
+                <div class="hud-file-sidebar-header">
+                  <span class="hud-panel-lbl">CORE FILES</span>
                   <button onclick={() => selectedAgentId && loadFiles(selectedAgentId)} disabled={filesLoading}
-                    class="text-[10px] text-text-muted hover:text-accent-cyan transition-all">
-                    {filesLoading ? '...' : '↻'}
+                    class="hud-btn-icon">
+                    {filesLoading ? '...' : '>>'}
                   </button>
                 </div>
                 {#if filesList?.workspace}
-                  <div class="px-3 py-1.5 text-[10px] font-mono text-text-muted/60 truncate border-b border-border-default/50">
-                    {filesList.workspace}
-                  </div>
+                  <div class="hud-file-workspace">{filesList.workspace}</div>
                 {/if}
                 {#if filesLoading}
-                  <div class="p-4 text-text-muted text-sm">Loading…</div>
+                  <div class="hud-empty-text hud-pad">Loading...</div>
                 {:else if !filesList?.files?.length}
-                  <div class="p-4 text-text-muted text-sm">No workspace files</div>
+                  <div class="hud-empty-text hud-pad">No workspace files</div>
                 {:else}
                   {#each filesList.files as file (file.name)}
                     <button
                       onclick={() => openFile(file.name)}
-                      class="w-full text-left px-3 py-2 text-sm transition-all flex items-center gap-2
-                             {activeFile === file.name
-                               ? 'bg-accent-cyan/10 text-accent-cyan'
-                               : 'hover:bg-bg-hover text-text-secondary'}"
+                      class="hud-file-item {activeFile === file.name ? 'active' : ''}"
                     >
-                      <span class="text-xs">{getFileIcon(file.name)}</span>
-                      <div class="min-w-0 flex-1">
-                        <div class="truncate font-mono text-xs">{file.name}</div>
-                        <div class="text-[10px] text-text-muted">
-                          {file.missing ? 'missing' : formatBytes(file.size)}
+                      <span class="hud-file-icon">{getFileIcon(file.name)}</span>
+                      <div class="hud-file-info">
+                        <div class="hud-file-name">{file.name}</div>
+                        <div class="hud-file-meta">
+                          {file.missing ? 'MISSING' : formatBytes(file.size)}
                           {#if file.updatedAtMs && !file.missing}
-                            · {formatRelativeTime(file.updatedAtMs)}
+                            &middot; {formatRelativeTime(file.updatedAtMs)}
                           {/if}
                         </div>
                       </div>
                       {#if file.missing}
-                        <span class="px-1 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-400">missing</span>
+                        <span class="hud-badge hud-badge-amber">MISSING</span>
                       {/if}
                     </button>
                   {/each}
@@ -647,57 +634,55 @@
               </div>
 
               <!-- File editor -->
-              <div class="flex-1 flex flex-col min-w-0">
+              <div class="hud-file-editor">
                 {#if !activeFile}
-                  <div class="flex-1 flex items-center justify-center text-text-muted text-sm">
-                    Select a file to view or edit
+                  <div class="hud-empty">
+                    <span class="hud-empty-text">// SELECT A FILE TO VIEW OR EDIT</span>
                   </div>
                 {:else if fileLoading}
-                  <div class="flex-1 flex items-center justify-center text-text-muted text-sm">
-                    Loading {activeFile}…
+                  <div class="hud-empty">
+                    <span class="hud-empty-text">Loading {activeFile}...</span>
                   </div>
                 {:else}
-                  <div class="flex items-center justify-between px-4 py-2 border-b border-border-default bg-bg-secondary/30 flex-shrink-0">
-                    <div class="flex items-center gap-2">
-                      <span class="text-sm font-mono font-medium text-text-primary">{activeFile}</span>
+                  <div class="hud-file-toolbar">
+                    <div class="hud-file-toolbar-left">
+                      <span class="hud-mono hud-file-active-name">{activeFile}</span>
                       {#if isDirty}
-                        <span class="w-2 h-2 rounded-full bg-accent-amber"></span>
+                        <span class="hud-dirty-dot"></span>
                       {/if}
                     </div>
                     {#if fileEncoding !== 'base64'}
-                    <div class="flex items-center gap-2">
+                    <div class="hud-file-toolbar-right">
                       <button onclick={() => { fileDraft = fileContent; }} disabled={!isDirty}
-                        class="px-2.5 py-1 rounded text-xs text-text-muted hover:text-text-primary transition-all disabled:opacity-30">
-                        Reset
+                        class="hud-btn hud-btn-secondary hud-btn-sm">
+                        RESET
                       </button>
                       <button onclick={saveFile} disabled={!isDirty || fileSaving}
-                        class="px-3 py-1 rounded text-xs transition-all
-                               {isDirty ? 'bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/30 hover:bg-accent-cyan/30' : 'bg-bg-tertiary text-text-muted cursor-not-allowed'}">
-                        {fileSaving ? 'Saving…' : 'Save'}
+                        class="hud-btn hud-btn-sm {isDirty ? '' : 'disabled'}">
+                        {fileSaving ? 'SAVING...' : 'SAVE'}
                       </button>
                     </div>
                     {/if}
                   </div>
                   {#if activeFile && isImageFile(activeFile) && fileEncoding === 'base64'}
-                    <div class="flex-1 flex items-center justify-center p-6 bg-bg-primary overflow-auto">
+                    <div class="hud-file-preview">
                       <img
                         src={getImageDataUrl(activeFile, fileContent)}
                         alt={activeFile}
-                        class="max-w-full max-h-full rounded-lg shadow-lg object-contain"
-                        style="max-height: calc(100vh - 200px);"
+                        class="hud-file-image"
                       />
                     </div>
                   {:else if fileEncoding === 'base64'}
-                    <div class="flex-1 flex flex-col items-center justify-center p-6 bg-bg-primary text-text-muted gap-3">
-                      <span class="text-3xl">📦</span>
-                      <span class="text-sm font-medium">{activeFile}</span>
-                      <span class="text-xs">Binary file ({Math.round((fileContent.length * 3/4) / 1024)} KB)</span>
-                      <span class="text-xs text-text-muted/60">Preview not available for this file type</span>
+                    <div class="hud-file-binary">
+                      <span class="hud-binary-icon">[BIN]</span>
+                      <span class="hud-mono">{activeFile}</span>
+                      <span class="hud-file-meta">Binary file ({Math.round((fileContent.length * 3/4) / 1024)} KB)</span>
+                      <span class="hud-file-meta">Preview not available for this file type</span>
                     </div>
                   {:else}
                     <textarea
                       bind:value={fileDraft}
-                      class="flex-1 w-full p-4 bg-bg-primary text-text-primary font-mono text-sm resize-none focus:outline-none border-none"
+                      class="hud-textarea"
                       spellcheck="false"
                     ></textarea>
                   {/if}
@@ -705,32 +690,29 @@
               </div>
             </div>
 
-          <!-- ═══ TOOLS TAB ═══ -->
+          <!-- TOOLS TAB -->
           {:else if activeTab === 'tools'}
-            <div class="p-6 space-y-4">
-              <div class="glass rounded-xl border border-border-default p-5">
-                <h3 class="text-sm font-semibold text-text-primary mb-1">Tool Policy</h3>
-                <p class="text-xs text-text-muted mb-4">
+            <div class="hud-tab-inner">
+              <div class="hud-panel">
+                <h3 class="hud-panel-lbl">TOOL POLICY</h3>
+                <p class="hud-subtitle">
                   Tool access configuration for this agent.
                   {#if selectedAgent?.tools?.profile}
-                    <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-accent-cyan/20 text-accent-cyan font-mono">
+                    <span class="hud-badge hud-badge-cyan">
                       profile: {selectedAgent.tools.profile}
                     </span>
                   {/if}
                 </p>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="hud-grid hud-grid-3">
                   {#each TOOL_SECTIONS as section}
-                    <div class="rounded-lg border border-border-default bg-bg-tertiary/30 p-3">
-                      <div class="text-xs font-semibold text-text-primary mb-2 uppercase tracking-wider">{section.label}</div>
-                      <div class="space-y-1">
+                    <div class="hud-tool-section">
+                      <div class="hud-tool-section-label">{section.label}</div>
+                      <div class="hud-tool-list">
                         {#each section.tools as tool}
                           {@const status = isToolAllowed(tool)}
-                          <div class="flex items-center justify-between py-1">
-                            <span class="text-xs font-mono text-text-secondary">{tool}</span>
-                            <span class="text-[10px] px-1.5 py-0.5 rounded font-medium
-                                         {status === 'allowed' ? 'bg-accent-green/15 text-accent-green' :
-                                          status === 'denied' ? 'bg-red-500/15 text-red-400' :
-                                          'bg-bg-tertiary text-text-muted'}">
+                          <div class="hud-tool-row">
+                            <span class="hud-mono hud-tool-name">{tool}</span>
+                            <span class="hud-tool-status {status === 'allowed' ? 'hud-status-green' : status === 'denied' ? 'hud-status-red' : 'hud-status-muted'}">
                               {status}
                             </span>
                           </div>
@@ -742,37 +724,36 @@
               </div>
             </div>
 
-          <!-- ═══ SKILLS TAB ═══ -->
+          <!-- SKILLS TAB -->
           {:else if activeTab === 'skills'}
-            <div class="p-6 space-y-4">
-              <div class="glass rounded-xl border border-border-default p-5">
-                <div class="flex items-center justify-between mb-4">
+            <div class="hud-tab-inner">
+              <div class="hud-panel">
+                <div class="hud-panel-header">
                   <div>
-                    <h3 class="text-sm font-semibold text-text-primary">Skills</h3>
-                    <p class="text-xs text-text-muted">Installed skills available to this agent.</p>
+                    <h3 class="hud-panel-lbl">SKILLS</h3>
+                    <p class="hud-subtitle">Installed skills available to this agent.</p>
                   </div>
-                  <button onclick={loadSkills} disabled={skillsLoading}
-                    class="px-3 py-1.5 rounded-lg text-xs border border-border-default text-text-secondary hover:text-accent-cyan hover:border-accent-cyan/30 transition-all disabled:opacity-50">
-                    {skillsLoading ? 'Loading…' : 'Refresh'}
+                  <button onclick={loadSkills} disabled={skillsLoading} class="hud-btn hud-btn-secondary">
+                    {skillsLoading ? 'LOADING...' : 'REFRESH'}
                   </button>
                 </div>
                 {#if skillsLoading}
-                  <div class="text-text-muted text-sm">Loading skills…</div>
+                  <div class="hud-empty-text">Loading skills...</div>
                 {:else if skills.length === 0}
-                  <div class="text-text-muted text-sm">No skills installed.</div>
+                  <div class="hud-empty-text">No skills installed.</div>
                 {:else}
-                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div class="hud-grid hud-grid-3">
                     {#each skills as skill}
-                      <div class="rounded-lg border border-border-default bg-bg-tertiary/30 p-3">
-                        <div class="flex items-center gap-2 mb-1">
-                          <span class="text-xs">⚡</span>
-                          <span class="text-sm font-medium text-text-primary">{skill.name}</span>
+                      <div class="hud-skill-card">
+                        <div class="hud-skill-header">
+                          <span class="hud-accent-cyan">&gt;</span>
+                          <span class="hud-skill-name">{skill.name}</span>
                           {#if skill.bundled}
-                            <span class="px-1 py-0.5 rounded text-[9px] bg-accent-purple/20 text-accent-purple">bundled</span>
+                            <span class="hud-badge hud-badge-purple">BUNDLED</span>
                           {/if}
                         </div>
                         {#if skill.source}
-                          <div class="text-[10px] text-text-muted font-mono truncate">{skill.source}</div>
+                          <div class="hud-mono hud-file-meta">{skill.source}</div>
                         {/if}
                       </div>
                     {/each}
@@ -781,71 +762,70 @@
               </div>
             </div>
 
-          <!-- ═══ CHANNELS TAB ═══ -->
+          <!-- CHANNELS TAB -->
           {:else if activeTab === 'channels'}
-            <div class="p-6 space-y-4">
-              <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="hud-tab-inner">
+              <div class="hud-grid hud-grid-2-lg">
                 <!-- Agent context card -->
                 {#if agentContext}
-                  <div class="glass rounded-xl border border-border-default p-5">
-                    <h3 class="text-sm font-semibold text-text-primary mb-1">Agent Context</h3>
-                    <p class="text-xs text-text-muted mb-4">Workspace, identity, and model configuration.</p>
-                    <div class="grid grid-cols-2 gap-3">
+                  <div class="hud-panel">
+                    <h3 class="hud-panel-lbl">AGENT CONTEXT</h3>
+                    <p class="hud-subtitle">Workspace, identity, and model configuration.</p>
+                    <div class="hud-grid hud-grid-2">
                       <div>
-                        <div class="text-[10px] uppercase tracking-wider text-text-muted mb-0.5">Workspace</div>
-                        <div class="text-xs font-mono text-text-primary">{agentContext.workspace}</div>
+                        <div class="hud-field-label">WORKSPACE</div>
+                        <div class="hud-field-value hud-mono">{agentContext.workspace}</div>
                       </div>
                       <div>
-                        <div class="text-[10px] uppercase tracking-wider text-text-muted mb-0.5">Model</div>
-                        <div class="text-xs font-mono text-text-primary">{agentContext.model}</div>
+                        <div class="hud-field-label">MODEL</div>
+                        <div class="hud-field-value hud-mono">{agentContext.model}</div>
                       </div>
                       <div>
-                        <div class="text-[10px] uppercase tracking-wider text-text-muted mb-0.5">Identity</div>
-                        <div class="text-xs font-mono text-text-primary">{agentContext.identityName}</div>
+                        <div class="hud-field-label">IDENTITY</div>
+                        <div class="hud-field-value hud-mono">{agentContext.identityName}</div>
                       </div>
                       <div>
-                        <div class="text-[10px] uppercase tracking-wider text-text-muted mb-0.5">Default</div>
-                        <div class="text-xs font-mono text-text-primary">{agentContext.isDefault ? 'yes' : 'no'}</div>
+                        <div class="hud-field-label">DEFAULT</div>
+                        <div class="hud-field-value hud-mono">{agentContext.isDefault ? 'YES' : 'NO'}</div>
                       </div>
                     </div>
                   </div>
                 {/if}
 
                 <!-- Channel status -->
-                <div class="glass rounded-xl border border-border-default p-5">
-                  <div class="flex items-center justify-between mb-4">
+                <div class="hud-panel">
+                  <div class="hud-panel-header">
                     <div>
-                      <h3 class="text-sm font-semibold text-text-primary">Channels</h3>
-                      <p class="text-xs text-text-muted">Gateway-wide channel status.</p>
+                      <h3 class="hud-panel-lbl">CHANNELS</h3>
+                      <p class="hud-subtitle">Gateway-wide channel status.</p>
                     </div>
-                    <button onclick={loadChannels} disabled={channelsLoading}
-                      class="px-3 py-1.5 rounded-lg text-xs border border-border-default text-text-secondary hover:text-accent-cyan transition-all disabled:opacity-50">
-                      {channelsLoading ? 'Loading…' : 'Refresh'}
+                    <button onclick={loadChannels} disabled={channelsLoading} class="hud-btn hud-btn-secondary">
+                      {channelsLoading ? 'LOADING...' : 'REFRESH'}
                     </button>
                   </div>
                   {#if !channelSnapshot}
-                    <div class="text-text-muted text-sm">Load channels to see live status.</div>
+                    <div class="hud-empty-text">Load channels to see live status.</div>
                   {:else}
                     {@const channels = (channelSnapshot.channels ?? {}) as Record<string, Record<string, unknown>>}
                     {@const accounts = (channelSnapshot.channelAccounts ?? {}) as Record<string, Array<Record<string, unknown>>>}
                     {@const channelIds = Object.keys(channels).length ? Object.keys(channels) : Object.keys(accounts)}
                     {#if channelIds.length === 0}
-                      <div class="text-text-muted text-sm">No channels found.</div>
+                      <div class="hud-empty-text">No channels found.</div>
                     {:else}
-                      <div class="space-y-2">
+                      <div class="hud-channel-list">
                         {#each channelIds as chId}
                           {@const ch = channels[chId]}
                           {@const accts = accounts[chId] ?? []}
                           {@const connCount = accts.filter(a => a.connected || a.running).length}
-                          <div class="flex items-center justify-between py-1.5 border-b border-border-default/30 last:border-0">
+                          <div class="hud-channel-row">
                             <div>
-                              <div class="text-sm font-medium text-text-primary">{chId}</div>
-                              <div class="text-[10px] text-text-muted">
+                              <div class="hud-channel-name">{chId}</div>
+                              <div class="hud-file-meta">
                                 {accts.length ? `${connCount}/${accts.length} connected` : 'no accounts'}
-                                · {ch?.configured ? 'configured' : 'not configured'}
+                                &middot; {ch?.configured ? 'configured' : 'not configured'}
                               </div>
                             </div>
-                            <span class="w-2 h-2 rounded-full {ch?.configured || ch?.running ? 'bg-accent-green' : 'bg-text-muted/30'}"></span>
+                            <span class="hud-status-dot {ch?.configured || ch?.running ? 'online' : 'offline'}"></span>
                           </div>
                         {/each}
                       </div>
@@ -855,85 +835,83 @@
               </div>
             </div>
 
-          <!-- ═══ CRON TAB ═══ -->
+          <!-- CRON TAB -->
           {:else if activeTab === 'cron'}
-            <div class="p-6 space-y-4">
-              <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="hud-tab-inner">
+              <div class="hud-grid hud-grid-2-lg">
                 <!-- Agent context -->
                 {#if agentContext}
-                  <div class="glass rounded-xl border border-border-default p-5">
-                    <h3 class="text-sm font-semibold text-text-primary mb-1">Agent Context</h3>
-                    <p class="text-xs text-text-muted mb-3">Workspace and scheduling targets.</p>
-                    <div class="grid grid-cols-2 gap-3 text-xs">
+                  <div class="hud-panel">
+                    <h3 class="hud-panel-lbl">AGENT CONTEXT</h3>
+                    <p class="hud-subtitle">Workspace and scheduling targets.</p>
+                    <div class="hud-grid hud-grid-2">
                       <div>
-                        <span class="text-text-muted">Workspace</span>
-                        <div class="font-mono text-text-primary">{agentContext.workspace}</div>
+                        <div class="hud-field-label">WORKSPACE</div>
+                        <div class="hud-field-value hud-mono">{agentContext.workspace}</div>
                       </div>
                       <div>
-                        <span class="text-text-muted">Model</span>
-                        <div class="font-mono text-text-primary">{agentContext.model}</div>
+                        <div class="hud-field-label">MODEL</div>
+                        <div class="hud-field-value hud-mono">{agentContext.model}</div>
                       </div>
                     </div>
                   </div>
                 {/if}
 
                 <!-- Scheduler status -->
-                <div class="glass rounded-xl border border-border-default p-5">
-                  <div class="flex items-center justify-between mb-3">
+                <div class="hud-panel">
+                  <div class="hud-panel-header">
                     <div>
-                      <h3 class="text-sm font-semibold text-text-primary">Scheduler</h3>
-                      <p class="text-xs text-text-muted">Gateway cron status.</p>
+                      <h3 class="hud-panel-lbl">SCHEDULER</h3>
+                      <p class="hud-subtitle">Gateway cron status.</p>
                     </div>
-                    <button onclick={loadCron} disabled={cronLoading}
-                      class="px-3 py-1.5 rounded-lg text-xs border border-border-default text-text-secondary hover:text-accent-cyan transition-all disabled:opacity-50">
-                      {cronLoading ? 'Loading…' : 'Refresh'}
+                    <button onclick={loadCron} disabled={cronLoading} class="hud-btn hud-btn-secondary">
+                      {cronLoading ? 'LOADING...' : 'REFRESH'}
                     </button>
                   </div>
-                  <div class="grid grid-cols-3 gap-4">
-                    <div class="text-center">
-                      <div class="text-lg font-bold text-text-primary">{cronStatus?.enabled ? 'Yes' : 'No'}</div>
-                      <div class="text-[10px] text-text-muted uppercase">Enabled</div>
+                  <div class="hud-cron-stats">
+                    <div class="hud-cron-stat">
+                      <div class="hud-cron-stat-value">{cronStatus?.enabled ? 'YES' : 'NO'}</div>
+                      <div class="hud-field-label">ENABLED</div>
                     </div>
-                    <div class="text-center">
-                      <div class="text-lg font-bold text-text-primary">{cronStatus?.jobs ?? '-'}</div>
-                      <div class="text-[10px] text-text-muted uppercase">Jobs</div>
+                    <div class="hud-cron-stat">
+                      <div class="hud-cron-stat-value">{cronStatus?.jobs ?? '-'}</div>
+                      <div class="hud-field-label">JOBS</div>
                     </div>
-                    <div class="text-center">
-                      <div class="text-lg font-bold text-text-primary">
+                    <div class="hud-cron-stat">
+                      <div class="hud-cron-stat-value">
                         {cronStatus?.nextWakeAtMs ? formatRelativeTime(cronStatus.nextWakeAtMs) : '-'}
                       </div>
-                      <div class="text-[10px] text-text-muted uppercase">Next Wake</div>
+                      <div class="hud-field-label">NEXT WAKE</div>
                     </div>
                   </div>
                 </div>
               </div>
 
               <!-- Agent cron jobs -->
-              <div class="glass rounded-xl border border-border-default p-5">
-                <h3 class="text-sm font-semibold text-text-primary mb-1">Agent Cron Jobs</h3>
-                <p class="text-xs text-text-muted mb-4">Scheduled jobs targeting this agent.</p>
+              <div class="hud-panel">
+                <h3 class="hud-panel-lbl">AGENT CRON JOBS</h3>
+                <p class="hud-subtitle">Scheduled jobs targeting this agent.</p>
                 {#if cronLoading}
-                  <div class="text-text-muted text-sm">Loading…</div>
+                  <div class="hud-empty-text">Loading...</div>
                 {:else if agentCronJobs.length === 0}
-                  <div class="text-text-muted text-sm">No jobs assigned to this agent.</div>
+                  <div class="hud-empty-text">No jobs assigned to this agent.</div>
                 {:else}
-                  <div class="space-y-2">
+                  <div class="hud-cron-list">
                     {#each agentCronJobs as job}
-                      <div class="rounded-lg border border-border-default bg-bg-tertiary/30 p-3">
-                        <div class="flex items-center justify-between mb-1">
-                          <span class="text-sm font-medium text-text-primary">{job.name || job.jobId || job.id}</span>
-                          <span class="px-1.5 py-0.5 rounded text-[10px] font-medium
-                                       {job.enabled !== false ? 'bg-accent-green/15 text-accent-green' : 'bg-amber-500/15 text-amber-400'}">
-                            {job.enabled !== false ? 'enabled' : 'disabled'}
+                      <div class="hud-cron-job">
+                        <div class="hud-cron-job-header">
+                          <span class="hud-cron-job-name">{job.name || job.jobId || job.id}</span>
+                          <span class="hud-badge {job.enabled !== false ? 'hud-badge-green' : 'hud-badge-amber'}">
+                            {job.enabled !== false ? 'ENABLED' : 'DISABLED'}
                           </span>
                         </div>
-                        <div class="flex items-center gap-2 text-[10px] text-text-muted">
-                          <span class="px-1.5 py-0.5 rounded bg-bg-tertiary font-mono">{formatSchedule(job)}</span>
+                        <div class="hud-cron-job-meta">
+                          <span class="hud-badge-mono">{formatSchedule(job)}</span>
                           {#if job.sessionTarget}
-                            <span class="px-1.5 py-0.5 rounded bg-bg-tertiary font-mono">{job.sessionTarget}</span>
+                            <span class="hud-badge-mono">{job.sessionTarget}</span>
                           {/if}
                           {#if job.payload?.kind}
-                            <span class="px-1.5 py-0.5 rounded bg-bg-tertiary font-mono">{job.payload.kind}</span>
+                            <span class="hud-badge-mono">{job.payload.kind}</span>
                           {/if}
                         </div>
                       </div>
@@ -948,3 +926,927 @@
     </div>
   </div>
 </div>
+
+<style>
+  /* ─── HUD Page Layout ─────────────────────── */
+  .hud-page {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--color-accent-cyan);
+    position: relative;
+  }
+
+  .hud-page-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1.5rem;
+    border-bottom: 1px solid var(--color-accent-cyan);
+    background: rgba(0, 0, 0, 0.6);
+    flex-shrink: 0;
+    z-index: 2;
+  }
+
+  .hud-back {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    color: var(--color-accent-cyan);
+    text-decoration: none;
+    letter-spacing: 0.1em;
+    transition: color 0.2s, text-shadow 0.2s;
+  }
+
+  .hud-back:hover {
+    color: var(--color-accent-green);
+    text-shadow: 0 0 8px var(--color-accent-green);
+  }
+
+  .hud-page-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.2em;
+    color: var(--color-accent-cyan);
+    text-shadow: 0 0 10px var(--color-accent-cyan);
+  }
+
+  /* ─── Header ──────────────────────────────── */
+  .hud-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.15);
+    background: rgba(0, 0, 0, 0.4);
+    flex-shrink: 0;
+    z-index: 2;
+  }
+
+  .hud-h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-accent-cyan);
+    text-shadow: 0 0 12px var(--color-accent-cyan);
+    margin: 0;
+  }
+
+  .hud-h2 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-accent-cyan);
+    text-shadow: 0 0 8px var(--color-accent-cyan);
+    margin: 0;
+  }
+
+  .hud-subtitle {
+    font-size: 0.7rem;
+    color: rgba(0, 255, 255, 0.4);
+    margin-top: 0.2rem;
+  }
+
+  .hud-accent-cyan {
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-mono {
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ─── Main Layout ─────────────────────────── */
+  .hud-main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    overflow: hidden;
+    z-index: 2;
+  }
+
+  /* ─── Sidebar ─────────────────────────────── */
+  .hud-sidebar {
+    display: none;
+    width: 12rem;
+    border-right: 1px solid rgba(0, 255, 255, 0.15);
+    background: rgba(0, 0, 0, 0.5);
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  @media (min-width: 768px) {
+    .hud-sidebar {
+      display: flex;
+    }
+  }
+
+  .hud-sidebar-header {
+    padding: 0.75rem;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.15);
+  }
+
+  .hud-count {
+    font-size: 0.65rem;
+    color: rgba(0, 255, 255, 0.35);
+    margin-top: 0.15rem;
+  }
+
+  .hud-sidebar-list {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .hud-agent-item {
+    width: 100%;
+    text-align: left;
+    padding: 0.75rem;
+    transition: all 0.2s;
+    border-left: 2px solid transparent;
+    background: transparent;
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
+    cursor: pointer;
+    display: block;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .hud-agent-item:hover {
+    background: rgba(0, 255, 255, 0.05);
+  }
+
+  .hud-agent-item.active {
+    border-left-color: var(--color-accent-cyan);
+    background: rgba(0, 255, 255, 0.08);
+  }
+
+  .hud-agent-item-inner {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .hud-agent-emoji {
+    font-size: 1rem;
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-agent-info {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .hud-agent-name {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--color-accent-cyan);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .hud-agent-item.active .hud-agent-name {
+    text-shadow: 0 0 6px var(--color-accent-cyan);
+  }
+
+  .hud-agent-id {
+    font-size: 0.75rem;
+    color: rgba(0, 255, 255, 0.3);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ─── Badges ──────────────────────────────── */
+  .hud-badge {
+    display: inline-block;
+    margin-top: 0.25rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 2px;
+    font-size: 0.55rem;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    font-family: 'Orbitron', sans-serif;
+  }
+
+  .hud-badge-purple {
+    background: rgba(168, 85, 247, 0.2);
+    color: #a855f7;
+    border: 1px solid rgba(168, 85, 247, 0.3);
+  }
+
+  .hud-badge-cyan {
+    background: rgba(0, 255, 255, 0.15);
+    color: var(--color-accent-cyan);
+    border: 1px solid rgba(0, 255, 255, 0.25);
+  }
+
+  .hud-badge-green {
+    background: rgba(0, 255, 100, 0.15);
+    color: var(--color-accent-green);
+    border: 1px solid rgba(0, 255, 100, 0.25);
+  }
+
+  .hud-badge-amber {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+  }
+
+  .hud-badge-mono {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    border-radius: 2px;
+    font-size: 0.75rem;
+    font-family: 'Share Tech Mono', monospace;
+    background: rgba(0, 255, 255, 0.08);
+    color: rgba(0, 255, 255, 0.5);
+    border: 1px solid rgba(0, 255, 255, 0.1);
+  }
+
+  /* ─── Content ─────────────────────────────── */
+  .hud-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .hud-mobile-select {
+    display: block;
+    padding: 0.75rem;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.15);
+    background: rgba(0, 0, 0, 0.4);
+    flex-shrink: 0;
+  }
+
+  @media (min-width: 768px) {
+    .hud-mobile-select {
+      display: none;
+    }
+  }
+
+  .hud-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .hud-empty-text {
+    font-size: 0.8rem;
+    color: rgba(0, 255, 255, 0.3);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .hud-pad {
+    padding: 1rem;
+  }
+
+  /* ─── Agent Header & Tabs ─────────────────── */
+  .hud-agent-header {
+    flex-shrink: 0;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.15);
+  }
+
+  .hud-identity-bar {
+    padding: 1rem 1.5rem 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .hud-identity-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .hud-identity-emoji {
+    font-size: 1.5rem;
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-identity-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    color: rgba(0, 255, 255, 0.4);
+  }
+
+  .hud-tab-bar {
+    display: flex;
+    gap: 0;
+    padding: 0 1.5rem;
+    overflow-x: auto;
+  }
+
+  .hud-tab {
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    transition: all 0.2s;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    background: transparent;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    cursor: pointer;
+    color: rgba(0, 255, 255, 0.35);
+  }
+
+  .hud-tab:hover {
+    color: rgba(0, 255, 255, 0.6);
+    border-bottom-color: rgba(0, 255, 255, 0.2);
+  }
+
+  .hud-tab.active {
+    color: var(--color-accent-cyan);
+    border-bottom-color: var(--color-accent-cyan);
+    background: rgba(0, 255, 255, 0.05);
+    text-shadow: 0 0 8px var(--color-accent-cyan);
+  }
+
+  .hud-tab-content {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .hud-tab-inner {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* ─── Panel ───────────────────────────────── */
+  .hud-panel {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 1.25rem;
+    position: relative;
+  }
+
+  .hud-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-accent-cyan), transparent);
+    opacity: 0.6;
+  }
+
+  .hud-panel-lbl {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: var(--color-accent-cyan);
+    text-shadow: 0 0 6px var(--color-accent-cyan);
+    margin-bottom: 0.25rem;
+  }
+
+  .hud-panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  /* ─── Grid ────────────────────────────────── */
+  .hud-grid {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .hud-grid-2 {
+    grid-template-columns: repeat(1, 1fr);
+  }
+  @media (min-width: 768px) {
+    .hud-grid-2 { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .hud-grid-3 {
+    grid-template-columns: repeat(1, 1fr);
+  }
+  @media (min-width: 768px) {
+    .hud-grid-3 { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (min-width: 1024px) {
+    .hud-grid-3 { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  .hud-grid-6 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (min-width: 768px) {
+    .hud-grid-6 { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (min-width: 1024px) {
+    .hud-grid-6 { grid-template-columns: repeat(6, 1fr); }
+  }
+
+  .hud-grid-2-lg {
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 1024px) {
+    .hud-grid-2-lg { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ─── Fields ──────────────────────────────── */
+  .hud-field-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    color: rgba(0, 255, 255, 0.35);
+    margin-bottom: 0.25rem;
+    font-family: 'Orbitron', sans-serif;
+  }
+
+  .hud-field-value {
+    font-size: 0.8rem;
+    color: var(--color-accent-cyan);
+  }
+
+  /* ─── Buttons ─────────────────────────────── */
+  .hud-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    padding: 0.4rem 1rem;
+    border: 1px solid var(--color-accent-cyan);
+    background: rgba(0, 255, 255, 0.1);
+    color: var(--color-accent-cyan);
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .hud-btn:hover {
+    background: rgba(0, 255, 255, 0.2);
+    text-shadow: 0 0 8px var(--color-accent-cyan);
+    box-shadow: 0 0 12px rgba(0, 255, 255, 0.2);
+  }
+
+  .hud-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .hud-btn.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .hud-btn-secondary {
+    background: rgba(0, 255, 255, 0.03);
+    border-color: rgba(0, 255, 255, 0.25);
+    color: rgba(0, 255, 255, 0.6);
+  }
+
+  .hud-btn-secondary:hover {
+    background: rgba(0, 255, 255, 0.08);
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-btn-sm {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+  }
+
+  .hud-btn-icon {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: rgba(0, 255, 255, 0.4);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .hud-btn-icon:hover {
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .hud-spinner {
+    display: inline-block;
+    width: 0.7rem;
+    height: 0.7rem;
+    border: 2px solid rgba(0, 255, 255, 0.2);
+    border-top-color: var(--color-accent-cyan);
+    border-radius: 50%;
+    animation: hud-spin 0.6s linear infinite;
+  }
+
+  @keyframes hud-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ─── Inputs ──────────────────────────────── */
+  .hud-select {
+    width: 100%;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(0, 255, 255, 0.25);
+    border-radius: 2px;
+    color: var(--color-accent-cyan);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .hud-select:focus {
+    border-color: var(--color-accent-cyan);
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.15);
+  }
+
+  .hud-select option {
+    background: #0a0a0f;
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-input {
+    width: 100%;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(0, 255, 255, 0.25);
+    border-radius: 2px;
+    color: var(--color-accent-cyan);
+    outline: none;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+  }
+
+  .hud-input::placeholder {
+    color: rgba(0, 255, 255, 0.2);
+  }
+
+  .hud-input:focus {
+    border-color: var(--color-accent-cyan);
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.15);
+  }
+
+  .hud-textarea {
+    flex: 1;
+    width: 100%;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.6);
+    color: var(--color-accent-cyan);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    resize: none;
+    outline: none;
+    border: none;
+    box-sizing: border-box;
+  }
+
+  /* ─── Files Layout ────────────────────────── */
+  .hud-files-layout {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .hud-file-sidebar {
+    width: 14rem;
+    border-right: 1px solid rgba(0, 255, 255, 0.15);
+    background: rgba(0, 0, 0, 0.5);
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .hud-file-sidebar-header {
+    padding: 0.75rem;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .hud-file-workspace {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.75rem;
+    font-family: 'Share Tech Mono', monospace;
+    color: rgba(0, 255, 255, 0.2);
+    border-bottom: 1px solid rgba(0, 255, 255, 0.08);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .hud-file-item {
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.15s;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    color: rgba(0, 255, 255, 0.5);
+  }
+
+  .hud-file-item:hover {
+    background: rgba(0, 255, 255, 0.05);
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-file-item.active {
+    background: rgba(0, 255, 255, 0.1);
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-file-icon {
+    font-size: 0.75rem;
+    color: rgba(0, 255, 255, 0.4);
+    flex-shrink: 0;
+  }
+
+  .hud-file-info {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .hud-file-name {
+    font-size: 0.7rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .hud-file-meta {
+    font-size: 0.75rem;
+    color: rgba(0, 255, 255, 0.25);
+  }
+
+  .hud-file-editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .hud-file-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.15);
+    background: rgba(0, 0, 0, 0.4);
+    flex-shrink: 0;
+  }
+
+  .hud-file-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .hud-file-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .hud-file-active-name {
+    font-size: 0.8rem;
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-dirty-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: #f59e0b;
+    box-shadow: 0 0 6px #f59e0b;
+  }
+
+  .hud-file-preview {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: rgba(0, 0, 0, 0.6);
+    overflow: auto;
+  }
+
+  .hud-file-image {
+    max-width: 100%;
+    max-height: calc(100vh - 200px);
+    border-radius: 4px;
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    object-fit: contain;
+  }
+
+  .hud-file-binary {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: rgba(0, 0, 0, 0.6);
+    gap: 0.5rem;
+  }
+
+  .hud-binary-icon {
+    font-size: 1.5rem;
+    color: rgba(0, 255, 255, 0.3);
+  }
+
+  /* ─── Tools Tab ───────────────────────────── */
+  .hud-tool-section {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(0, 255, 255, 0.12);
+    border-radius: 2px;
+    padding: 0.75rem;
+  }
+
+  .hud-tool-section-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: var(--color-accent-cyan);
+    margin-bottom: 0.5rem;
+  }
+
+  .hud-tool-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .hud-tool-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+  }
+
+  .hud-tool-name {
+    font-size: 0.7rem;
+    color: rgba(0, 255, 255, 0.5);
+  }
+
+  .hud-tool-status {
+    font-size: 0.75rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 2px;
+    font-weight: 500;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .hud-status-green {
+    background: rgba(0, 255, 100, 0.12);
+    color: var(--color-accent-green);
+  }
+
+  .hud-status-red {
+    background: rgba(255, 50, 50, 0.12);
+    color: #f87171;
+  }
+
+  .hud-status-muted {
+    background: rgba(0, 255, 255, 0.05);
+    color: rgba(0, 255, 255, 0.3);
+  }
+
+  /* ─── Skills Tab ──────────────────────────── */
+  .hud-skill-card {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(0, 255, 255, 0.12);
+    border-radius: 2px;
+    padding: 0.75rem;
+  }
+
+  .hud-skill-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .hud-skill-name {
+    font-size: 0.8rem;
+    color: var(--color-accent-cyan);
+  }
+
+  /* ─── Channels Tab ────────────────────────── */
+  .hud-channel-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .hud-channel-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.06);
+  }
+
+  .hud-channel-row:last-child {
+    border-bottom: none;
+  }
+
+  .hud-channel-name {
+    font-size: 0.8rem;
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-status-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+  }
+
+  .hud-status-dot.online {
+    background: var(--color-accent-green);
+    box-shadow: 0 0 6px var(--color-accent-green);
+  }
+
+  .hud-status-dot.offline {
+    background: rgba(0, 255, 255, 0.15);
+  }
+
+  /* ─── Cron Tab ────────────────────────────── */
+  .hud-cron-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 0.75rem;
+  }
+
+  .hud-cron-stat {
+    text-align: center;
+  }
+
+  .hud-cron-stat-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-accent-cyan);
+    text-shadow: 0 0 8px var(--color-accent-cyan);
+  }
+
+  .hud-cron-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+
+  .hud-cron-job {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(0, 255, 255, 0.12);
+    border-radius: 2px;
+    padding: 0.75rem;
+  }
+
+  .hud-cron-job-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.4rem;
+  }
+
+  .hud-cron-job-name {
+    font-size: 0.8rem;
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-cron-job-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+</style>

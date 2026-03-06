@@ -3,6 +3,8 @@
   import { untrack } from 'svelte';
   import { getConnection } from '$lib/stores/connection.svelte';
   import { getToasts } from '$lib/stores/toasts.svelte';
+  import MatrixRain from '$lib/components/MatrixRain.svelte';
+  import CRTOverlay from '$lib/components/CRTOverlay.svelte';
 
   const conn = getConnection();
   const toasts = getToasts();
@@ -186,7 +188,7 @@
   }
 
   function formatDuration(ms?: number): string {
-    if (!ms || ms <= 0) return '—';
+    if (!ms || ms <= 0) return '---';
     const seconds = Math.floor(ms / 1000);
     if (seconds < 60) return `${seconds}s`;
     const minutes = Math.floor(seconds / 60);
@@ -204,7 +206,7 @@
     if (raw.startsWith('agent:') && raw.includes('?token=')) {
       return raw.slice(0, raw.indexOf('?token='));
     }
-    return raw.length > 60 ? raw.slice(0, 60) + '…' : raw;
+    return raw.length > 60 ? raw.slice(0, 60) + '...' : raw;
   }
 
   // ─── Data Loading ───────────────────────────
@@ -366,591 +368,1221 @@
   <title>Usage — Cortex</title>
 </svelte:head>
 
-<div class="h-full overflow-y-auto">
-  <div class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+<MatrixRain />
+<CRTOverlay />
 
-    <!-- ═══ Page Header ═══════════════════════════ -->
-    <div class="flex items-center justify-between flex-wrap gap-3">
-      <div>
-        <h1 class="text-2xl font-bold text-text-primary">Usage Analytics</h1>
-        <p class="text-sm text-text-muted mt-1">Track tokens, costs, and session activity across your gateway.</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <!-- Chart mode toggle -->
-        <div class="flex rounded-lg border border-border-default overflow-hidden">
-          <button
-            onclick={() => chartMode = 'tokens'}
-            class="px-3 py-1.5 text-xs font-medium transition-all
-                   {chartMode === 'tokens' ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-text-muted hover:text-text-secondary'}">
-            Tokens
-          </button>
-          <button
-            onclick={() => chartMode = 'cost'}
-            class="px-3 py-1.5 text-xs font-medium transition-all
-                   {chartMode === 'cost' ? 'bg-accent-purple/20 text-accent-purple' : 'text-text-muted hover:text-text-secondary'}">
-            Cost
-          </button>
-        </div>
-        <button onclick={() => loadUsage()} disabled={loading || conn.state.status !== 'connected'}
-          class="px-3 py-2 rounded-lg text-sm border border-border-default hover:border-accent-cyan
-                 text-text-secondary hover:text-accent-cyan transition-all disabled:opacity-50">
-          {#if loading}
-            <svg class="w-4 h-4 animate-spin inline mr-1" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-          {/if}
-          Refresh
+<div class="hud-page">
+  <!-- ═══ Top Bar ═══════════════════════════════ -->
+  <div class="hud-page-topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <a href="/overview" class="hud-back">&#9666; BACK</a>
+      <h1 class="hud-page-title">USAGE STATS</h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <!-- Chart mode toggle -->
+      <div class="hud-toggle-group">
+        <button
+          onclick={() => chartMode = 'tokens'}
+          class="hud-toggle-btn {chartMode === 'tokens' ? 'active cyan' : ''}">
+          TOKENS
+        </button>
+        <button
+          onclick={() => chartMode = 'cost'}
+          class="hud-toggle-btn {chartMode === 'cost' ? 'active purple' : ''}">
+          COST
         </button>
       </div>
+      <button onclick={() => loadUsage()} disabled={loading || conn.state.status !== 'connected'}
+        class="hud-btn">
+        {#if loading}
+          <span class="hud-spinner"></span>
+        {/if}
+        REFRESH
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ Date Range Picker ═════════════════════ -->
+  <div class="hud-panel">
+    <div class="hud-range-row">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="hud-panel-lbl">RANGE</span>
+        <input
+          type="date"
+          bind:value={startDate}
+          class="hud-input"
+        />
+        <span class="hud-sep">to</span>
+        <input
+          type="date"
+          bind:value={endDate}
+          class="hud-input"
+        />
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button onclick={() => applyPreset(1)} class="hud-btn sm">TODAY</button>
+        <button onclick={() => applyPreset(7)} class="hud-btn sm">7D</button>
+        <button onclick={() => applyPreset(30)} class="hud-btn sm">30D</button>
+        <button onclick={() => applyPreset(90)} class="hud-btn sm">90D</button>
+      </div>
+      {#if sessions.length > 0}
+        <span class="hud-meta" style="margin-left:auto;">
+          {sessions.length} session{sessions.length !== 1 ? 's' : ''} in range
+          {#if sessions.length >= 1000}
+            <span class="hud-warn">(LIMIT)</span>
+          {/if}
+        </span>
+      {/if}
+    </div>
+  </div>
+
+  <!-- ═══ Error Banner ══════════════════════════ -->
+  {#if error}
+    <div class="hud-panel error">
+      <span class="hud-panel-lbl">ERROR</span>
+      <p class="hud-error-text">{error}</p>
+    </div>
+  {/if}
+
+  <!-- ═══ Not Connected ═════════════════════════ -->
+  {#if conn.state.status !== 'connected'}
+    <div class="hud-empty">
+      <div class="hud-empty-icon">&#9889;</div>
+      <p>CONNECT TO GATEWAY TO VIEW USAGE ANALYTICS</p>
     </div>
 
-    <!-- ═══ Date Range Picker ═════════════════════ -->
-    <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-4">
-      <div class="flex items-center flex-wrap gap-3">
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-text-muted uppercase tracking-wider font-medium">Range</span>
-          <input
-            type="date"
-            bind:value={startDate}
-            class="px-3 py-1.5 rounded-lg border border-border-default bg-bg-tertiary text-sm
-                   text-text-primary focus:outline-none focus:border-accent-cyan transition-all"
-          />
-          <span class="text-text-muted text-sm">to</span>
-          <input
-            type="date"
-            bind:value={endDate}
-            class="px-3 py-1.5 rounded-lg border border-border-default bg-bg-tertiary text-sm
-                   text-text-primary focus:outline-none focus:border-accent-cyan transition-all"
-          />
+  <!-- ═══ Loading skeleton ══════════════════════ -->
+  {:else if loading && !totals}
+    <div class="hud-grid-4">
+      {#each Array(4) as _}
+        <div class="hud-panel skeleton">
+          <div class="hud-skel-line short"></div>
+          <div class="hud-skel-line wide"></div>
+          <div class="hud-skel-line med"></div>
         </div>
-        <div class="flex items-center gap-1.5">
-          <button onclick={() => applyPreset(1)}
-            class="px-2.5 py-1 rounded-md text-xs border border-border-default text-text-muted
-                   hover:border-accent-cyan hover:text-accent-cyan transition-all">
-            Today
-          </button>
-          <button onclick={() => applyPreset(7)}
-            class="px-2.5 py-1 rounded-md text-xs border border-border-default text-text-muted
-                   hover:border-accent-cyan hover:text-accent-cyan transition-all">
-            7d
-          </button>
-          <button onclick={() => applyPreset(30)}
-            class="px-2.5 py-1 rounded-md text-xs border border-border-default text-text-muted
-                   hover:border-accent-cyan hover:text-accent-cyan transition-all">
-            30d
-          </button>
-          <button onclick={() => applyPreset(90)}
-            class="px-2.5 py-1 rounded-md text-xs border border-border-default text-text-muted
-                   hover:border-accent-cyan hover:text-accent-cyan transition-all">
-            90d
-          </button>
+      {/each}
+    </div>
+
+  <!-- ═══ Main Content ══════════════════════════ -->
+  {:else if totals}
+
+    <!-- ─── Overview Stats Cards ─────────────── -->
+    <div class="hud-grid-4">
+      <!-- Total Tokens -->
+      <div class="hud-panel glow-cyan">
+        <div class="hud-panel-lbl">TOTAL TOKENS</div>
+        <div class="hud-stat cyan">{formatTokens(totals.totalTokens)}</div>
+        <div class="hud-meta">
+          {formatTokens(totals.input)} in // {formatTokens(totals.output)} out
         </div>
-        {#if sessions.length > 0}
-          <span class="text-xs text-text-muted ml-auto">
-            {sessions.length} session{sessions.length !== 1 ? 's' : ''} in range
-            {#if sessions.length >= 1000}
-              <span class="text-accent-amber ml-1">(limit reached)</span>
-            {/if}
+      </div>
+
+      <!-- Total Cost -->
+      <div class="hud-panel glow-purple">
+        <div class="hud-panel-lbl">TOTAL COST</div>
+        <div class="hud-stat purple">{formatCost(totals.totalCost)}</div>
+        <div class="hud-meta">
+          {costSummary?.currency ?? 'USD'} // {formatCost(totals.totalCost / Math.max(sessions.length, 1), 3)} avg/session
+        </div>
+      </div>
+
+      <!-- Sessions -->
+      <div class="hud-panel">
+        <div class="hud-panel-lbl">SESSIONS</div>
+        <div class="hud-stat green">{sessions.length}</div>
+        <div class="hud-meta">
+          {#if aggregates}
+            {aggregates.messages.total} msgs // {aggregates.messages.errors} errors
+          {:else}
+            In selected range
+          {/if}
+        </div>
+      </div>
+
+      <!-- Cache Hit Rate -->
+      <div class="hud-panel">
+        <div class="hud-panel-lbl">CACHE HIT RATE</div>
+        <div class="hud-stat {cacheHitRate > 0.6 ? 'green' : cacheHitRate > 0.3 ? 'amber' : 'pink'}">
+          {cacheHitRate > 0 ? `${(cacheHitRate * 100).toFixed(1)}%` : '---'}
+        </div>
+        <div class="hud-meta">
+          {formatTokens(totals.cacheRead)} cached // {formatTokens(totals.input)} uncached
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Secondary Stats ──────────────────── -->
+    {#if aggregates}
+      <div class="hud-grid-6">
+        <div class="hud-panel compact">
+          <div class="hud-stat-sm">{aggregates.messages.total}</div>
+          <div class="hud-panel-lbl">MESSAGES</div>
+        </div>
+        <div class="hud-panel compact">
+          <div class="hud-stat-sm">{aggregates.messages.user}</div>
+          <div class="hud-panel-lbl">USER MSGS</div>
+        </div>
+        <div class="hud-panel compact">
+          <div class="hud-stat-sm">{aggregates.messages.assistant}</div>
+          <div class="hud-panel-lbl">ASSISTANT MSGS</div>
+        </div>
+        <div class="hud-panel compact">
+          <div class="hud-stat-sm">{aggregates.tools.totalCalls}</div>
+          <div class="hud-panel-lbl">TOOL CALLS</div>
+        </div>
+        <div class="hud-panel compact">
+          <div class="hud-stat-sm">{aggregates.tools.uniqueTools}</div>
+          <div class="hud-panel-lbl">UNIQUE TOOLS</div>
+        </div>
+        <div class="hud-panel compact">
+          <div class="hud-stat-sm {aggregates.messages.errors > 0 ? 'pink' : ''}">{aggregates.messages.errors}</div>
+          <div class="hud-panel-lbl">ERRORS</div>
+        </div>
+      </div>
+    {/if}
+
+    <!-- ─── Cost Breakdown Bar ───────────────── -->
+    {#if costBreakdown && totals.totalCost > 0}
+      <div class="hud-panel">
+        <div class="hud-panel-lbl" style="margin-bottom:10px;">
+          {chartMode === 'tokens' ? 'TOKEN' : 'COST'} BREAKDOWN
+        </div>
+        <!-- Stacked bar -->
+        <div class="hud-bar-stack">
+          {#if chartMode === 'tokens'}
+            <div class="hud-bar-seg pink" style="width: {pct(totals.output, totals.totalTokens)}%"
+              title="Output: {formatTokens(totals.output)}"></div>
+            <div class="hud-bar-seg cyan" style="width: {pct(totals.input, totals.totalTokens)}%"
+              title="Input: {formatTokens(totals.input)}"></div>
+            <div class="hud-bar-seg purple" style="width: {pct(totals.cacheWrite, totals.totalTokens)}%"
+              title="Cache Write: {formatTokens(totals.cacheWrite)}"></div>
+            <div class="hud-bar-seg green" style="width: {pct(totals.cacheRead, totals.totalTokens)}%"
+              title="Cache Read: {formatTokens(totals.cacheRead)}"></div>
+          {:else}
+            <div class="hud-bar-seg pink" style="width: {costBreakdown.output.pct}%"
+              title="Output: {formatCost(costBreakdown.output.cost)}"></div>
+            <div class="hud-bar-seg cyan" style="width: {costBreakdown.input.pct}%"
+              title="Input: {formatCost(costBreakdown.input.cost)}"></div>
+            <div class="hud-bar-seg purple" style="width: {costBreakdown.cacheWrite.pct}%"
+              title="Cache Write: {formatCost(costBreakdown.cacheWrite.cost)}"></div>
+            <div class="hud-bar-seg green" style="width: {costBreakdown.cacheRead.pct}%"
+              title="Cache Read: {formatCost(costBreakdown.cacheRead.cost)}"></div>
+          {/if}
+        </div>
+        <!-- Legend -->
+        <div class="hud-legend">
+          <span class="hud-legend-item">
+            <span class="hud-legend-dot pink"></span>
+            <span class="hud-meta">Output</span>
+            <span class="hud-legend-val">
+              {chartMode === 'tokens' ? formatTokens(totals.output) : formatCost(costBreakdown.output.cost)}
+            </span>
           </span>
+          <span class="hud-legend-item">
+            <span class="hud-legend-dot cyan"></span>
+            <span class="hud-meta">Input</span>
+            <span class="hud-legend-val">
+              {chartMode === 'tokens' ? formatTokens(totals.input) : formatCost(costBreakdown.input.cost)}
+            </span>
+          </span>
+          <span class="hud-legend-item">
+            <span class="hud-legend-dot purple"></span>
+            <span class="hud-meta">Cache Write</span>
+            <span class="hud-legend-val">
+              {chartMode === 'tokens' ? formatTokens(totals.cacheWrite) : formatCost(costBreakdown.cacheWrite.cost)}
+            </span>
+          </span>
+          <span class="hud-legend-item">
+            <span class="hud-legend-dot green"></span>
+            <span class="hud-meta">Cache Read</span>
+            <span class="hud-legend-val">
+              {chartMode === 'tokens' ? formatTokens(totals.cacheRead) : formatCost(costBreakdown.cacheRead.cost)}
+            </span>
+          </span>
+        </div>
+      </div>
+    {/if}
+
+    <!-- ─── Daily Chart + Model Breakdown Grid ── -->
+    <div class="hud-grid-3-2">
+
+      <!-- Daily Usage Chart -->
+      <div class="hud-panel span-2">
+        <div class="hud-panel-lbl" style="margin-bottom:10px;">
+          DAILY {chartMode === 'tokens' ? 'TOKEN' : 'COST'} USAGE
+        </div>
+        {#if daily.length > 0}
+          <div class="hud-chart-bars">
+            {#each daily as day}
+              {@const value = chartMode === 'tokens' ? day.totalTokens : day.totalCost}
+              {@const heightPct = Math.max((value / dailyMax) * 100, 1)}
+              {@const dayLabel = new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              <div class="hud-chart-col group">
+                <div
+                  class="hud-chart-bar"
+                  style="height: {heightPct}%"
+                  title="{dayLabel}: {chartMode === 'tokens' ? formatTokens(value) : formatCost(value)}"
+                ></div>
+                <!-- Tooltip -->
+                <div class="hud-chart-tooltip">
+                  <div class="hud-tooltip-title">{dayLabel}</div>
+                  <div class="hud-meta">{formatTokens(day.totalTokens)} tokens</div>
+                  <div class="hud-meta">{formatCost(day.totalCost)}</div>
+                </div>
+              </div>
+            {/each}
+          </div>
+          <!-- X-axis labels -->
+          {#if daily.length >= 2}
+            <div class="hud-chart-axis">
+              <span>{new Date(daily[0].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+              {#if daily.length > 2}
+                <span>{new Date(daily[Math.floor(daily.length / 2)].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+              {/if}
+              <span>{new Date(daily[daily.length - 1].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            </div>
+          {/if}
+        {:else}
+          <div class="hud-empty-inline">NO DAILY DATA</div>
+        {/if}
+      </div>
+
+      <!-- Model Breakdown -->
+      <div class="hud-panel">
+        <div class="hud-panel-lbl" style="margin-bottom:10px;">TOP MODELS</div>
+        {#if topModels.length > 0}
+          <div class="hud-model-list">
+            {#each topModels as model}
+              {@const maxCost = topModels[0]?.cost || 1}
+              {@const barWidth = pct(model.cost, maxCost)}
+              <div class="hud-model-item">
+                <div class="hud-model-header">
+                  <span class="hud-mono">{model.name}</span>
+                  <span class="hud-meta">{formatCost(model.cost)}</span>
+                </div>
+                <div class="hud-progress-track">
+                  <div class="hud-progress-fill" style="width: {barWidth}%"></div>
+                </div>
+                <div class="hud-meta" style="font-size:0.6rem;margin-top:2px;">
+                  {formatTokens(model.tokens)} tokens // {model.count} msgs
+                </div>
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <div class="hud-empty-inline">NO MODEL DATA</div>
+        {/if}
+
+        <!-- Top Providers (compact) -->
+        {#if topProviders.length > 0}
+          <div class="hud-panel-lbl" style="margin-top:16px;margin-bottom:8px;">TOP PROVIDERS</div>
+          <div class="hud-provider-list">
+            {#each topProviders as provider}
+              <div class="hud-provider-row">
+                <span class="hud-mono">{provider.name}</span>
+                <span class="hud-meta">{formatCost(provider.cost)} // {formatTokens(provider.tokens)}</span>
+              </div>
+            {/each}
+          </div>
         {/if}
       </div>
     </div>
 
-    <!-- ═══ Error Banner ══════════════════════════ -->
-    {#if error}
-      <div class="rounded-xl border border-status-error/30 bg-status-error/10 p-4">
-        <p class="text-sm text-status-error">{error}</p>
-      </div>
-    {/if}
-
-    <!-- ═══ Not Connected ═════════════════════════ -->
-    {#if conn.state.status !== 'connected'}
-      <div class="text-center py-16">
-        <div class="w-16 h-16 rounded-2xl bg-bg-tertiary border border-border-default flex items-center justify-center mx-auto mb-4">
-          <svg class="w-8 h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-        </div>
-        <p class="text-text-muted text-sm">Connect to the gateway to view usage analytics.</p>
-      </div>
-
-    <!-- ═══ Loading skeleton ══════════════════════ -->
-    {:else if loading && !totals}
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {#each Array(4) as _}
-          <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-4 animate-pulse">
-            <div class="h-3 w-16 bg-bg-tertiary rounded mb-3"></div>
-            <div class="h-7 w-24 bg-bg-tertiary rounded mb-2"></div>
-            <div class="h-3 w-32 bg-bg-tertiary rounded"></div>
-          </div>
-        {/each}
-      </div>
-
-    <!-- ═══ Main Content ══════════════════════════ -->
-    {:else if totals}
-
-      <!-- ─── Overview Stats Cards ─────────────── -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- Total Tokens -->
-        <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-4 glow-cyan">
-          <div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">Total Tokens</div>
-          <div class="text-2xl font-bold text-accent-cyan">{formatTokens(totals.totalTokens)}</div>
-          <div class="text-xs text-text-muted mt-1">
-            {formatTokens(totals.input)} in · {formatTokens(totals.output)} out
-          </div>
-        </div>
-
-        <!-- Total Cost -->
-        <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-4 glow-purple">
-          <div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">Total Cost</div>
-          <div class="text-2xl font-bold text-accent-purple">{formatCost(totals.totalCost)}</div>
-          <div class="text-xs text-text-muted mt-1">
-            {costSummary?.currency ?? 'USD'} · {formatCost(totals.totalCost / Math.max(sessions.length, 1), 3)} avg/session
-          </div>
-        </div>
-
-        <!-- Sessions -->
-        <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-4">
-          <div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">Sessions</div>
-          <div class="text-2xl font-bold text-accent-green">{sessions.length}</div>
-          <div class="text-xs text-text-muted mt-1">
-            {#if aggregates}
-              {aggregates.messages.total} messages · {aggregates.messages.errors} errors
-            {:else}
-              In selected range
-            {/if}
-          </div>
-        </div>
-
-        <!-- Cache Hit Rate -->
-        <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-4">
-          <div class="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">Cache Hit Rate</div>
-          <div class="text-2xl font-bold {cacheHitRate > 0.6 ? 'text-accent-green' : cacheHitRate > 0.3 ? 'text-accent-amber' : 'text-accent-pink'}">
-            {cacheHitRate > 0 ? `${(cacheHitRate * 100).toFixed(1)}%` : '—'}
-          </div>
-          <div class="text-xs text-text-muted mt-1">
-            {formatTokens(totals.cacheRead)} cached · {formatTokens(totals.input)} uncached
-          </div>
+    <!-- ─── Sessions List ────────────────────── -->
+    <div class="hud-panel">
+      <div class="hud-panel-header">
+        <div class="hud-panel-lbl">SESSIONS</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <select bind:value={sortBy} class="hud-select">
+            <option value="tokens">SORT: TOKENS</option>
+            <option value="cost">SORT: COST</option>
+            <option value="recent">SORT: RECENT</option>
+          </select>
+          <span class="hud-meta">{sessions.length} total</span>
         </div>
       </div>
 
-      <!-- ─── Secondary Stats ──────────────────── -->
-      {#if aggregates}
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          <div class="rounded-lg border border-border-default bg-bg-secondary/50 p-3 text-center">
-            <div class="text-lg font-bold text-text-primary">{aggregates.messages.total}</div>
-            <div class="text-xs text-text-muted">Messages</div>
-          </div>
-          <div class="rounded-lg border border-border-default bg-bg-secondary/50 p-3 text-center">
-            <div class="text-lg font-bold text-text-primary">{aggregates.messages.user}</div>
-            <div class="text-xs text-text-muted">User Msgs</div>
-          </div>
-          <div class="rounded-lg border border-border-default bg-bg-secondary/50 p-3 text-center">
-            <div class="text-lg font-bold text-text-primary">{aggregates.messages.assistant}</div>
-            <div class="text-xs text-text-muted">Assistant Msgs</div>
-          </div>
-          <div class="rounded-lg border border-border-default bg-bg-secondary/50 p-3 text-center">
-            <div class="text-lg font-bold text-text-primary">{aggregates.tools.totalCalls}</div>
-            <div class="text-xs text-text-muted">Tool Calls</div>
-          </div>
-          <div class="rounded-lg border border-border-default bg-bg-secondary/50 p-3 text-center">
-            <div class="text-lg font-bold text-text-primary">{aggregates.tools.uniqueTools}</div>
-            <div class="text-xs text-text-muted">Unique Tools</div>
-          </div>
-          <div class="rounded-lg border border-border-default bg-bg-secondary/50 p-3 text-center">
-            <div class="text-lg font-bold {aggregates.messages.errors > 0 ? 'text-accent-pink' : 'text-text-primary'}">{aggregates.messages.errors}</div>
-            <div class="text-xs text-text-muted">Errors</div>
-          </div>
-        </div>
-      {/if}
+      {#if sortedSessions.length === 0}
+        <div class="hud-empty-inline" style="padding:24px 0;">NO SESSIONS IN THIS DATE RANGE</div>
+      {:else}
+        <div class="hud-session-list">
+          {#each sortedSessions.slice(0, 50) as session (session.key)}
+            {@const isSelected = selectedSessionKey === session.key}
+            {@const usage = session.usage}
+            {@const value = chartMode === 'tokens' ? (usage?.totalTokens ?? 0) : (usage?.totalCost ?? 0)}
+            {@const maxVal = chartMode === 'tokens'
+              ? (sortedSessions[0]?.usage?.totalTokens ?? 1)
+              : (sortedSessions[0]?.usage?.totalCost ?? 1)}
+            {@const barPct = pct(value, maxVal)}
 
-      <!-- ─── Cost Breakdown Bar ───────────────── -->
-      {#if costBreakdown && totals.totalCost > 0}
-        <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-4">
-          <h3 class="text-sm font-semibold text-text-primary mb-3">
-            {chartMode === 'tokens' ? 'Token' : 'Cost'} Breakdown
-          </h3>
-          <!-- Stacked bar -->
-          <div class="h-4 rounded-full overflow-hidden flex bg-bg-tertiary mb-3">
-            {#if chartMode === 'tokens'}
-              <div class="bg-accent-pink/80 transition-all" style="width: {pct(totals.output, totals.totalTokens)}%"
-                title="Output: {formatTokens(totals.output)}"></div>
-              <div class="bg-accent-cyan/80 transition-all" style="width: {pct(totals.input, totals.totalTokens)}%"
-                title="Input: {formatTokens(totals.input)}"></div>
-              <div class="bg-accent-purple/80 transition-all" style="width: {pct(totals.cacheWrite, totals.totalTokens)}%"
-                title="Cache Write: {formatTokens(totals.cacheWrite)}"></div>
-              <div class="bg-accent-green/80 transition-all" style="width: {pct(totals.cacheRead, totals.totalTokens)}%"
-                title="Cache Read: {formatTokens(totals.cacheRead)}"></div>
-            {:else}
-              <div class="bg-accent-pink/80 transition-all" style="width: {costBreakdown.output.pct}%"
-                title="Output: {formatCost(costBreakdown.output.cost)}"></div>
-              <div class="bg-accent-cyan/80 transition-all" style="width: {costBreakdown.input.pct}%"
-                title="Input: {formatCost(costBreakdown.input.cost)}"></div>
-              <div class="bg-accent-purple/80 transition-all" style="width: {costBreakdown.cacheWrite.pct}%"
-                title="Cache Write: {formatCost(costBreakdown.cacheWrite.cost)}"></div>
-              <div class="bg-accent-green/80 transition-all" style="width: {costBreakdown.cacheRead.pct}%"
-                title="Cache Read: {formatCost(costBreakdown.cacheRead.cost)}"></div>
-            {/if}
-          </div>
-          <!-- Legend -->
-          <div class="flex flex-wrap gap-x-5 gap-y-1 text-xs">
-            <span class="flex items-center gap-1.5">
-              <span class="w-2.5 h-2.5 rounded-sm bg-accent-pink/80"></span>
-              <span class="text-text-muted">Output</span>
-              <span class="text-text-secondary font-medium">
-                {chartMode === 'tokens' ? formatTokens(totals.output) : formatCost(costBreakdown.output.cost)}
-              </span>
-            </span>
-            <span class="flex items-center gap-1.5">
-              <span class="w-2.5 h-2.5 rounded-sm bg-accent-cyan/80"></span>
-              <span class="text-text-muted">Input</span>
-              <span class="text-text-secondary font-medium">
-                {chartMode === 'tokens' ? formatTokens(totals.input) : formatCost(costBreakdown.input.cost)}
-              </span>
-            </span>
-            <span class="flex items-center gap-1.5">
-              <span class="w-2.5 h-2.5 rounded-sm bg-accent-purple/80"></span>
-              <span class="text-text-muted">Cache Write</span>
-              <span class="text-text-secondary font-medium">
-                {chartMode === 'tokens' ? formatTokens(totals.cacheWrite) : formatCost(costBreakdown.cacheWrite.cost)}
-              </span>
-            </span>
-            <span class="flex items-center gap-1.5">
-              <span class="w-2.5 h-2.5 rounded-sm bg-accent-green/80"></span>
-              <span class="text-text-muted">Cache Read</span>
-              <span class="text-text-secondary font-medium">
-                {chartMode === 'tokens' ? formatTokens(totals.cacheRead) : formatCost(costBreakdown.cacheRead.cost)}
-              </span>
-            </span>
-          </div>
-        </div>
-      {/if}
-
-      <!-- ─── Daily Chart + Model Breakdown Grid ── -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-        <!-- Daily Usage Chart -->
-        <div class="lg:col-span-2 rounded-xl border border-border-default bg-bg-secondary/50 p-4">
-          <h3 class="text-sm font-semibold text-text-primary mb-3">
-            Daily {chartMode === 'tokens' ? 'Token' : 'Cost'} Usage
-          </h3>
-          {#if daily.length > 0}
-            <div class="flex items-end gap-px h-36">
-              {#each daily as day}
-                {@const value = chartMode === 'tokens' ? day.totalTokens : day.totalCost}
-                {@const heightPct = Math.max((value / dailyMax) * 100, 1)}
-                {@const dayLabel = new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                <div class="flex-1 flex flex-col items-center group relative min-w-0">
-                  <div
-                    class="w-full rounded-t transition-all bg-accent-cyan/60 hover:bg-accent-cyan/90 cursor-default"
-                    style="height: {heightPct}%"
-                    title="{dayLabel}: {chartMode === 'tokens' ? formatTokens(value) : formatCost(value)}"
-                  ></div>
-                  <!-- Tooltip -->
-                  <div class="absolute bottom-full mb-2 hidden group-hover:block z-10">
-                    <div class="glass rounded-lg px-3 py-2 text-xs whitespace-nowrap shadow-lg border border-border-default">
-                      <div class="font-medium text-text-primary">{dayLabel}</div>
-                      <div class="text-text-secondary">{formatTokens(day.totalTokens)} tokens</div>
-                      <div class="text-text-secondary">{formatCost(day.totalCost)}</div>
-                    </div>
-                  </div>
-                </div>
-              {/each}
-            </div>
-            <!-- X-axis labels (first, mid, last) -->
-            {#if daily.length >= 2}
-              <div class="flex justify-between mt-1.5 text-[10px] text-text-muted px-1">
-                <span>{new Date(daily[0].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                {#if daily.length > 2}
-                  <span>{new Date(daily[Math.floor(daily.length / 2)].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                {/if}
-                <span>{new Date(daily[daily.length - 1].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-              </div>
-            {/if}
-          {:else}
-            <div class="h-36 flex items-center justify-center text-text-muted text-sm">No daily data</div>
-          {/if}
-        </div>
-
-        <!-- Model Breakdown -->
-        <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-4">
-          <h3 class="text-sm font-semibold text-text-primary mb-3">Top Models</h3>
-          {#if topModels.length > 0}
-            <div class="space-y-3">
-              {#each topModels as model}
-                {@const maxCost = topModels[0]?.cost || 1}
-                {@const barWidth = pct(model.cost, maxCost)}
-                <div>
-                  <div class="flex justify-between text-xs mb-1">
-                    <span class="text-text-secondary truncate mr-2 font-mono">{model.name}</span>
-                    <span class="text-text-muted whitespace-nowrap">{formatCost(model.cost)}</span>
-                  </div>
-                  <div class="h-1.5 rounded-full bg-bg-tertiary overflow-hidden">
-                    <div class="h-full rounded-full bg-gradient-to-r from-accent-cyan to-accent-purple transition-all"
-                      style="width: {barWidth}%"></div>
-                  </div>
-                  <div class="text-[10px] text-text-muted mt-0.5">
-                    {formatTokens(model.tokens)} tokens · {model.count} msgs
-                  </div>
-                </div>
-              {/each}
-            </div>
-          {:else}
-            <div class="flex items-center justify-center h-24 text-text-muted text-sm">No model data</div>
-          {/if}
-
-          <!-- Top Providers (compact) -->
-          {#if topProviders.length > 0}
-            <h3 class="text-sm font-semibold text-text-primary mt-5 mb-2">Top Providers</h3>
-            <div class="space-y-1.5">
-              {#each topProviders as provider}
-                <div class="flex justify-between text-xs">
-                  <span class="text-text-secondary font-mono">{provider.name}</span>
-                  <span class="text-text-muted">{formatCost(provider.cost)} · {formatTokens(provider.tokens)}</span>
-                </div>
-              {/each}
-            </div>
-          {/if}
-        </div>
-      </div>
-
-      <!-- ─── Sessions List ────────────────────── -->
-      <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-4">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-semibold text-text-primary">Sessions</h3>
-          <div class="flex items-center gap-2">
-            <select bind:value={sortBy}
-              class="px-2 py-1 text-xs rounded-lg border border-border-default bg-bg-tertiary text-text-secondary">
-              <option value="tokens">Sort: Tokens</option>
-              <option value="cost">Sort: Cost</option>
-              <option value="recent">Sort: Recent</option>
-            </select>
-            <span class="text-xs text-text-muted">{sessions.length} total</span>
-          </div>
-        </div>
-
-        {#if sortedSessions.length === 0}
-          <div class="text-center py-8 text-text-muted text-sm">No sessions in this date range.</div>
-        {:else}
-          <div class="space-y-1">
-            {#each sortedSessions.slice(0, 50) as session (session.key)}
-              {@const isSelected = selectedSessionKey === session.key}
-              {@const usage = session.usage}
-              {@const value = chartMode === 'tokens' ? (usage?.totalTokens ?? 0) : (usage?.totalCost ?? 0)}
-              {@const maxVal = chartMode === 'tokens'
-                ? (sortedSessions[0]?.usage?.totalTokens ?? 1)
-                : (sortedSessions[0]?.usage?.totalCost ?? 1)}
-              {@const barPct = pct(value, maxVal)}
-
-              <button
-                onclick={() => selectSession(session.key)}
-                class="w-full text-left rounded-lg p-3 transition-all border
-                       {isSelected
-                         ? 'border-accent-cyan/50 bg-accent-cyan/5 glow-cyan'
-                         : 'border-transparent hover:bg-bg-hover'}">
-                <div class="flex items-start gap-3">
-                  <!-- Session info -->
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 mb-0.5">
-                      <span class="text-sm font-medium text-text-primary truncate">{sessionLabel(session)}</span>
-                      {#if session.channel}
-                        <span class="px-1.5 py-0.5 rounded text-[10px] bg-bg-tertiary text-text-muted flex-shrink-0">{session.channel}</span>
-                      {/if}
-                      {#if session.model}
-                        <span class="px-1.5 py-0.5 rounded text-[10px] bg-accent-purple/10 text-purple-300 flex-shrink-0 truncate max-w-32">{session.model}</span>
-                      {/if}
-                    </div>
-                    <!-- Usage bar -->
-                    <div class="h-1 rounded-full bg-bg-tertiary overflow-hidden mt-1.5 mb-1">
-                      <div class="h-full rounded-full transition-all {chartMode === 'tokens' ? 'bg-accent-cyan/60' : 'bg-accent-purple/60'}"
-                        style="width: {barPct}%"></div>
-                    </div>
-                    <div class="flex items-center gap-3 text-[11px] text-text-muted">
-                      {#if usage}
-                        <span>{formatTokens(usage.totalTokens)} tokens</span>
-                        <span>{formatCost(usage.totalCost)}</span>
-                        {#if usage.messageCounts}
-                          <span>{usage.messageCounts.total} msgs</span>
-                        {/if}
-                        {#if usage.messageCounts?.errors}
-                          <span class="text-accent-pink">{usage.messageCounts.errors} errors</span>
-                        {/if}
-                      {/if}
-                      <span class="ml-auto">{formatTime(session.updatedAt)}</span>
-                    </div>
-                  </div>
-                  <!-- Expand chevron -->
-                  <svg class="w-4 h-4 text-text-muted flex-shrink-0 mt-1 transition-transform {isSelected ? 'rotate-180' : ''}"
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-
-                <!-- ═══ Expanded Session Detail ═══ -->
-                {#if isSelected}
-                  <div class="mt-3 pt-3 border-t border-border-default" onclick={(e) => e.stopPropagation()}>
-                    {#if detailLoading}
-                      <div class="flex items-center gap-2 text-sm text-text-muted py-4">
-                        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                        </svg>
-                        Loading session details...
-                      </div>
-                    {:else}
-                      <!-- Session Summary Cards -->
-                      {#if usage}
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                          <div class="rounded-lg bg-bg-tertiary/50 p-2.5">
-                            <div class="text-[10px] text-text-muted uppercase">Input</div>
-                            <div class="text-sm font-bold text-accent-cyan">{formatTokens(usage.input)}</div>
-                            {#if usage.inputCost}<div class="text-[10px] text-text-muted">{formatCost(usage.inputCost, 4)}</div>{/if}
-                          </div>
-                          <div class="rounded-lg bg-bg-tertiary/50 p-2.5">
-                            <div class="text-[10px] text-text-muted uppercase">Output</div>
-                            <div class="text-sm font-bold text-accent-pink">{formatTokens(usage.output)}</div>
-                            {#if usage.outputCost}<div class="text-[10px] text-text-muted">{formatCost(usage.outputCost, 4)}</div>{/if}
-                          </div>
-                          <div class="rounded-lg bg-bg-tertiary/50 p-2.5">
-                            <div class="text-[10px] text-text-muted uppercase">Duration</div>
-                            <div class="text-sm font-bold text-text-primary">{formatDuration(usage.durationMs)}</div>
-                            {#if usage.messageCounts}<div class="text-[10px] text-text-muted">{usage.messageCounts.total} messages</div>{/if}
-                          </div>
-                          <div class="rounded-lg bg-bg-tertiary/50 p-2.5">
-                            <div class="text-[10px] text-text-muted uppercase">Tools</div>
-                            <div class="text-sm font-bold text-text-primary">{usage.toolUsage?.totalCalls ?? 0}</div>
-                            <div class="text-[10px] text-text-muted">{usage.toolUsage?.uniqueTools ?? 0} unique</div>
-                          </div>
-                        </div>
-                      {/if}
-
-                      <!-- Metadata badges -->
-                      <div class="flex flex-wrap gap-1.5 mb-3">
-                        {#if session.agentId}
-                          <span class="px-2 py-0.5 rounded text-[10px] bg-accent-cyan/10 text-accent-cyan">agent:{session.agentId}</span>
-                        {/if}
-                        {#if session.modelProvider || session.providerOverride}
-                          <span class="px-2 py-0.5 rounded text-[10px] bg-accent-purple/10 text-accent-purple">
-                            provider:{session.modelProvider ?? session.providerOverride}
-                          </span>
-                        {/if}
-                        {#if session.model}
-                          <span class="px-2 py-0.5 rounded text-[10px] bg-accent-amber/10 text-accent-amber">model:{session.model}</span>
-                        {/if}
-                        <span class="px-2 py-0.5 rounded text-[10px] bg-bg-tertiary text-text-muted font-mono truncate max-w-80">{session.key}</span>
-                      </div>
-
-                      <!-- Model usage in this session -->
-                      {#if usage?.modelUsage && usage.modelUsage.length > 0}
-                        <div class="mb-3">
-                          <h4 class="text-xs font-medium text-text-muted mb-1.5">Model Mix</h4>
-                          <div class="flex flex-wrap gap-2">
-                            {#each usage.modelUsage.slice(0, 6) as mu}
-                              <div class="rounded-lg bg-bg-tertiary/50 px-2.5 py-1.5 text-xs">
-                                <span class="text-text-secondary font-mono">{mu.model ?? 'unknown'}</span>
-                                <span class="text-text-muted ml-1.5">{formatCost(mu.totals.totalCost)} · {formatTokens(mu.totals.totalTokens)}</span>
-                              </div>
-                            {/each}
-                          </div>
-                        </div>
-                      {/if}
-
-                      <!-- Top tools in this session -->
-                      {#if usage?.toolUsage?.tools && usage.toolUsage.tools.length > 0}
-                        <div class="mb-3">
-                          <h4 class="text-xs font-medium text-text-muted mb-1.5">Top Tools</h4>
-                          <div class="flex flex-wrap gap-1.5">
-                            {#each usage.toolUsage.tools.slice(0, 8) as tool}
-                              <span class="px-2 py-0.5 rounded text-[10px] bg-accent-green/10 text-accent-green">
-                                {tool.name} ×{tool.count}
-                              </span>
-                            {/each}
-                          </div>
-                        </div>
-                      {/if}
-
-                      <!-- Time Series Mini Chart -->
-                      {#if timeSeriesProcessed.length >= 2}
-                        <div class="mb-3">
-                          <h4 class="text-xs font-medium text-text-muted mb-1.5">Usage Over Time</h4>
-                          <div class="flex items-end gap-px h-16">
-                            {#each timeSeriesProcessed as point}
-                              {@const tsMax = Math.max(...timeSeriesProcessed.map(p => p.totalTokens), 1)}
-                              {@const h = Math.max((point.totalTokens / tsMax) * 100, 2)}
-                              <div
-                                class="flex-1 rounded-t bg-accent-cyan/40 hover:bg-accent-cyan/70 transition-all min-w-[1px]"
-                                style="height: {h}%"
-                                title="{new Date(point.timestamp).toLocaleString()}: {formatTokens(point.totalTokens)} tokens"
-                              ></div>
-                            {/each}
-                          </div>
-                          <div class="text-[10px] text-text-muted mt-1">
-                            {timeSeriesProcessed.length} turns ·
-                            {formatTokens(timeSeriesProcessed[timeSeriesProcessed.length - 1]?.cumulativeTokens ?? 0)} total ·
-                            {formatCost(timeSeriesProcessed[timeSeriesProcessed.length - 1]?.cumulativeCost ?? 0)}
-                          </div>
-                        </div>
-                      {/if}
-
-                      <!-- Session Logs Preview -->
-                      {#if sessionLogs && sessionLogs.length > 0}
-                        <div>
-                          <h4 class="text-xs font-medium text-text-muted mb-1.5">
-                            Conversation ({sessionLogs.length} messages)
-                          </h4>
-                          <div class="space-y-1 max-h-48 overflow-y-auto rounded-lg border border-border-default bg-bg-primary/50 p-2">
-                            {#each sessionLogs.slice(0, 30) as log}
-                              {@const isUser = log.role === 'user'}
-                              {@const isAssistant = log.role === 'assistant'}
-                              <div class="flex gap-2 text-xs py-1 {isUser ? '' : ''}">
-                                <span class="font-medium flex-shrink-0 w-14 text-right
-                                  {isUser ? 'text-accent-cyan' : isAssistant ? 'text-accent-purple' : 'text-accent-amber'}">
-                                  {isUser ? 'You' : isAssistant ? 'AI' : 'Tool'}
-                                </span>
-                                <span class="text-text-secondary truncate flex-1">{log.content?.slice(0, 200) ?? ''}</span>
-                                {#if log.tokens}
-                                  <span class="text-text-muted flex-shrink-0">{formatTokens(log.tokens)}</span>
-                                {/if}
-                              </div>
-                            {/each}
-                            {#if sessionLogs.length > 30}
-                              <div class="text-[10px] text-text-muted text-center py-1">
-                                +{sessionLogs.length - 30} more messages
-                              </div>
-                            {/if}
-                          </div>
-                        </div>
-                      {/if}
+            <button
+              onclick={() => selectSession(session.key)}
+              class="hud-session-row {isSelected ? 'selected' : ''}">
+              <div class="hud-session-main">
+                <!-- Session info -->
+                <div class="hud-session-info">
+                  <div class="hud-session-title-row">
+                    <span class="hud-session-name">{sessionLabel(session)}</span>
+                    {#if session.channel}
+                      <span class="hud-tag">{session.channel}</span>
+                    {/if}
+                    {#if session.model}
+                      <span class="hud-tag purple">{session.model}</span>
                     {/if}
                   </div>
-                {/if}
-              </button>
-            {/each}
-
-            {#if sortedSessions.length > 50}
-              <div class="text-center text-xs text-text-muted py-3">
-                Showing 50 of {sortedSessions.length} sessions. Narrow the date range for more detail.
+                  <!-- Usage bar -->
+                  <div class="hud-progress-track" style="margin:6px 0 4px;">
+                    <div class="hud-progress-fill {chartMode === 'tokens' ? '' : 'purple'}"
+                      style="width: {barPct}%"></div>
+                  </div>
+                  <div class="hud-session-meta">
+                    {#if usage}
+                      <span>{formatTokens(usage.totalTokens)} tokens</span>
+                      <span>{formatCost(usage.totalCost)}</span>
+                      {#if usage.messageCounts}
+                        <span>{usage.messageCounts.total} msgs</span>
+                      {/if}
+                      {#if usage.messageCounts?.errors}
+                        <span class="hud-warn">{usage.messageCounts.errors} errors</span>
+                      {/if}
+                    {/if}
+                    <span style="margin-left:auto;">{formatTime(session.updatedAt)}</span>
+                  </div>
+                </div>
+                <!-- Expand chevron -->
+                <span class="hud-chevron {isSelected ? 'open' : ''}">&#9662;</span>
               </div>
-            {/if}
-          </div>
-        {/if}
-      </div>
 
-    <!-- ═══ Empty State ═══════════════════════════ -->
-    {:else if !loading}
-      <div class="text-center py-16">
-        <div class="w-16 h-16 rounded-2xl bg-bg-tertiary border border-border-default flex items-center justify-center mx-auto mb-4">
-          <svg class="w-8 h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
+              <!-- ═══ Expanded Session Detail ═══ -->
+              {#if isSelected}
+                <div class="hud-session-detail" onclick={(e) => e.stopPropagation()}>
+                  {#if detailLoading}
+                    <div class="hud-detail-loading">
+                      <span class="hud-spinner"></span>
+                      LOADING SESSION DETAILS...
+                    </div>
+                  {:else}
+                    <!-- Session Summary Cards -->
+                    {#if usage}
+                      <div class="hud-grid-4 tight">
+                        <div class="hud-panel compact inner">
+                          <div class="hud-panel-lbl">INPUT</div>
+                          <div class="hud-stat-sm cyan">{formatTokens(usage.input)}</div>
+                          {#if usage.inputCost}<div class="hud-meta">{formatCost(usage.inputCost, 4)}</div>{/if}
+                        </div>
+                        <div class="hud-panel compact inner">
+                          <div class="hud-panel-lbl">OUTPUT</div>
+                          <div class="hud-stat-sm pink">{formatTokens(usage.output)}</div>
+                          {#if usage.outputCost}<div class="hud-meta">{formatCost(usage.outputCost, 4)}</div>{/if}
+                        </div>
+                        <div class="hud-panel compact inner">
+                          <div class="hud-panel-lbl">DURATION</div>
+                          <div class="hud-stat-sm">{formatDuration(usage.durationMs)}</div>
+                          {#if usage.messageCounts}<div class="hud-meta">{usage.messageCounts.total} messages</div>{/if}
+                        </div>
+                        <div class="hud-panel compact inner">
+                          <div class="hud-panel-lbl">TOOLS</div>
+                          <div class="hud-stat-sm">{usage.toolUsage?.totalCalls ?? 0}</div>
+                          <div class="hud-meta">{usage.toolUsage?.uniqueTools ?? 0} unique</div>
+                        </div>
+                      </div>
+                    {/if}
+
+                    <!-- Metadata badges -->
+                    <div class="hud-badges">
+                      {#if session.agentId}
+                        <span class="hud-tag cyan">agent:{session.agentId}</span>
+                      {/if}
+                      {#if session.modelProvider || session.providerOverride}
+                        <span class="hud-tag purple">
+                          provider:{session.modelProvider ?? session.providerOverride}
+                        </span>
+                      {/if}
+                      {#if session.model}
+                        <span class="hud-tag amber">model:{session.model}</span>
+                      {/if}
+                      <span class="hud-tag mono">{session.key}</span>
+                    </div>
+
+                    <!-- Model usage in this session -->
+                    {#if usage?.modelUsage && usage.modelUsage.length > 0}
+                      <div class="hud-detail-section">
+                        <div class="hud-panel-lbl">MODEL MIX</div>
+                        <div class="hud-badges" style="margin-top:6px;">
+                          {#each usage.modelUsage.slice(0, 6) as mu}
+                            <div class="hud-tag">
+                              <span class="hud-mono">{mu.model ?? 'unknown'}</span>
+                              <span class="hud-meta" style="margin-left:6px;">{formatCost(mu.totals.totalCost)} // {formatTokens(mu.totals.totalTokens)}</span>
+                            </div>
+                          {/each}
+                        </div>
+                      </div>
+                    {/if}
+
+                    <!-- Top tools in this session -->
+                    {#if usage?.toolUsage?.tools && usage.toolUsage.tools.length > 0}
+                      <div class="hud-detail-section">
+                        <div class="hud-panel-lbl">TOP TOOLS</div>
+                        <div class="hud-badges" style="margin-top:6px;">
+                          {#each usage.toolUsage.tools.slice(0, 8) as tool}
+                            <span class="hud-tag green">
+                              {tool.name} x{tool.count}
+                            </span>
+                          {/each}
+                        </div>
+                      </div>
+                    {/if}
+
+                    <!-- Time Series Mini Chart -->
+                    {#if timeSeriesProcessed.length >= 2}
+                      <div class="hud-detail-section">
+                        <div class="hud-panel-lbl">USAGE OVER TIME</div>
+                        <div class="hud-mini-chart">
+                          {#each timeSeriesProcessed as point}
+                            {@const tsMax = Math.max(...timeSeriesProcessed.map(p => p.totalTokens), 1)}
+                            {@const h = Math.max((point.totalTokens / tsMax) * 100, 2)}
+                            <div
+                              class="hud-mini-bar"
+                              style="height: {h}%"
+                              title="{new Date(point.timestamp).toLocaleString()}: {formatTokens(point.totalTokens)} tokens"
+                            ></div>
+                          {/each}
+                        </div>
+                        <div class="hud-meta" style="margin-top:4px;">
+                          {timeSeriesProcessed.length} turns //
+                          {formatTokens(timeSeriesProcessed[timeSeriesProcessed.length - 1]?.cumulativeTokens ?? 0)} total //
+                          {formatCost(timeSeriesProcessed[timeSeriesProcessed.length - 1]?.cumulativeCost ?? 0)}
+                        </div>
+                      </div>
+                    {/if}
+
+                    <!-- Session Logs Preview -->
+                    {#if sessionLogs && sessionLogs.length > 0}
+                      <div class="hud-detail-section">
+                        <div class="hud-panel-lbl">
+                          CONVERSATION ({sessionLogs.length} messages)
+                        </div>
+                        <div class="hud-logs">
+                          {#each sessionLogs.slice(0, 30) as log}
+                            {@const isUser = log.role === 'user'}
+                            {@const isAssistant = log.role === 'assistant'}
+                            <div class="hud-log-line">
+                              <span class="hud-log-role {isUser ? 'cyan' : isAssistant ? 'purple' : 'amber'}">
+                                {isUser ? 'YOU' : isAssistant ? 'AI' : 'TOOL'}
+                              </span>
+                              <span class="hud-log-content">{log.content?.slice(0, 200) ?? ''}</span>
+                              {#if log.tokens}
+                                <span class="hud-meta">{formatTokens(log.tokens)}</span>
+                              {/if}
+                            </div>
+                          {/each}
+                          {#if sessionLogs.length > 30}
+                            <div class="hud-meta" style="text-align:center;padding:4px 0;">
+                              +{sessionLogs.length - 30} more messages
+                            </div>
+                          {/if}
+                        </div>
+                      </div>
+                    {/if}
+                  {/if}
+                </div>
+              {/if}
+            </button>
+          {/each}
+
+          {#if sortedSessions.length > 50}
+            <div class="hud-meta" style="text-align:center;padding:10px 0;">
+              SHOWING 50 OF {sortedSessions.length} SESSIONS. NARROW DATE RANGE FOR MORE DETAIL.
+            </div>
+          {/if}
         </div>
-        <p class="text-text-muted text-sm">No usage data found for this date range.</p>
-        <p class="text-text-muted text-xs mt-1">Try expanding the date range or check that sessions have been active.</p>
-      </div>
-    {/if}
+      {/if}
+    </div>
 
-  </div>
+  <!-- ═══ Empty State ═══════════════════════════ -->
+  {:else if !loading}
+    <div class="hud-empty">
+      <div class="hud-empty-icon">&#9614;&#9614;&#9614;</div>
+      <p>NO USAGE DATA FOR THIS DATE RANGE</p>
+      <p class="hud-meta">Try expanding the date range or check that sessions have been active.</p>
+    </div>
+  {/if}
 </div>
+
+<style>
+  /* ═══════════════════════════════════════════════
+     HUD PAGE — CYBERPUNK USAGE STATS
+  ═══════════════════════════════════════════════ */
+  .hud-page {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 22px;
+    gap: 14px;
+    overflow-y: auto;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--color-accent-cyan);
+  }
+
+  /* ─── TOP BAR ─── */
+  .hud-page-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    padding-bottom: 10px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .hud-back {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 60%, transparent);
+    text-decoration: none;
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    padding: 4px 10px;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+  .hud-back:hover {
+    color: var(--color-accent-cyan);
+    border-color: var(--color-accent-cyan);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  .hud-page-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 900;
+    letter-spacing: 0.22em;
+    color: var(--color-accent-cyan);
+    text-shadow: 0 0 18px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent),
+                 0 0 50px color-mix(in srgb, var(--color-accent-cyan) 22%, transparent);
+    margin: 0;
+  }
+
+  /* ─── PANELS ─── */
+  .hud-panel {
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    background: color-mix(in srgb, var(--color-accent-cyan) 7%, #0a0e1a);
+    border-radius: 3px;
+    padding: 14px;
+    position: relative;
+  }
+  .hud-panel.error {
+    border-color: color-mix(in srgb, var(--color-accent-pink) 40%, transparent);
+    background: color-mix(in srgb, var(--color-accent-pink) 5%, transparent);
+  }
+  .hud-panel.glow-cyan {
+    box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-cyan) 22%, transparent),
+                inset 0 0 12px color-mix(in srgb, var(--color-accent-cyan) 10%, #0a0e1a);
+  }
+  .hud-panel.glow-purple {
+    box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-purple) 15%, transparent),
+                inset 0 0 12px color-mix(in srgb, var(--color-accent-purple) 5%, transparent);
+  }
+  .hud-panel.compact {
+    padding: 10px;
+    text-align: center;
+  }
+  .hud-panel.inner {
+    background: color-mix(in srgb, var(--color-accent-cyan) 2%, transparent);
+  }
+  .hud-panel.skeleton {
+    animation: hud-pulse 1.5s ease-in-out infinite;
+  }
+
+  .hud-panel-lbl {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.22em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    text-transform: uppercase;
+  }
+
+  .hud-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  /* ─── BUTTONS ─── */
+  .hud-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    color: var(--color-accent-cyan);
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    padding: 10px 20px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hud-btn:hover:not(:disabled) {
+    border-color: var(--color-accent-cyan);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    text-shadow: 0 0 8px var(--color-accent-cyan);
+  }
+  .hud-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .hud-btn.sm {
+    padding: 3px 8px;
+    font-size: 0.65rem;
+  }
+
+  /* ─── TOGGLE GROUP ─── */
+  .hud-toggle-group {
+    display: flex;
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .hud-toggle-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    padding: 5px 12px;
+    background: transparent;
+    border: none;
+    color: color-mix(in srgb, var(--color-accent-cyan) 60%, transparent);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .hud-toggle-btn:hover {
+    color: var(--color-accent-cyan);
+  }
+  .hud-toggle-btn.active.cyan {
+    background: color-mix(in srgb, var(--color-accent-cyan) 22%, transparent);
+    color: var(--color-accent-cyan);
+  }
+  .hud-toggle-btn.active.purple {
+    background: color-mix(in srgb, var(--color-accent-purple) 15%, transparent);
+    color: var(--color-accent-purple);
+  }
+
+  /* ─── INPUTS ─── */
+  .hud-input {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    padding: 5px 10px;
+    background: color-mix(in srgb, var(--color-accent-cyan) 7%, #0a0e1a);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    border-radius: 2px;
+    color: var(--color-accent-cyan);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .hud-input:focus {
+    border-color: var(--color-accent-cyan);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+  }
+  /* Style the date picker icon */
+  .hud-input::-webkit-calendar-picker-indicator {
+    filter: invert(0.7) sepia(1) saturate(3) hue-rotate(140deg);
+  }
+
+  .hud-select {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    padding: 4px 8px;
+    background: color-mix(in srgb, var(--color-accent-cyan) 7%, #0a0e1a);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    border-radius: 2px;
+    color: var(--color-accent-cyan);
+    outline: none;
+  }
+
+  .hud-sep {
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    font-size: 0.72rem;
+  }
+
+  /* ─── STATS ─── */
+  .hud-stat {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 6px 0 4px;
+  }
+  .hud-stat.cyan { color: var(--color-accent-cyan); text-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent); }
+  .hud-stat.purple { color: var(--color-accent-purple); text-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-purple) 40%, transparent); }
+  .hud-stat.green { color: var(--color-accent-green); text-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-green) 40%, transparent); }
+  .hud-stat.amber { color: var(--color-accent-amber); text-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-amber) 40%, transparent); }
+  .hud-stat.pink { color: var(--color-accent-pink); text-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-pink) 40%, transparent); }
+
+  .hud-stat-sm {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-accent-cyan);
+  }
+  .hud-stat-sm.cyan { color: var(--color-accent-cyan); }
+  .hud-stat-sm.purple { color: var(--color-accent-purple); }
+  .hud-stat-sm.green { color: var(--color-accent-green); }
+  .hud-stat-sm.pink { color: var(--color-accent-pink); }
+  .hud-stat-sm.amber { color: var(--color-accent-amber); }
+
+  .hud-meta {
+    font-size: 0.68rem;
+    color: color-mix(in srgb, var(--color-accent-cyan) 60%, transparent);
+    letter-spacing: 0.08em;
+  }
+
+  .hud-warn {
+    color: var(--color-accent-amber);
+  }
+
+  .hud-error-text {
+    color: var(--color-accent-pink);
+    font-size: 0.75rem;
+    margin: 6px 0 0;
+  }
+
+  .hud-mono {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    color: color-mix(in srgb, var(--color-accent-cyan) 80%, transparent);
+  }
+
+  /* ─── GRIDS ─── */
+  .hud-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .hud-grid-4.tight {
+    gap: 8px;
+  }
+  .hud-grid-6 {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+  }
+  .hud-grid-3-2 {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 12px;
+  }
+  .hud-panel.span-2 {
+    /* used in grid-3-2 for the left column */
+  }
+
+  @media (max-width: 900px) {
+    .hud-grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .hud-grid-6 { grid-template-columns: repeat(3, 1fr); }
+    .hud-grid-3-2 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .hud-grid-4 { grid-template-columns: 1fr; }
+    .hud-grid-6 { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ─── RANGE ROW ─── */
+  .hud-range-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  /* ─── BAR CHART (STACKED) ─── */
+  .hud-bar-stack {
+    height: 14px;
+    border-radius: 2px;
+    overflow: hidden;
+    display: flex;
+    background: color-mix(in srgb, var(--color-accent-cyan) 10%, transparent);
+    margin-bottom: 10px;
+  }
+  .hud-bar-seg {
+    transition: width 0.3s;
+  }
+  .hud-bar-seg.pink { background: color-mix(in srgb, var(--color-accent-pink) 75%, transparent); }
+  .hud-bar-seg.cyan { background: color-mix(in srgb, var(--color-accent-cyan) 75%, transparent); }
+  .hud-bar-seg.purple { background: color-mix(in srgb, var(--color-accent-purple) 75%, transparent); }
+  .hud-bar-seg.green { background: color-mix(in srgb, var(--color-accent-green) 75%, transparent); }
+
+  /* ─── LEGEND ─── */
+  .hud-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .hud-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .hud-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 1px;
+  }
+  .hud-legend-dot.pink { background: color-mix(in srgb, var(--color-accent-pink) 75%, transparent); }
+  .hud-legend-dot.cyan { background: color-mix(in srgb, var(--color-accent-cyan) 75%, transparent); }
+  .hud-legend-dot.purple { background: color-mix(in srgb, var(--color-accent-purple) 75%, transparent); }
+  .hud-legend-dot.green { background: color-mix(in srgb, var(--color-accent-green) 75%, transparent); }
+  .hud-legend-val {
+    font-size: 0.68rem;
+    color: color-mix(in srgb, var(--color-accent-cyan) 70%, transparent);
+    font-weight: 600;
+  }
+
+  /* ─── DAILY CHART ─── */
+  .hud-chart-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 1px;
+    height: 144px;
+  }
+  .hud-chart-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    min-width: 0;
+    height: 100%;
+    justify-content: flex-end;
+  }
+  .hud-chart-bar {
+    width: 100%;
+    border-radius: 1px 1px 0 0;
+    background: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    transition: background 0.2s;
+  }
+  .hud-chart-col:hover .hud-chart-bar {
+    background: color-mix(in srgb, var(--color-accent-cyan) 85%, transparent);
+  }
+  .hud-chart-tooltip {
+    position: absolute;
+    bottom: 100%;
+    margin-bottom: 8px;
+    display: none;
+    z-index: 10;
+    background: color-mix(in srgb, var(--color-bg-primary) 95%, var(--color-accent-cyan));
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 25%, transparent);
+    border-radius: 3px;
+    padding: 8px 10px;
+    white-space: nowrap;
+    box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-cyan) 22%, transparent);
+  }
+  .hud-chart-col:hover .hud-chart-tooltip {
+    display: block;
+  }
+  .hud-tooltip-title {
+    font-size: 0.72rem;
+    color: var(--color-accent-cyan);
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .hud-chart-axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    padding: 0 2px;
+    font-size: 0.58rem;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    letter-spacing: 0.08em;
+  }
+
+  /* ─── PROGRESS BARS ─── */
+  .hud-progress-track {
+    height: 5px;
+    border-radius: 1px;
+    background: color-mix(in srgb, var(--color-accent-cyan) 18%, transparent);
+    overflow: hidden;
+  }
+  .hud-progress-fill {
+    height: 100%;
+    border-radius: 1px;
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--color-accent-cyan) 70%, transparent),
+      color-mix(in srgb, var(--color-accent-purple) 70%, transparent));
+    transition: width 0.3s;
+  }
+  .hud-progress-fill.purple {
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--color-accent-purple) 70%, transparent),
+      color-mix(in srgb, var(--color-accent-pink) 70%, transparent));
+  }
+
+  /* ─── MODELS / PROVIDERS ─── */
+  .hud-model-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .hud-model-item {}
+  .hud-model-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .hud-provider-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .hud-provider-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* ─── TAGS ─── */
+  .hud-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    padding: 2px 7px;
+    border-radius: 1px;
+    background: color-mix(in srgb, var(--color-accent-cyan) 18%, transparent);
+    color: color-mix(in srgb, var(--color-accent-cyan) 60%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    flex-shrink: 0;
+  }
+  .hud-tag.purple {
+    background: color-mix(in srgb, var(--color-accent-purple) 8%, transparent);
+    color: color-mix(in srgb, var(--color-accent-purple) 70%, transparent);
+    border-color: color-mix(in srgb, var(--color-accent-purple) 15%, transparent);
+  }
+  .hud-tag.cyan {
+    background: color-mix(in srgb, var(--color-accent-cyan) 18%, transparent);
+    color: var(--color-accent-cyan);
+    border-color: color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+  }
+  .hud-tag.green {
+    background: color-mix(in srgb, var(--color-accent-green) 8%, transparent);
+    color: var(--color-accent-green);
+    border-color: color-mix(in srgb, var(--color-accent-green) 15%, transparent);
+  }
+  .hud-tag.amber {
+    background: color-mix(in srgb, var(--color-accent-amber) 8%, transparent);
+    color: var(--color-accent-amber);
+    border-color: color-mix(in srgb, var(--color-accent-amber) 15%, transparent);
+  }
+  .hud-tag.mono {
+    font-family: 'Share Tech Mono', monospace;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hud-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  /* ─── SESSIONS ─── */
+  .hud-session-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .hud-session-row {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--color-accent-cyan);
+  }
+  .hud-session-row:hover {
+    background: color-mix(in srgb, var(--color-accent-cyan) 7%, #0a0e1a);
+    border-color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+  .hud-session-row.selected {
+    border-color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    background: color-mix(in srgb, var(--color-accent-cyan) 10%, #0a0e1a);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+  .hud-session-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .hud-session-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .hud-session-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+  }
+  .hud-session-name {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-accent-cyan);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .hud-session-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.62rem;
+    color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    letter-spacing: 0.06em;
+  }
+  .hud-chevron {
+    color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    margin-top: 2px;
+  }
+  .hud-chevron.open {
+    transform: rotate(180deg);
+  }
+
+  /* ─── SESSION DETAIL ─── */
+  .hud-session-detail {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+  }
+  .hud-detail-loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.72rem;
+    color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    padding: 12px 0;
+  }
+  .hud-detail-section {
+    margin-top: 12px;
+  }
+
+  /* ─── MINI CHART ─── */
+  .hud-mini-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 1px;
+    height: 56px;
+    margin-top: 6px;
+  }
+  .hud-mini-bar {
+    flex: 1;
+    min-width: 1px;
+    border-radius: 1px 1px 0 0;
+    background: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    transition: background 0.2s;
+  }
+  .hud-mini-bar:hover {
+    background: color-mix(in srgb, var(--color-accent-cyan) 65%, transparent);
+  }
+
+  /* ─── LOGS ─── */
+  .hud-logs {
+    max-height: 192px;
+    overflow-y: auto;
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    border-radius: 2px;
+    padding: 6px 8px;
+    margin-top: 6px;
+    background: color-mix(in srgb, var(--color-accent-cyan) 1%, transparent);
+  }
+  .hud-log-line {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    padding: 3px 0;
+    font-size: 0.68rem;
+  }
+  .hud-log-role {
+    flex-shrink: 0;
+    width: 36px;
+    text-align: right;
+    font-weight: 600;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+  }
+  .hud-log-role.cyan { color: var(--color-accent-cyan); }
+  .hud-log-role.purple { color: var(--color-accent-purple); }
+  .hud-log-role.amber { color: var(--color-accent-amber); }
+  .hud-log-content {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+  }
+
+  /* ─── EMPTY STATES ─── */
+  .hud-empty {
+    text-align: center;
+    padding: 48px 16px;
+    color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    font-size: 0.78rem;
+    letter-spacing: 0.15em;
+  }
+  .hud-empty-icon {
+    font-size: 2rem;
+    margin-bottom: 12px;
+    opacity: 0.5;
+  }
+  .hud-empty-inline {
+    text-align: center;
+    padding: 16px;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+  }
+
+  /* ─── SKELETON ─── */
+  .hud-skel-line {
+    height: 10px;
+    border-radius: 1px;
+    background: color-mix(in srgb, var(--color-accent-cyan) 18%, transparent);
+    margin-bottom: 8px;
+  }
+  .hud-skel-line.short { width: 50px; }
+  .hud-skel-line.wide { width: 80px; height: 20px; }
+  .hud-skel-line.med { width: 110px; }
+
+  /* ─── SPINNER ─── */
+  .hud-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    border-top-color: var(--color-accent-cyan);
+    border-radius: 50%;
+    animation: hud-spin 0.8s linear infinite;
+  }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes hud-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  @keyframes hud-spin {
+    to { transform: rotate(360deg); }
+  }
+</style>

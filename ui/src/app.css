@@ -1,13 +1,14 @@
 @import "tailwindcss";
+@import "$lib/styles/hud.css";
 
 /* ═══════════════════════════════════════════════
    CORTEX — Cyberpunk Dark Theme
    ═══════════════════════════════════════════════ */
 
 @theme {
-  --color-bg-primary: #0a0e1a;
-  --color-bg-secondary: #111827;
-  --color-bg-tertiary: #1a1f35;
+  --color-bg-primary: #0d1220;
+  --color-bg-secondary: #151d30;
+  --color-bg-tertiary: #1f2740;
   --color-bg-surface: #151b2e;
   --color-bg-hover: #1e2642;
   --color-bg-input: #0d1220;
@@ -15,8 +16,8 @@
   --color-border-default: #1e293b;
   --color-border-glow: #7c4dff33;
 
-  --color-accent-cyan: #7c4dff;
-  --color-accent-purple: #00e5ff;
+  --color-accent-cyan: #00e5ff;
+  --color-accent-purple: #7c4dff;
   --color-accent-pink: #f43f9e;
   --color-accent-green: #00ff88;
   --color-accent-amber: #ffb300;

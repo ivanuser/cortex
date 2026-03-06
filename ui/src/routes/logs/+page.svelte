@@ -2,6 +2,8 @@
   import { untrack } from 'svelte';
   import { getConnection } from '$lib/stores/connection.svelte';
   import { gateway } from '$lib/gateway';
+  import MatrixRain from '$lib/components/MatrixRain.svelte';
+  import CRTOverlay from '$lib/components/CRTOverlay.svelte';
 
   // ─── Types ─────────────────────────────────
   type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
@@ -102,7 +104,7 @@
     if (!gateway.connected) return;
     if (loading && !opts?.quiet) return;
     if (!opts?.quiet) loading = true;
-    if (!opts?.quiet) error = null;  // Only clear error on explicit loads
+    if (!opts?.quiet) error = null;
     try {
       const res = await gateway.call<Record<string, unknown>>('logs.tail', {
         cursor: opts?.reset ? undefined : (cursor ?? undefined),
@@ -110,7 +112,6 @@
         maxBytes: 512000,
       });
 
-      // Handle various response shapes
       const rawLines = Array.isArray(res?.lines) ? res.lines
         : Array.isArray(res) ? res
         : [];
@@ -122,14 +123,12 @@
         ? parsed
         : [...entries, ...parsed].slice(-LOG_BUFFER_LIMIT);
 
-      // Clear error on successful fetch
       if (parsed.length > 0 || shouldReset) error = null;
 
       if (typeof res.cursor === 'number') cursor = res.cursor;
       if (typeof res.file === 'string') logFile = res.file;
       truncated = Boolean(res.truncated);
 
-      // Auto-scroll
       if (autoFollow && parsed.length > 0) {
         requestAnimationFrame(() => {
           if (scrollContainer) {
@@ -161,12 +160,10 @@
     }
   }
 
-  // Auto-start polling and load on connect (with retry)
   $effect(() => {
     const status = conn.state.status;
     untrack(() => {
       if (status === 'connected') {
-        // Initial load + retry once after 2s if first attempt fails
         loadLogs({ reset: true }).then(() => {
           if (entries.length === 0 && !error) {
             setTimeout(() => loadLogs({ reset: true }), 2000);
@@ -221,38 +218,15 @@
     return date.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 } as Intl.DateTimeFormatOptions);
   }
 
-  function levelColor(level: LogLevel | null): string {
+  function levelCls(level: LogLevel | null): string {
     switch (level) {
-      case 'trace': return 'text-gray-500';
-      case 'debug': return 'text-blue-400';
-      case 'info': return 'text-accent-cyan';
-      case 'warn': return 'text-amber-400';
-      case 'error': return 'text-red-400';
-      case 'fatal': return 'text-accent-pink';
-      default: return 'text-text-muted';
-    }
-  }
-
-  function levelBg(level: LogLevel | null): string {
-    switch (level) {
-      case 'trace': return 'bg-gray-500/10';
-      case 'debug': return 'bg-blue-400/10';
-      case 'info': return 'bg-accent-cyan/10';
-      case 'warn': return 'bg-amber-400/10';
-      case 'error': return 'bg-red-400/10';
-      case 'fatal': return 'bg-accent-pink/10';
-      default: return '';
-    }
-  }
-
-  function chipColor(level: LogLevel): string {
-    switch (level) {
-      case 'trace': return 'border-gray-500/40 text-gray-400 has-[:checked]:bg-gray-500/20 has-[:checked]:border-gray-500';
-      case 'debug': return 'border-blue-400/40 text-blue-400 has-[:checked]:bg-blue-400/20 has-[:checked]:border-blue-400';
-      case 'info': return 'border-accent-cyan/40 text-accent-cyan has-[:checked]:bg-accent-cyan/20 has-[:checked]:border-accent-cyan';
-      case 'warn': return 'border-amber-400/40 text-amber-400 has-[:checked]:bg-amber-400/20 has-[:checked]:border-amber-400';
-      case 'error': return 'border-red-400/40 text-red-400 has-[:checked]:bg-red-400/20 has-[:checked]:border-red-400';
-      case 'fatal': return 'border-accent-pink/40 text-accent-pink has-[:checked]:bg-accent-pink/20 has-[:checked]:border-accent-pink';
+      case 'trace': return 'log-lvl-trace';
+      case 'debug': return 'log-lvl-debug';
+      case 'info': return 'log-lvl-info';
+      case 'warn': return 'log-lvl-warn';
+      case 'error': return 'log-lvl-error';
+      case 'fatal': return 'log-lvl-fatal';
+      default: return 'log-lvl-none';
     }
   }
 
@@ -271,185 +245,563 @@
 </script>
 
 <svelte:head>
-  <title>Logs — Cortex</title>
+  <title>Logs -- Cortex</title>
 </svelte:head>
 
-<div class="h-full flex flex-col overflow-hidden">
-  <div class="flex-1 flex flex-col max-w-full p-4 md:p-6 overflow-hidden">
+<MatrixRain />
+<CRTOverlay />
 
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-4 flex-shrink-0 flex-wrap gap-3">
-      <div>
-        <h1 class="text-2xl font-bold text-text-primary flex items-center gap-3">
-          <span class="text-accent-cyan">📋</span>
-          Logs
-        </h1>
-        <p class="text-sm text-text-muted mt-0.5">
-          Live gateway log tail
-          {#if logFile}
-            <span class="font-mono text-xs text-text-muted/60">— {logFile}</span>
-          {/if}
-        </p>
+<div class="hud-page">
+  <!-- Top Bar -->
+  <div class="hud-page-topbar">
+    <a href="/overview" class="hud-back">&lt; BACK</a>
+    <span class="hud-page-title">LOG VIEWER</span>
+    <span class="hud-topbar-meta">
+      {filteredEntries.length}{activeFilterCount > 0 ? ` / ${entries.length}` : ''} ENTRIES
+    </span>
+  </div>
+
+  {#if conn.state.status !== 'connected'}
+    <div class="hud-panel" style="text-align:center; margin-top:40px; padding:40px;">
+      <div class="hud-panel-lbl" style="justify-content:center">DISCONNECTED</div>
+      <span class="hud-muted">Connect to the gateway to view logs.</span>
+    </div>
+  {:else}
+
+    <!-- Controls Bar -->
+    <div class="hud-controls">
+      <!-- Search -->
+      <div class="hud-search-wrap">
+        <input
+          bind:value={filterText}
+          placeholder="FILTER LOGS..."
+          class="hud-search"
+        />
       </div>
-      <div class="flex items-center gap-3">
-        <!-- Entry count -->
-        <span class="text-xs text-text-muted font-mono">
-          {filteredEntries.length}{activeFilterCount > 0 ? ` / ${entries.length}` : ''} entries
-        </span>
-        <!-- Export -->
+
+      <!-- Level filter chips -->
+      <div class="hud-chips">
+        {#each LEVELS as level}
+          <label class="hud-chip {levelCls(level)}" class:active={levelFilters[level]}>
+            <input
+              type="checkbox"
+              checked={levelFilters[level]}
+              onchange={() => toggleLevel(level)}
+              class="sr-only"
+            />
+            {level.toUpperCase()}
+          </label>
+        {/each}
+      </div>
+
+      <!-- Actions -->
+      <div class="hud-controls-right">
+        <label class="hud-follow-toggle">
+          <input
+            type="checkbox"
+            bind:checked={autoFollow}
+            class="sr-only"
+          />
+          <span class="hud-follow-dot" class:on={autoFollow}></span>
+          AUTO-SCROLL
+        </label>
         <button
           onclick={exportLogs}
           disabled={filteredEntries.length === 0}
-          class="px-3 py-2 rounded-lg text-xs border border-border-default hover:border-accent-purple
-                 text-text-secondary hover:text-accent-purple transition-all
-                 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="hud-btn"
         >
-          Export
+          EXPORT
         </button>
-        <!-- Refresh -->
         <button
           onclick={() => loadLogs({ reset: true })}
           disabled={loading || conn.state.status !== 'connected'}
-          class="px-3 py-2 rounded-lg text-xs border border-border-default hover:border-accent-cyan
-                 text-text-secondary hover:text-accent-cyan transition-all
-                 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+          class="hud-btn"
         >
           {#if loading}
-            <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
+            <span class="hud-spinner"></span>
           {/if}
-          Refresh
+          REFRESH
         </button>
       </div>
     </div>
 
-    {#if conn.state.status !== 'connected'}
-      <div class="flex-1 flex items-center justify-center">
-        <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-8 text-center">
-          <div class="text-text-muted text-sm">Connect to the gateway to view logs.</div>
-        </div>
-      </div>
-    {:else}
-
-      <!-- Controls Bar -->
-      <div class="flex flex-wrap items-center gap-3 mb-3 flex-shrink-0">
-        <!-- Search -->
-        <div class="relative flex-1 min-w-[200px] max-w-sm">
-          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            bind:value={filterText}
-            placeholder="Filter logs…"
-            class="w-full bg-bg-input border border-border-default rounded-lg pl-9 pr-3 py-2
-                   text-sm text-text-primary placeholder:text-text-muted/50
-                   focus:outline-none focus:border-accent-cyan focus:shadow-[0_0_8px_rgba(0,229,255,0.15)]
-                   transition-all"
-          />
-        </div>
-
-        <!-- Level filter chips -->
-        <div class="flex items-center gap-1.5">
-          {#each LEVELS as level}
-            <label class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-mono
-                          border cursor-pointer transition-all select-none {chipColor(level)}">
-              <input
-                type="checkbox"
-                checked={levelFilters[level]}
-                onchange={() => toggleLevel(level)}
-                class="sr-only"
-              />
-              {level}
-            </label>
-          {/each}
-        </div>
-
-        <!-- Auto-follow toggle -->
-        <label class="inline-flex items-center gap-1.5 text-xs text-text-muted cursor-pointer select-none ml-auto">
-          <input
-            type="checkbox"
-            bind:checked={autoFollow}
-            class="w-3.5 h-3.5 rounded border-border-default bg-bg-input accent-accent-cyan"
-          />
-          Auto-scroll
-        </label>
-      </div>
-
-      <!-- Truncated warning -->
-      {#if truncated}
-        <div class="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-amber-400 text-xs mb-2 flex-shrink-0">
-          Log output truncated — showing latest chunk.
-        </div>
-      {/if}
-
-      <!-- Error -->
-      {#if error}
-        <div class="rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-1.5 text-red-400 text-xs mb-2 flex-shrink-0">
-          {error}
-        </div>
-      {/if}
-
-      <!-- Log Stream -->
-      <div
-        bind:this={scrollContainer}
-        onscroll={handleScroll}
-        class="flex-1 overflow-y-auto bg-bg-input/30 border border-border-default rounded-xl"
-      >
-        {#if filteredEntries.length === 0}
-          <div class="flex items-center justify-center h-full text-text-muted/40 text-sm">
-            {entries.length === 0 ? 'Waiting for log entries…' : 'No entries match current filters'}
-          </div>
-        {:else}
-          <div class="divide-y divide-border-default/30">
-            {#each filteredEntries as entry}
-              <div class="virtual-item flex items-start gap-0 px-3 py-1 hover:bg-bg-hover/30 transition-colors text-xs font-mono {levelBg(entry.level)}">
-                <!-- Timestamp -->
-                <span class="w-[85px] flex-shrink-0 text-text-muted/70 select-all">
-                  {formatTime(entry.time)}
-                </span>
-                <!-- Level -->
-                <span class="w-[50px] flex-shrink-0 font-bold uppercase {levelColor(entry.level)}">
-                  {entry.level ?? ''}
-                </span>
-                <!-- Subsystem -->
-                {#if entry.subsystem}
-                  <span class="w-[140px] flex-shrink-0 text-accent-purple/70 truncate" title={entry.subsystem}>
-                    {entry.subsystem}
-                  </span>
-                {:else}
-                  <span class="w-[140px] flex-shrink-0"></span>
-                {/if}
-                <!-- Message -->
-                <span class="flex-1 text-text-secondary break-all select-all whitespace-pre-wrap">
-                  {entry.message}
-                </span>
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </div>
-
-      <!-- Status bar -->
-      <div class="flex items-center justify-between mt-2 flex-shrink-0 text-[10px] text-text-muted/50 font-mono">
-        <span>
-          {#if pollTimer}
-            <span class="inline-block w-1.5 h-1.5 rounded-full bg-accent-green/60 mr-1 animate-pulse"></span>
-            Polling every 3s
-          {:else}
-            <span class="inline-block w-1.5 h-1.5 rounded-full bg-text-muted/30 mr-1"></span>
-            Paused
-          {/if}
-        </span>
-        <span>
-          Buffer: {entries.length}/{LOG_BUFFER_LIMIT}
-          {#if cursor != null}
-            · Cursor: {cursor}
-          {/if}
-        </span>
-      </div>
-
+    {#if logFile}
+      <div class="hud-file-path">{logFile}</div>
     {/if}
-  </div>
+
+    <!-- Truncated warning -->
+    {#if truncated}
+      <div class="hud-alert hud-alert-warn">
+        LOG OUTPUT TRUNCATED -- SHOWING LATEST CHUNK
+      </div>
+    {/if}
+
+    <!-- Error -->
+    {#if error}
+      <div class="hud-alert hud-alert-error">
+        {error}
+      </div>
+    {/if}
+
+    <!-- Log Stream -->
+    <div
+      bind:this={scrollContainer}
+      onscroll={handleScroll}
+      class="hud-log-stream"
+    >
+      {#if filteredEntries.length === 0}
+        <div class="hud-log-empty">
+          {entries.length === 0 ? 'WAITING FOR LOG ENTRIES...' : 'NO ENTRIES MATCH CURRENT FILTERS'}
+          <span class="hud-cursor"></span>
+        </div>
+      {:else}
+        {#each filteredEntries as entry}
+          <div class="hud-log-line {levelCls(entry.level)}">
+            <span class="hud-log-ts">{formatTime(entry.time)}</span>
+            <span class="hud-log-lvl">{entry.level?.toUpperCase() ?? ''}</span>
+            <span class="hud-log-sub" title={entry.subsystem ?? ''}>{entry.subsystem ?? ''}</span>
+            <span class="hud-log-msg">{entry.message}</span>
+          </div>
+        {/each}
+      {/if}
+    </div>
+
+    <!-- Status bar -->
+    <div class="hud-statusbar">
+      <span>
+        {#if pollTimer}
+          <span class="hud-poll-dot on"></span>
+          POLLING 3s
+        {:else}
+          <span class="hud-poll-dot"></span>
+          PAUSED
+        {/if}
+      </span>
+      <span>
+        BUFFER: {entries.length}/{LOG_BUFFER_LIMIT}
+        {#if cursor != null}
+          // CURSOR: {cursor}
+        {/if}
+      </span>
+    </div>
+
+  {/if}
 </div>
+
+<style>
+  /* ─── PAGE LAYOUT ─── */
+  .hud-page {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 22px;
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+    gap: 10px;
+  }
+
+  .hud-page-topbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    padding-bottom: 10px;
+  }
+
+  .hud-back {
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    color: var(--color-accent-cyan);
+    text-decoration: none;
+    transition: opacity 0.2s;
+    flex-shrink: 0;
+  }
+
+  .hud-back:hover {
+    opacity: 0.7;
+  }
+
+  .hud-page-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.25em;
+    color: var(--color-accent-cyan);
+    text-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  .hud-topbar-meta {
+    margin-left: auto;
+    font-size: 0.65rem;
+    letter-spacing: 0.22em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 60%, transparent);
+  }
+
+  /* ─── PANELS ─── */
+  .hud-panel {
+    background: color-mix(in srgb, var(--color-accent-cyan) 8%, #0a0e1a);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    border-radius: 3px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hud-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-accent-cyan), transparent);
+    opacity: 0.6;
+  }
+
+  .hud-panel-lbl {
+    font-size: 0.65rem;
+    letter-spacing: 0.35em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    text-transform: uppercase;
+    margin-bottom: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .hud-muted {
+    font-size: 0.78rem;
+    color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  /* ─── BUTTONS ─── */
+  .hud-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    color: var(--color-accent-cyan);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    padding: 4px 12px;
+    border-radius: 2px;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .hud-btn:hover:not(:disabled) {
+    border-color: var(--color-accent-cyan);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  .hud-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* ─── CONTROLS BAR ─── */
+  .hud-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .hud-search-wrap {
+    flex: 1;
+    min-width: 180px;
+    max-width: 320px;
+  }
+
+  .hud-search {
+    width: 100%;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    color: var(--color-accent-cyan);
+    background: color-mix(in srgb, var(--color-accent-cyan) 10%, #0a0e1a);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 25%, transparent);
+    border-radius: 2px;
+    padding: 5px 10px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .hud-search::placeholder {
+    color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  .hud-search:focus {
+    border-color: var(--color-accent-cyan);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+  }
+
+  /* ─── LEVEL CHIPS ─── */
+  .hud-chips {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+
+  .hud-chip {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    padding: 2px 8px;
+    border: 1px solid;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+    opacity: 0.35;
+  }
+
+  .hud-chip.active {
+    opacity: 1;
+  }
+
+  .hud-chip.log-lvl-trace  { border-color: #6b7280; color: #9ca3af; }
+  .hud-chip.active.log-lvl-trace  { background: rgba(107, 114, 128, 0.15); }
+  .hud-chip.log-lvl-debug  { border-color: #60a5fa; color: #60a5fa; }
+  .hud-chip.active.log-lvl-debug  { background: rgba(96, 165, 250, 0.15); }
+  .hud-chip.log-lvl-info   { border-color: var(--color-accent-cyan); color: var(--color-accent-cyan); }
+  .hud-chip.active.log-lvl-info   { background: color-mix(in srgb, var(--color-accent-cyan) 22%, transparent); }
+  .hud-chip.log-lvl-warn   { border-color: #fbbf24; color: #fbbf24; }
+  .hud-chip.active.log-lvl-warn   { background: rgba(251, 191, 36, 0.15); }
+  .hud-chip.log-lvl-error  { border-color: #f87171; color: #f87171; }
+  .hud-chip.active.log-lvl-error  { background: rgba(248, 113, 113, 0.15); }
+  .hud-chip.log-lvl-fatal  { border-color: #ff3864; color: #ff3864; }
+  .hud-chip.active.log-lvl-fatal  { background: rgba(255, 56, 100, 0.15); }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .hud-controls-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .hud-follow-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .hud-follow-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--color-accent-cyan) 25%, transparent);
+    transition: all 0.2s;
+  }
+
+  .hud-follow-dot.on {
+    background: var(--color-accent-green);
+    box-shadow: 0 0 6px var(--color-accent-green);
+  }
+
+  .hud-file-path {
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    flex-shrink: 0;
+  }
+
+  /* ─── ALERTS ─── */
+  .hud-alert {
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    padding: 4px 10px;
+    border: 1px solid;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .hud-alert-warn {
+    border-color: rgba(251, 191, 36, 0.3);
+    background: rgba(251, 191, 36, 0.05);
+    color: #fbbf24;
+  }
+
+  .hud-alert-error {
+    border-color: rgba(248, 113, 113, 0.3);
+    background: rgba(248, 113, 113, 0.05);
+    color: #f87171;
+  }
+
+  /* ─── LOG STREAM ─── */
+  .hud-log-stream {
+    flex: 1;
+    overflow-y: auto;
+    background: color-mix(in srgb, var(--color-accent-cyan) 4%, #060a12);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    border-radius: 3px;
+    position: relative;
+    min-height: 0;
+  }
+
+  .hud-log-stream::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-accent-cyan), transparent);
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .hud-log-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    gap: 6px;
+  }
+
+  .hud-cursor {
+    display: inline-block;
+    width: 7px;
+    height: 13px;
+    background: var(--color-accent-cyan);
+    animation: hud-blink 1s step-end infinite;
+    vertical-align: middle;
+  }
+
+  /* ─── LOG LINE ─── */
+  .hud-log-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    padding: 2px 10px;
+    font-size: 0.72rem;
+    line-height: 1.55;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-accent-cyan) 10%, transparent);
+    transition: background 0.15s;
+  }
+
+  .hud-log-line:hover {
+    background: color-mix(in srgb, var(--color-accent-cyan) 18%, transparent);
+  }
+
+  /* Level-specific row tints */
+  .hud-log-line.log-lvl-warn  { background: rgba(251, 191, 36, 0.03); }
+  .hud-log-line.log-lvl-error { background: rgba(248, 113, 113, 0.04); }
+  .hud-log-line.log-lvl-fatal { background: rgba(255, 56, 100, 0.06); }
+
+  .hud-log-ts {
+    width: 85px;
+    flex-shrink: 0;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    user-select: all;
+  }
+
+  .hud-log-lvl {
+    width: 50px;
+    flex-shrink: 0;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .log-lvl-trace .hud-log-lvl  { color: #6b7280; }
+  .log-lvl-debug .hud-log-lvl  { color: #60a5fa; }
+  .log-lvl-info  .hud-log-lvl  { color: var(--color-accent-cyan); }
+  .log-lvl-warn  .hud-log-lvl  { color: #fbbf24; }
+  .log-lvl-error .hud-log-lvl  { color: #f87171; }
+  .log-lvl-fatal .hud-log-lvl  { color: #ff3864; }
+  .log-lvl-none  .hud-log-lvl  { color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent); }
+
+  .hud-log-sub {
+    width: 140px;
+    flex-shrink: 0;
+    color: color-mix(in srgb, var(--color-accent-purple, #a855f7) 60%, transparent);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hud-log-msg {
+    flex: 1;
+    color: color-mix(in srgb, var(--color-accent-cyan) 75%, transparent);
+    word-break: break-all;
+    white-space: pre-wrap;
+    user-select: all;
+  }
+
+  /* ─── STATUS BAR ─── */
+  .hud-statusbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  .hud-poll-dot {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--color-accent-cyan) 25%, transparent);
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  .hud-poll-dot.on {
+    background: var(--color-accent-green);
+    box-shadow: 0 0 6px var(--color-accent-green);
+    animation: hud-dp 1.6s ease-in-out infinite;
+  }
+
+  .hud-spinner {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid color-mix(in srgb, var(--color-accent-cyan) 25%, transparent);
+    border-top-color: var(--color-accent-cyan);
+    border-radius: 50%;
+    animation: hud-spin 0.6s linear infinite;
+  }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes hud-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  @keyframes hud-dp {
+    0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--color-accent-green); }
+    50% { opacity: 0.25; box-shadow: none; }
+  }
+
+  @keyframes hud-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+</style>

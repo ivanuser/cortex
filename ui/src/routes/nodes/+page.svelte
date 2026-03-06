@@ -3,6 +3,8 @@
   import { gateway } from '$lib/gateway';
   import { getConnection } from '$lib/stores/connection.svelte';
   import { getToasts } from '$lib/stores/toasts.svelte';
+  import MatrixRain from '$lib/components/MatrixRain.svelte';
+  import CRTOverlay from '$lib/components/CRTOverlay.svelte';
   import { formatRelativeTime } from '$lib/utils/time';
   import { getGatewayWsUrl } from '$lib/config';
   import QRPairModal from '$lib/components/QRPairModal.svelte';
@@ -572,7 +574,10 @@
   <title>Node Fleet — Cortex</title>
 </svelte:head>
 
-<div class="h-full flex flex-col overflow-hidden">
+<MatrixRain />
+<CRTOverlay />
+
+<div class="h-full flex flex-col overflow-hidden" style="position:relative; z-index:10; font-family:'Share Tech Mono',monospace;">
   <!-- Header -->
   <div class="flex-shrink-0 p-4 md:p-6 pb-4 border-b border-border-default">
     <div class="flex items-start justify-between gap-4 flex-wrap">

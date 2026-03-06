@@ -4,6 +4,8 @@
   import { getSessions } from '$lib/stores/sessions.svelte';
   import { gateway, type HelloOk } from '$lib/gateway';
   import { getToasts } from '$lib/stores/toasts.svelte';
+  import MatrixRain from '$lib/components/MatrixRain.svelte';
+  import CRTOverlay from '$lib/components/CRTOverlay.svelte';
 
   const conn = getConnection();
   const sessions = getSessions();
@@ -23,6 +25,40 @@
   let auditRecent = $state<Array<Record<string, unknown>>>([]);
   let channelStatus = $state<Array<{ name: string; connected: boolean }>>([]);
   let loading = $state(false);
+
+  // Avatar
+  let avatarError = $state(false);
+
+  // Live clock
+  let clockTime = $state('--:--:--');
+  let clockDate = $state('');
+  let liveUptime = $state('00:00:00');
+
+  $effect(() => {
+    function tick() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const s = String(now.getSeconds()).padStart(2, '0');
+      clockTime = `${h}:${m}:${s}`;
+      const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+      clockDate = `${days[now.getDay()]} ${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+      // Compute live uptime from uptimeMs
+      if (uptimeMs) {
+        const totalSec = Math.floor(uptimeMs / 1000) + Math.floor((Date.now() - (pageLoadTime)) / 1000);
+        const uh = Math.floor(totalSec / 3600);
+        const um = Math.floor((totalSec % 3600) / 60);
+        const us = totalSec % 60;
+        liveUptime = `${String(uh).padStart(2,'0')}:${String(um).padStart(2,'0')}:${String(us).padStart(2,'0')}`;
+      }
+    }
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  });
+
+  const pageLoadTime = Date.now();
 
   // Listen for hello events to capture snapshot
   gateway.on('hello', (payload) => {
@@ -114,15 +150,37 @@
   }
 
   function resultColor(result: string): string {
-    if (result === 'success') return 'text-accent-green';
-    if (result === 'denied') return 'text-amber-400';
-    return 'text-red-400';
+    if (result === 'success') return 'color: var(--color-accent-green)';
+    if (result === 'denied') return 'color: var(--color-accent-amber)';
+    return 'color: #ff3864';
   }
 
-  function resultDot(result: string): string {
-    if (result === 'success') return 'bg-accent-green';
-    if (result === 'denied') return 'bg-amber-400';
-    return 'bg-red-400';
+  function resultTag(result: string): string {
+    if (result === 'success') return '[OK]';
+    if (result === 'denied') return '[WARN]';
+    return '[ERR]';
+  }
+
+  function resultTagClass(result: string): string {
+    if (result === 'success') return 'text-accent-green';
+    if (result === 'denied') return 'text-accent-amber';
+    return 'text-[#ff3864]';
+  }
+
+  function formatTimestamp(ts: string | number): string {
+    const d = typeof ts === 'number' ? new Date(ts * 1000) : new Date(ts);
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    const s = String(d.getSeconds()).padStart(2, '0');
+    return `${h}:${m}:${s}`;
+  }
+
+  // SVG gauge helpers
+  const CIRC = 2 * Math.PI * 27; // r=27, circumference ~169.6
+
+  function gaugeDash(pct: number): string {
+    const fill = (pct / 100) * CIRC;
+    return `${fill} ${CIRC}`;
   }
 
   // Derived stats
@@ -130,325 +188,918 @@
   let serverVersion = $derived(helloData?.server?.version ?? conn.state.serverVersion);
   let protocol = $derived(helloData?.protocol ?? conn.state.protocol);
   let connectedNodes = $derived(nodesList.filter(n => (n as any).connected));
-  let activeSessions = $derived(sessions.list.filter(s => s.kind !== 'isolated'));
+  let activeSessions = $derived(sessions.list.filter(s => (s as any).kind !== 'isolated'));
+
+  // AI Identity derived
+  let aiName = $derived((helloData?.branding as any)?.assistantName || (helloData?.server as any)?.name || 'CORTEX AI');
+  let aiModel = $derived((helloData?.server as any)?.model || (modelsList[0] as any)?.id || 'unknown');
+  let aiPlatform = $derived((helloData?.server as any)?.platform || '');
+  let aiHostname = $derived((helloData?.server as any)?.hostname || '');
+
+  // Gauge percentages (derived from real data)
+  let nodesOnlinePct = $derived(nodesList.length > 0 ? Math.round((connectedNodes.length / nodesList.length) * 100) : 0);
+  let sessionsPct = $derived(sessions.list.length > 0 ? Math.min(100, Math.round((activeSessions.length / Math.max(sessions.list.length, 1)) * 100)) : 0);
+  let cronPct = $derived(cronJobs.length > 0 ? Math.round((cronJobs.filter(j => (j as any).enabled !== false).length / cronJobs.length) * 100) : 0);
+  let channelsPct = $derived(channelStatus.length > 0 ? Math.round((channelStatus.filter(c => c.connected).length / channelStatus.length) * 100) : 0);
 </script>
 
 <svelte:head>
-  <title>Overview — Cortex</title>
+  <title>Overview -- Cortex</title>
 </svelte:head>
 
-<div class="h-full overflow-y-auto">
-  <div class="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
+<MatrixRain />
+<CRTOverlay />
 
-    <!-- Hero Header -->
-    <div class="relative rounded-2xl border border-border-default bg-gradient-to-br from-bg-secondary via-bg-secondary/80 to-accent-cyan/5 p-6 overflow-hidden">
-      <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(0,200,255,0.06),transparent_60%)]"></div>
-      <div class="relative flex items-center justify-between flex-wrap gap-4">
-        <div class="flex items-center gap-4">
-          <div class="relative">
-            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-accent-cyan/20 to-accent-purple/20 border border-accent-cyan/30 flex items-center justify-center text-2xl">
-              ⚡
-            </div>
-            <div class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-bg-secondary
-                        {conn.state.status === 'connected' ? 'bg-accent-green animate-pulse' : 'bg-red-400'}"></div>
-          </div>
-          <div>
-            <h1 class="text-2xl font-bold text-text-primary tracking-tight">Cortex Gateway</h1>
-            <div class="flex items-center gap-3 mt-1">
-              {#if serverVersion}
-                <span class="text-xs font-mono px-2 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">v{serverVersion}</span>
-              {/if}
-              <span class="text-xs text-text-muted">
-                {conn.state.status === 'connected' ? `Up ${formatUptime(uptimeMs)}` : 'Disconnected'}
-              </span>
-              {#if protocol}
-                <span class="text-xs text-text-muted">Proto {protocol}</span>
-              {/if}
-            </div>
-          </div>
-        </div>
-        <button
-          onclick={loadOverview}
-          disabled={loading || conn.state.status !== 'connected'}
-          class="px-4 py-2 rounded-xl text-sm font-medium border border-border-default hover:border-accent-cyan
-                 bg-bg-primary/50 text-text-secondary hover:text-accent-cyan transition-all
-                 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm"
-        >
-          {#if loading}
-            <svg class="w-4 h-4 animate-spin inline mr-1.5" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-          {/if}
-          Refresh
-        </button>
-      </div>
+<div class="hud-container">
+  <!-- TOP BAR -->
+  <div class="hud-topbar">
+    <div class="flex items-center gap-4">
+      <div class="hud-logo">CORTEX</div>
+      <div class="hud-tagline">COMMAND CENTER // {conn.state.status === 'connected' ? 'ONLINE' : 'OFFLINE'}</div>
     </div>
-
-    <!-- Metric Cards -->
-    {#if loading && !debugStatus}
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {#each Array(4) as _}
-          <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-4 animate-pulse">
-            <div class="h-3 w-16 bg-bg-tertiary rounded mb-3"></div>
-            <div class="h-8 w-20 bg-bg-tertiary rounded mb-2"></div>
-            <div class="h-3 w-24 bg-bg-tertiary rounded"></div>
-          </div>
-        {/each}
-      </div>
-    {:else}
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <!-- Sessions -->
-        <a href="/sessions" class="group rounded-xl border border-border-default bg-bg-secondary/50 p-4 hover:border-accent-purple/50 transition-all">
-          <div class="flex items-center justify-between mb-1">
-            <div class="text-xs font-medium text-text-muted uppercase tracking-wider">Sessions</div>
-            <div class="w-8 h-8 rounded-lg bg-accent-purple/10 flex items-center justify-center text-accent-purple group-hover:scale-110 transition-transform">
-              💬
-            </div>
-          </div>
-          <div class="text-3xl font-bold text-accent-purple">{sessions.list.length}</div>
-          <div class="text-xs text-text-muted mt-1">{activeSessions.length} active</div>
-        </a>
-
-        <!-- Nodes -->
-        <a href="/nodes" class="group rounded-xl border border-border-default bg-bg-secondary/50 p-4 hover:border-accent-green/50 transition-all">
-          <div class="flex items-center justify-between mb-1">
-            <div class="text-xs font-medium text-text-muted uppercase tracking-wider">Nodes</div>
-            <div class="w-8 h-8 rounded-lg bg-accent-green/10 flex items-center justify-center text-accent-green group-hover:scale-110 transition-transform">
-              🖥️
-            </div>
-          </div>
-          <div class="text-3xl font-bold text-accent-green">{connectedNodes.length}</div>
-          <div class="text-xs text-text-muted mt-1">{nodesList.length} registered</div>
-        </a>
-
-        <!-- Models -->
-        <a href="/settings" class="group rounded-xl border border-border-default bg-bg-secondary/50 p-4 hover:border-accent-amber/50 transition-all">
-          <div class="flex items-center justify-between mb-1">
-            <div class="text-xs font-medium text-text-muted uppercase tracking-wider">Models</div>
-            <div class="w-8 h-8 rounded-lg bg-accent-amber/10 flex items-center justify-center text-accent-amber group-hover:scale-110 transition-transform">
-              🧠
-            </div>
-          </div>
-          <div class="text-3xl font-bold text-accent-amber">{modelsCount}</div>
-          <div class="text-xs text-text-muted mt-1">providers</div>
-        </a>
-
-        <!-- Cron -->
-        <a href="/cron" class="group rounded-xl border border-border-default bg-bg-secondary/50 p-4 hover:border-accent-cyan/50 transition-all">
-          <div class="flex items-center justify-between mb-1">
-            <div class="text-xs font-medium text-text-muted uppercase tracking-wider">Cron</div>
-            <div class="w-8 h-8 rounded-lg bg-accent-cyan/10 flex items-center justify-center text-accent-cyan group-hover:scale-110 transition-transform">
-              ⏱️
-            </div>
-          </div>
-          <div class="text-3xl font-bold text-accent-cyan">{cronJobs.length}</div>
-          <div class="text-xs text-text-muted mt-1">
-            {cronStatus?.enabled ? `Next: ${formatNextRun(cronStatus.nextRun)}` : 'disabled'}
-          </div>
-        </a>
-      </div>
-    {/if}
-
-    <!-- Two-column layout: Activity Feed + Sidebar -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
-      <!-- Left: Activity Feed (2 cols) -->
-      <div class="lg:col-span-2 space-y-5">
-
-        <!-- Recent Audit Activity -->
-        <div class="rounded-xl border border-border-default bg-bg-secondary/50 overflow-hidden">
-          <div class="flex items-center justify-between px-4 py-3 border-b border-border-default/50">
-            <h2 class="text-sm font-semibold text-text-primary flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-accent-cyan animate-pulse"></span>
-              Recent Activity
-            </h2>
-            <a href="/audit" class="text-xs text-accent-cyan hover:underline">View all →</a>
-          </div>
-          {#if auditRecent.length > 0}
-            <div class="divide-y divide-border-default/30">
-              {#each auditRecent as entry}
-                <div class="px-4 py-2.5 flex items-center gap-3 hover:bg-bg-hover/30 transition-colors">
-                  <div class="w-2 h-2 rounded-full flex-shrink-0 {resultDot(String(entry.result))}"></div>
-                  <div class="flex-1 min-w-0">
-                    <span class="text-xs font-mono text-accent-cyan">{entry.action}</span>
-                    {#if entry.actor_id}
-                      <span class="text-xs text-text-muted ml-2">by {entry.actor_id}</span>
-                    {/if}
-                  </div>
-                  <span class="text-[10px] {resultColor(String(entry.result))} font-semibold uppercase">{entry.result}</span>
-                  <span class="text-[10px] text-text-muted whitespace-nowrap">{formatTimeAgo(String(entry.timestamp))}</span>
-                </div>
-              {/each}
-            </div>
-          {:else}
-            <div class="px-4 py-8 text-center text-text-muted text-sm">No recent activity</div>
-          {/if}
+    <div class="flex items-center gap-4">
+      <div class="hud-clock">{clockTime}</div>
+      {#if conn.state.status === 'connected'}
+        <div class="hud-live-badge">
+          <div class="hud-dot"></div>
+          LIVE
         </div>
-
-        <!-- Connected Nodes -->
-        {#if nodesList.length > 0}
-          <div class="rounded-xl border border-border-default bg-bg-secondary/50 overflow-hidden">
-            <div class="flex items-center justify-between px-4 py-3 border-b border-border-default/50">
-              <h2 class="text-sm font-semibold text-text-primary">Node Fleet</h2>
-              <a href="/nodes" class="text-xs text-accent-cyan hover:underline">Manage →</a>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-0 divide-y sm:divide-y-0 divide-border-default/30">
-              {#each nodesList as node}
-                {@const isConnected = !!(node as any).connected}
-                {@const displayName = (node as any).displayName || (node as any).name || 'Unknown'}
-                {@const platform = (node as any).platform || (node as any).os || ''}
-                {@const caps = Array.isArray((node as any).capabilities) ? (node as any).capabilities : []}
-                <div class="px-4 py-3 flex items-center gap-3 {isConnected ? '' : 'opacity-50'}">
-                  <div class="relative flex-shrink-0">
-                    <div class="w-10 h-10 rounded-xl bg-bg-primary border border-border-default flex items-center justify-center text-lg">
-                      {platform.includes('windows') || platform.includes('win') ? '🪟' : platform.includes('linux') ? '🐧' : platform.includes('mac') || platform.includes('darwin') ? '🍎' : '🖥️'}
-                    </div>
-                    <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-bg-secondary
-                                {isConnected ? 'bg-accent-green' : 'bg-text-muted'}"></div>
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="text-sm font-medium text-text-primary truncate">{displayName}</div>
-                    <div class="flex items-center gap-1.5 mt-0.5">
-                      {#if platform}
-                        <span class="text-[10px] text-text-muted">{platform}</span>
-                      {/if}
-                      {#each caps.slice(0, 4) as cap}
-                        <span class="text-[10px] px-1.5 py-0 rounded-full bg-bg-primary border border-border-default text-text-muted">{cap}</span>
-                      {/each}
-                    </div>
-                  </div>
-                  <span class="text-[10px] font-medium {isConnected ? 'text-accent-green' : 'text-text-muted'}">
-                    {isConnected ? 'online' : 'offline'}
-                  </span>
-                </div>
-              {/each}
-            </div>
-          </div>
+      {/if}
+      <button
+        onclick={loadOverview}
+        disabled={loading || conn.state.status !== 'connected'}
+        class="hud-btn"
+      >
+        {#if loading}
+          <svg class="w-3 h-3 animate-spin inline mr-1" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
         {/if}
-
-      </div>
-
-      <!-- Right Sidebar -->
-      <div class="space-y-5">
-
-        <!-- Health Status -->
-        <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-4">
-          <h2 class="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
-            System Health
-            {#if conn.state.status === 'connected'}
-              <span class="w-2 h-2 rounded-full bg-accent-green"></span>
-            {:else}
-              <span class="w-2 h-2 rounded-full bg-red-400"></span>
-            {/if}
-          </h2>
-          <div class="space-y-2.5">
-            <!-- Gateway -->
-            <div class="flex items-center justify-between">
-              <span class="text-xs text-text-secondary">Gateway</span>
-              <span class="text-xs font-medium {conn.state.status === 'connected' ? 'text-accent-green' : 'text-red-400'}">
-                {conn.state.status === 'connected' ? '● Healthy' : '● Down'}
-              </span>
-            </div>
-            <!-- WebSocket -->
-            <div class="flex items-center justify-between">
-              <span class="text-xs text-text-secondary">WebSocket</span>
-              <span class="text-xs font-medium {conn.state.status === 'connected' ? 'text-accent-green' : 'text-text-muted'}">
-                {conn.state.status === 'connected' ? '● Connected' : '● Closed'}
-              </span>
-            </div>
-            <!-- Cron -->
-            <div class="flex items-center justify-between">
-              <span class="text-xs text-text-secondary">Scheduler</span>
-              <span class="text-xs font-medium {cronStatus?.enabled ? 'text-accent-green' : 'text-text-muted'}">
-                {cronStatus?.enabled ? '● Running' : '● Stopped'}
-              </span>
-            </div>
-            <!-- Presence -->
-            <div class="flex items-center justify-between">
-              <span class="text-xs text-text-secondary">Clients</span>
-              <span class="text-xs font-medium text-accent-cyan">{presenceCount} connected</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Channels -->
-        {#if channelStatus.length > 0}
-          <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-4">
-            <h2 class="text-sm font-semibold text-text-primary mb-3">Channels</h2>
-            <div class="space-y-2">
-              {#each channelStatus as ch}
-                <div class="flex items-center justify-between">
-                  <span class="text-xs text-text-secondary capitalize">{ch.name}</span>
-                  <span class="text-xs font-medium {ch.connected ? 'text-accent-green' : 'text-red-400'}">
-                    {ch.connected ? '● Online' : '● Offline'}
-                  </span>
-                </div>
-              {/each}
-            </div>
-            <a href="/channels" class="inline-block mt-3 text-xs text-accent-cyan hover:underline">Configure →</a>
-          </div>
-        {/if}
-
-        <!-- Cron Jobs -->
-        {#if cronJobs.length > 0}
-          <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-4">
-            <div class="flex items-center justify-between mb-3">
-              <h2 class="text-sm font-semibold text-text-primary">Scheduled Jobs</h2>
-              <span class="text-xs text-text-muted">{cronJobs.length}</span>
-            </div>
-            <div class="space-y-2">
-              {#each cronJobs.slice(0, 5) as job}
-                {@const name = (job as any).name || (job as any).id || 'Unnamed'}
-                {@const enabled = (job as any).enabled !== false}
-                <div class="flex items-center gap-2">
-                  <div class="w-1.5 h-1.5 rounded-full flex-shrink-0 {enabled ? 'bg-accent-green' : 'bg-text-muted'}"></div>
-                  <span class="text-xs text-text-secondary truncate flex-1">{name}</span>
-                </div>
-              {/each}
-              {#if cronJobs.length > 5}
-                <div class="text-[10px] text-text-muted">+{cronJobs.length - 5} more</div>
-              {/if}
-            </div>
-            <a href="/cron" class="inline-block mt-3 text-xs text-accent-cyan hover:underline">Manage →</a>
-          </div>
-        {/if}
-
-        <!-- Quick Actions -->
-        <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-4">
-          <h2 class="text-sm font-semibold text-text-primary mb-3">Quick Actions</h2>
-          <div class="grid grid-cols-2 gap-2">
-            <a href="/" class="flex items-center gap-2 p-2.5 rounded-lg border border-border-default hover:border-accent-cyan
-                              text-text-secondary hover:text-accent-cyan transition-all text-xs">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-              </svg>
-              Chat
-            </a>
-            <a href="/nodes" class="flex items-center gap-2 p-2.5 rounded-lg border border-border-default hover:border-accent-cyan
-                                   text-text-secondary hover:text-accent-cyan transition-all text-xs">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              Nodes
-            </a>
-            <a href="/audit" class="flex items-center gap-2 p-2.5 rounded-lg border border-border-default hover:border-accent-cyan
-                                   text-text-secondary hover:text-accent-cyan transition-all text-xs">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-              Audit
-            </a>
-            <a href="/logs" class="flex items-center gap-2 p-2.5 rounded-lg border border-border-default hover:border-accent-cyan
-                                  text-text-secondary hover:text-accent-cyan transition-all text-xs">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
-              </svg>
-              Logs
-            </a>
-          </div>
-        </div>
-      </div>
+        REFRESH
+      </button>
     </div>
   </div>
+
+  <!-- STAT CARDS ROW -->
+  {#if loading && !debugStatus}
+    <div class="hud-stats-grid">
+      {#each Array(4) as _}
+        <div class="hud-panel animate-pulse" style="min-height:80px"></div>
+      {/each}
+    </div>
+  {:else}
+    <div class="hud-stats-grid">
+      <a href="/sessions" class="hud-mc group">
+        <div class="hud-mc-lbl">SESSIONS</div>
+        <div class="hud-mc-val">{sessions.list.length}</div>
+        <div class="hud-mc-sub">{activeSessions.length} active</div>
+      </a>
+      <a href="/nodes" class="hud-mc group">
+        <div class="hud-mc-lbl">NODES ONLINE</div>
+        <div class="hud-mc-val" style="color: var(--color-accent-green)">{connectedNodes.length}</div>
+        <div class="hud-mc-sub">/ {nodesList.length} registered</div>
+      </a>
+      <a href="/settings" class="hud-mc group">
+        <div class="hud-mc-lbl">MODELS</div>
+        <div class="hud-mc-val" style="color: var(--color-accent-amber)">{modelsCount}</div>
+        <div class="hud-mc-sub">providers</div>
+      </a>
+      <a href="/cron" class="hud-mc group">
+        <div class="hud-mc-lbl">CRON JOBS</div>
+        <div class="hud-mc-val">{cronJobs.length}</div>
+        <div class="hud-mc-sub">{cronStatus?.enabled ? `Next: ${formatNextRun(cronStatus.nextRun)}` : 'disabled'}</div>
+      </a>
+    </div>
+  {/if}
+
+  <!-- THREE COLUMN MAIN GRID -->
+  <div class="hud-main-grid">
+
+    <!-- LEFT COLUMN -->
+    <div class="hud-col">
+      <!-- SVG Arc Gauges -->
+      <div class="hud-panel">
+        <div class="hud-panel-lbl">SYSTEM GAUGES</div>
+        <div class="hud-gauge-row">
+          <div class="hud-gauge">
+            <svg viewBox="0 0 68 68">
+              <circle class="hud-gauge-bg" cx="34" cy="34" r="27"/>
+              <circle class="hud-gauge-fill" cx="34" cy="34" r="27"
+                stroke="var(--color-accent-green)"
+                stroke-dasharray={gaugeDash(nodesOnlinePct)}
+                style="filter:drop-shadow(0 0 5px var(--color-accent-green))"/>
+              <text class="hud-gauge-txt" x="34" y="36">{nodesOnlinePct}%</text>
+            </svg>
+            <div class="hud-gauge-lbl">NODES</div>
+          </div>
+          <div class="hud-gauge">
+            <svg viewBox="0 0 68 68">
+              <circle class="hud-gauge-bg" cx="34" cy="34" r="27"/>
+              <circle class="hud-gauge-fill" cx="34" cy="34" r="27"
+                stroke="var(--color-accent-cyan)"
+                stroke-dasharray={gaugeDash(sessionsPct)}
+                style="filter:drop-shadow(0 0 5px var(--color-accent-cyan))"/>
+              <text class="hud-gauge-txt" x="34" y="36">{sessionsPct}%</text>
+            </svg>
+            <div class="hud-gauge-lbl">SESSIONS</div>
+          </div>
+          <div class="hud-gauge">
+            <svg viewBox="0 0 68 68">
+              <circle class="hud-gauge-bg" cx="34" cy="34" r="27"/>
+              <circle class="hud-gauge-fill" cx="34" cy="34" r="27"
+                stroke="var(--color-accent-amber)"
+                stroke-dasharray={gaugeDash(cronPct)}
+                style="filter:drop-shadow(0 0 5px var(--color-accent-amber))"/>
+              <text class="hud-gauge-txt" x="34" y="36">{cronPct}%</text>
+            </svg>
+            <div class="hud-gauge-lbl">CRON</div>
+          </div>
+          <div class="hud-gauge">
+            <svg viewBox="0 0 68 68">
+              <circle class="hud-gauge-bg" cx="34" cy="34" r="27"/>
+              <circle class="hud-gauge-fill" cx="34" cy="34" r="27"
+                stroke="var(--color-accent-purple)"
+                stroke-dasharray={gaugeDash(channelsPct)}
+                style="filter:drop-shadow(0 0 5px var(--color-accent-purple))"/>
+              <text class="hud-gauge-txt" x="34" y="36">{channelsPct}%</text>
+            </svg>
+            <div class="hud-gauge-lbl">CHANNELS</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Health -->
+      <div class="hud-panel">
+        <div class="hud-panel-lbl">
+          SYSTEM HEALTH
+          {#if conn.state.status === 'connected'}
+            <span class="hud-dot" style="width:5px;height:5px"></span>
+          {:else}
+            <span class="w-[5px] h-[5px] rounded-full bg-[#ff3864]"></span>
+          {/if}
+        </div>
+        <div class="hud-srow"><span class="hud-sk">GATEWAY</span><span class="hud-sv" style={conn.state.status === 'connected' ? 'color:var(--color-accent-green)' : 'color:#ff3864'}>{conn.state.status === 'connected' ? 'HEALTHY' : 'DOWN'}</span></div>
+        <div class="hud-srow"><span class="hud-sk">WEBSOCKET</span><span class="hud-sv" style={conn.state.status === 'connected' ? 'color:var(--color-accent-green)' : 'color:var(--color-text-muted)'}>{conn.state.status === 'connected' ? 'CONNECTED' : 'CLOSED'}</span></div>
+        <div class="hud-srow"><span class="hud-sk">SCHEDULER</span><span class="hud-sv" style={cronStatus?.enabled ? 'color:var(--color-accent-green)' : 'color:var(--color-text-muted)'}>{cronStatus?.enabled ? 'RUNNING' : 'STOPPED'}</span></div>
+        <div class="hud-srow"><span class="hud-sk">CLIENTS</span><span class="hud-sv">{presenceCount} connected</span></div>
+        {#if serverVersion}
+          <div class="hud-srow"><span class="hud-sk">VERSION</span><span class="hud-sv">v{serverVersion}</span></div>
+        {/if}
+        {#if protocol}
+          <div class="hud-srow"><span class="hud-sk">PROTOCOL</span><span class="hud-sv">{protocol}</span></div>
+        {/if}
+        <div class="hud-srow"><span class="hud-sk">UPTIME</span><span class="hud-sv" style="color:var(--color-accent-cyan)">{liveUptime}</span></div>
+      </div>
+
+      <!-- Channels -->
+      {#if channelStatus.length > 0}
+        <div class="hud-panel">
+          <div class="hud-panel-lbl">CHANNELS</div>
+          {#each channelStatus as ch}
+            <div class="hud-srow">
+              <span class="hud-sk uppercase">{ch.name}</span>
+              <span class="hud-sv" style={ch.connected ? 'color:var(--color-accent-green)' : 'color:#ff3864'}>{ch.connected ? 'ONLINE' : 'OFFLINE'}</span>
+            </div>
+          {/each}
+          <a href="/channels" class="hud-link">CONFIGURE &rarr;</a>
+        </div>
+      {/if}
+
+      <!-- Cron Jobs -->
+      {#if cronJobs.length > 0}
+        <div class="hud-panel">
+          <div class="hud-panel-lbl">SCHEDULED JOBS <span style="color:var(--color-text-muted)">{cronJobs.length}</span></div>
+          {#each cronJobs.slice(0, 5) as job}
+            {@const name = (job as any).name || (job as any).id || 'Unnamed'}
+            {@const enabled = (job as any).enabled !== false}
+            <div class="flex items-center gap-2 py-1">
+              <div class="w-[6px] h-[6px] rounded-full flex-shrink-0 {enabled ? 'bg-accent-green shadow-[0_0_6px_var(--color-accent-green)]' : 'bg-text-muted'}"></div>
+              <span class="text-[0.75rem] truncate flex-1" style="color:rgba(var(--color-accent-cyan),0.6);font-family:'Share Tech Mono',monospace">{name}</span>
+            </div>
+          {/each}
+          {#if cronJobs.length > 5}
+            <div class="text-[0.62rem] mt-1" style="color:var(--color-text-muted)">+{cronJobs.length - 5} more</div>
+          {/if}
+          <a href="/cron" class="hud-link">MANAGE &rarr;</a>
+        </div>
+      {/if}
+    </div>
+
+    <!-- CENTER COLUMN -->
+    <div class="hud-col">
+
+      <!-- Activity Log (terminal style) -->
+      <div class="hud-activity">
+        <div class="hud-panel-lbl">
+          <span class="flex items-center gap-2">
+            <span class="hud-dot" style="width:5px;height:5px"></span>
+            ACTIVITY LOG
+          </span>
+          <a href="/audit" class="hud-link">VIEW ALL &rarr;</a>
+        </div>
+        {#if auditRecent.length > 0}
+          {#each auditRecent as entry}
+            <div class="hud-aline">
+              <span class="hud-ats">{formatTimestamp(String(entry.timestamp))}</span>
+              <span class="{resultTagClass(String(entry.result))}" style="flex-shrink:0;width:42px;font-size:0.75rem">{resultTag(String(entry.result))}</span>
+              <span class="hud-amsg">
+                {entry.action}
+                {#if entry.actor_id}
+                  <span style="color:var(--color-text-muted)"> by {entry.actor_id}</span>
+                {/if}
+              </span>
+            </div>
+          {/each}
+          <div class="hud-aline">
+            <span class="hud-ats">{clockTime}</span>
+            <span class="text-accent-green" style="flex-shrink:0;width:42px;font-size:0.75rem">[OK]</span>
+            <span class="hud-amsg">monitoring active <span class="hud-cursor"></span></span>
+          </div>
+        {:else}
+          <div class="py-6 text-center" style="color:var(--color-text-muted);font-size:0.75rem;letter-spacing:0.15em">NO RECENT ACTIVITY</div>
+        {/if}
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="hud-panel">
+        <div class="hud-panel-lbl">QUICK ACTIONS</div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <a href="/" class="hud-action-btn">CHAT</a>
+          <a href="/nodes" class="hud-action-btn">NODES</a>
+          <a href="/audit" class="hud-action-btn">AUDIT</a>
+          <a href="/logs" class="hud-action-btn">LOGS</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="hud-col">
+      <!-- AI Identity Panel -->
+      <div class="hud-panel hud-id-panel">
+        <div class="hud-panel-lbl" style="justify-content:center">IDENTITY</div>
+        <div class="hud-av-ring">
+          <div class="hud-av-wrap">
+            {#if !avatarError}
+              <img src="/avatar/main" alt={aiName} onerror={() => { avatarError = true; }} />
+            {:else}
+              <div class="hud-av-fb">{aiName.charAt(0)}</div>
+            {/if}
+          </div>
+        </div>
+        <div class="hud-id-name">{aiName}</div>
+        <div class="hud-id-sub">AI PRESENCE // CORTEX NODE</div>
+        <div class="hud-id-tags">
+          <span class="hud-tag hud-tag-a">{aiModel}</span>
+          <span class="hud-tag {conn.state.status === 'connected' ? 'hud-tag-g' : 'hud-tag-r'}">{conn.state.status === 'connected' ? 'online' : 'offline'}</span>
+          <span class="hud-tag hud-tag-g">trusted</span>
+        </div>
+        <div class="hud-id-info">
+          <div class="hud-srow"><span class="hud-sk">USER</span><span class="hud-sv" style="color:var(--color-accent-green)">IVAN</span></div>
+          {#if connectedNodes.length > 0}
+            {@const firstNode = connectedNodes[0]}
+            <div class="hud-srow"><span class="hud-sk">NODE</span><span class="hud-sv">{(firstNode as any).displayName || (firstNode as any).name || 'unknown'}</span></div>
+          {/if}
+          {#if aiPlatform}
+            <div class="hud-srow"><span class="hud-sk">PLATFORM</span><span class="hud-sv">{aiPlatform}</span></div>
+          {/if}
+          {#if serverVersion}
+            <div class="hud-srow"><span class="hud-sk">VERSION</span><span class="hud-sv" style="color:var(--color-accent-green)">v{serverVersion}</span></div>
+          {/if}
+        </div>
+      </div>
+
+      <!-- Clock Panel -->
+      <div class="hud-panel" style="text-align:center">
+        <div class="hud-panel-lbl" style="justify-content:center">TIMESTAMP</div>
+        <div class="hud-big-clock">{clockTime}</div>
+        <div style="font-size:0.72rem;letter-spacing:0.22em;color:var(--color-text-muted);margin-top:3px;font-family:'Share Tech Mono',monospace">{clockDate}</div>
+        <div style="font-size:0.65rem;letter-spacing:0.18em;color:var(--color-text-muted);margin-top:6px;font-family:'Share Tech Mono',monospace">UPTIME: {liveUptime}</div>
+      </div>
+
+      <!-- Node Fleet -->
+      {#if nodesList.length > 0}
+        <div class="hud-panel" style="flex:1">
+          <div class="hud-panel-lbl">
+            CONNECTED NODES
+            <a href="/nodes" class="hud-link">MANAGE &rarr;</a>
+          </div>
+          {#each nodesList as node}
+            {@const isConnected = !!(node as any).connected}
+            {@const displayName = (node as any).displayName || (node as any).name || 'Unknown'}
+            {@const platform = (node as any).platform || (node as any).os || ''}
+            {@const version = (node as any).version || ''}
+            <div class="hud-nitem">
+              <div class="hud-ndot {isConnected ? 'on' : 'off'}"></div>
+              <div class="flex-1 min-w-0">
+                <div class="hud-nname">{displayName}</div>
+                <div class="hud-nmeta">{platform}{isConnected ? '' : ' -- offline'}</div>
+              </div>
+              {#if version}
+                <div class="hud-nver">v{version}</div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div class="hud-bottombar">
+    <div class="flex items-center gap-2">
+      <div class="hud-dot" style="width:5px;height:5px"></div>
+      <span>{conn.state.status === 'connected' ? 'ALL SYSTEMS NOMINAL' : 'GATEWAY OFFLINE'}</span>
+      <div class="hud-bdiv"></div>
+      <span>CORTEX {conn.state.status === 'connected' ? 'ACTIVE' : 'INACTIVE'}</span>
+      <div class="hud-bdiv"></div>
+      <span>{connectedNodes.length}/{nodesList.length} NODES</span>
+      <div class="hud-bdiv"></div>
+      <span>{sessions.list.length} SESSIONS</span>
+    </div>
+    <div>UPTIME: {liveUptime}</div>
+  </div>
 </div>
+
+<style>
+  /* ═══════════════════════════════════════════════
+     HUD LAYOUT — SCALED UP
+  ═══════════════════════════════════════════════ */
+  .hud-container {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 22px;
+    gap: 14px;
+    overflow-y: auto;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--color-accent-cyan);
+  }
+
+  /* ─── TOP BAR ─── */
+  .hud-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    padding-bottom: 9px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .hud-logo {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 900;
+    letter-spacing: 0.25em;
+    color: var(--color-accent-cyan);
+    text-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent),
+                 0 0 60px color-mix(in srgb, var(--color-accent-cyan) 15%, transparent);
+    animation: hud-glow 4s ease-in-out infinite;
+  }
+
+  .hud-tagline {
+    font-size: 0.72rem;
+    letter-spacing: 0.28em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    text-transform: uppercase;
+  }
+
+  .hud-clock {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.05rem;
+    letter-spacing: 0.1em;
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-live-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    letter-spacing: 0.28em;
+    color: var(--color-accent-green);
+    border: 1px solid color-mix(in srgb, var(--color-accent-green) 28%, transparent);
+    padding: 3px 9px;
+    border-radius: 2px;
+  }
+
+  .hud-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-accent-green);
+    box-shadow: 0 0 6px var(--color-accent-green);
+    animation: hud-dp 1.6s ease-in-out infinite;
+  }
+
+  .hud-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    color: var(--color-accent-cyan);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 35%, transparent);
+    padding: 4px 12px;
+    border-radius: 2px;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .hud-btn:hover:not(:disabled) {
+    border-color: var(--color-accent-cyan);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent-cyan) 30%, transparent);
+  }
+
+  .hud-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* ─── STATS GRID ─── */
+  .hud-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 767px) {
+    .hud-stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .hud-mc {
+    background: color-mix(in srgb, var(--color-accent-cyan) 7%, #0a0e1a);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 30%, transparent);
+    border-radius: 3px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .hud-mc::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-accent-cyan), transparent);
+    opacity: 0.6;
+  }
+
+  .hud-mc:hover {
+    border-color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  .hud-mc-lbl {
+    font-size: 0.62rem;
+    letter-spacing: 0.28em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    text-transform: uppercase;
+  }
+
+  .hud-mc-val {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--color-accent-cyan);
+    line-height: 1;
+  }
+
+  .hud-mc-sub {
+    font-size: 0.65rem;
+    color: color-mix(in srgb, var(--color-accent-cyan) 45%, transparent);
+  }
+
+  /* ─── MAIN GRID (3 columns) ─── */
+  .hud-main-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 280px 1fr 280px;
+    gap: 14px;
+    min-height: 0;
+  }
+
+  @media (max-width: 1023px) {
+    .hud-main-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (min-width: 1024px) and (max-width: 1279px) {
+    .hud-main-grid {
+      grid-template-columns: 240px 1fr 240px;
+    }
+  }
+
+  .hud-col {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+  }
+
+  /* ─── PANEL ─── */
+  .hud-panel {
+    background: color-mix(in srgb, var(--color-accent-cyan) 8%, #0a0e1a);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    border-radius: 3px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hud-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-accent-cyan), transparent);
+    opacity: 0.6;
+  }
+
+  .hud-panel-lbl {
+    font-size: 0.65rem;
+    letter-spacing: 0.35em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    text-transform: uppercase;
+    margin-bottom: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* ─── SESSION ROWS ─── */
+  .hud-srow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-accent-cyan) 10%, transparent);
+    font-size: 0.75rem;
+  }
+
+  .hud-srow:last-child { border-bottom: none; }
+
+  .hud-sk {
+    color: color-mix(in srgb, var(--color-accent-cyan) 58%, transparent);
+    letter-spacing: 0.08em;
+  }
+
+  .hud-sv {
+    color: var(--color-accent-cyan);
+  }
+
+  /* ─── GAUGES ─── */
+  .hud-gauge-row {
+    display: flex;
+    justify-content: space-around;
+    gap: 8px;
+    padding: 2px 0;
+    flex-wrap: wrap;
+  }
+
+  .hud-gauge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .hud-gauge svg {
+    width: 88px;
+    height: 88px;
+  }
+
+  .hud-gauge-bg {
+    fill: none;
+    stroke: color-mix(in srgb, var(--color-accent-cyan) 15%, transparent);
+    stroke-width: 5;
+  }
+
+  .hud-gauge-fill {
+    fill: none;
+    stroke-width: 5;
+    stroke-linecap: round;
+    transform: rotate(-90deg);
+    transform-origin: 34px 34px;
+    transition: stroke-dasharray 1s ease-out;
+  }
+
+  .hud-gauge-txt {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    fill: var(--color-accent-cyan);
+    text-anchor: middle;
+    dominant-baseline: middle;
+  }
+
+  .hud-gauge-lbl {
+    font-size: 0.65rem;
+    letter-spacing: 0.22em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    text-transform: uppercase;
+  }
+
+  /* ─── ACTIVITY LOG ─── */
+  .hud-activity {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    border-radius: 3px;
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-height: 0;
+  }
+
+  .hud-activity::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-accent-cyan), transparent);
+    opacity: 0.6;
+  }
+
+  .hud-aline {
+    display: flex;
+    gap: 9px;
+    font-size: 0.75rem;
+    line-height: 1.55;
+    overflow: hidden;
+  }
+
+  .hud-ats {
+    color: color-mix(in srgb, var(--color-accent-cyan) 45%, transparent);
+    flex-shrink: 0;
+    width: 55px;
+  }
+
+  .hud-amsg {
+    color: color-mix(in srgb, var(--color-accent-cyan) 78%, transparent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .hud-cursor {
+    display: inline-block;
+    width: 7px;
+    height: 13px;
+    background: var(--color-accent-cyan);
+    animation: hud-blink 1s step-end infinite;
+    vertical-align: middle;
+  }
+
+  /* ─── NODE LIST ─── */
+  .hud-nitem {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-accent-cyan) 12%, transparent);
+  }
+
+  .hud-nitem:last-child { border-bottom: none; }
+
+  .hud-ndot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .hud-ndot.on {
+    background: var(--color-accent-green);
+    box-shadow: 0 0 6px var(--color-accent-green);
+    animation: hud-dp 2s ease-in-out infinite;
+  }
+
+  .hud-ndot.off {
+    background: color-mix(in srgb, #ff3864 40%, transparent);
+  }
+
+  .hud-nname {
+    font-size: 0.78rem;
+    color: var(--color-accent-cyan);
+    letter-spacing: 0.04em;
+  }
+
+  .hud-nmeta {
+    font-size: 0.65rem;
+    color: color-mix(in srgb, var(--color-accent-cyan) 33%, transparent);
+  }
+
+  .hud-nver {
+    font-size: 0.65rem;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+  }
+
+  /* ─── BIG CLOCK ─── */
+  .hud-big-clock {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--color-accent-cyan);
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  /* ─── BOTTOM BAR ─── */
+  .hud-bottombar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    padding-top: 7px;
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 33%, transparent);
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .hud-bdiv {
+    width: 1px;
+    height: 10px;
+    background: color-mix(in srgb, var(--color-accent-cyan) 30%, transparent);
+  }
+
+  /* ─── ACTION BUTTONS ─── */
+  .hud-action-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    color: var(--color-accent-cyan);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 30%, transparent);
+    padding: 8px 10px;
+    border-radius: 2px;
+    text-align: center;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .hud-action-btn:hover {
+    border-color: var(--color-accent-cyan);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+  }
+
+  /* ─── LINKS ─── */
+  .hud-link {
+    font-size: 0.62rem;
+    letter-spacing: 0.15em;
+    color: var(--color-accent-cyan);
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+
+  .hud-link:hover {
+    opacity: 0.8;
+  }
+
+  /* ─── AI IDENTITY PANEL ─── */
+  .hud-id-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 11px;
+    padding: 16px;
+  }
+
+  .hud-av-ring {
+    position: relative;
+    width: 110px;
+    height: 110px;
+    flex-shrink: 0;
+  }
+
+  .hud-av-ring::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    background: conic-gradient(var(--color-accent-cyan), var(--color-accent-purple), var(--color-accent-amber), var(--color-accent-cyan));
+    animation: hud-spin 4s linear infinite;
+    z-index: 0;
+  }
+
+  .hud-av-ring::after {
+    content: '';
+    position: absolute;
+    inset: -7px;
+    border-radius: 50%;
+    background: conic-gradient(transparent, color-mix(in srgb, var(--color-accent-cyan) 30%, transparent), transparent);
+    animation: hud-spin 7s linear infinite reverse;
+    filter: blur(4px);
+    z-index: 0;
+  }
+
+  .hud-av-wrap {
+    position: absolute;
+    inset: 3px;
+    border-radius: 50%;
+    overflow: hidden;
+    z-index: 1;
+    background: #0a1f1f;
+  }
+
+  .hud-av-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+
+  .hud-av-fb {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: var(--color-accent-cyan);
+    text-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  .hud-id-name {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--color-accent-cyan);
+    text-align: center;
+  }
+
+  .hud-id-sub {
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 40%, transparent);
+    text-align: center;
+  }
+
+  .hud-id-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    justify-content: center;
+    margin-top: 3px;
+  }
+
+  .hud-tag {
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    padding: 2px 7px;
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 22%, transparent);
+    border-radius: 2px;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    text-transform: uppercase;
+  }
+
+  .hud-tag-a { border-color: color-mix(in srgb, var(--color-accent-amber) 30%, transparent); color: color-mix(in srgb, var(--color-accent-amber) 70%, transparent); }
+  .hud-tag-g { border-color: color-mix(in srgb, var(--color-accent-green) 30%, transparent); color: color-mix(in srgb, var(--color-accent-green) 70%, transparent); }
+  .hud-tag-r { border-color: color-mix(in srgb, #ff3864 30%, transparent); color: color-mix(in srgb, #ff3864 70%, transparent); }
+
+  .hud-id-info {
+    width: 100%;
+    margin-top: 6px;
+  }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes hud-glow {
+    0%, 100% { text-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent), 0 0 60px color-mix(in srgb, var(--color-accent-cyan) 15%, transparent); }
+    50% { text-shadow: 0 0 40px color-mix(in srgb, var(--color-accent-cyan) 95%, transparent), 0 0 120px color-mix(in srgb, var(--color-accent-cyan) 35%, transparent); }
+  }
+
+  @keyframes hud-dp {
+    0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--color-accent-green); }
+    50% { opacity: 0.25; box-shadow: none; }
+  }
+
+  @keyframes hud-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  @keyframes hud-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+</style>

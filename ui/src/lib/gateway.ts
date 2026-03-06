@@ -127,6 +127,11 @@ export interface HelloOk {
     };
     authMode?: string;
   };
+  branding?: {
+    assistantName?: string;
+    assistantAvatar?: string;
+    assistantEmoji?: string;
+  };
   policy: {
     maxPayload: number;
     maxBufferedBytes: number;
@@ -152,6 +157,8 @@ export interface ConnectionState {
   mainSessionKey?: string;
   /** Security role from gateway auth (admin/operator/viewer/chat-only). */
   securityRole?: string;
+  /** AI assistant name from gateway branding. */
+  assistantName?: string;
 }
 
 // ═══ Event Emitter ════════════════════════════════
@@ -631,6 +638,7 @@ export class GatewayClient {
       connId: hello.server.connId,
       mainSessionKey: hello.snapshot.sessionDefaults?.mainSessionKey,
       securityRole,
+      assistantName: hello.branding?.assistantName,
       error: undefined,
     });
 

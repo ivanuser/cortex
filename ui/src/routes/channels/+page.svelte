@@ -4,6 +4,8 @@
   import { getConnection } from '$lib/stores/connection.svelte';
   import { getToasts } from '$lib/stores/toasts.svelte';
   import { formatRelativeTime } from '$lib/utils/time';
+  import MatrixRain from '$lib/components/MatrixRain.svelte';
+  import CRTOverlay from '$lib/components/CRTOverlay.svelte';
 
   const conn = getConnection();
   const toasts = getToasts();
@@ -50,77 +52,57 @@
   }
 
   // ─── Channel theme config ─────────────────────
-  const channelThemes: Record<string, { color: string; bg: string; border: string; glow: string; icon: string }> = {
+  const channelThemes: Record<string, { color: string; cssColor: string; icon: string }> = {
     discord: {
-      color: 'text-[#7289da]',
-      bg: 'bg-[#7289da]/10',
-      border: 'border-[#7289da]/25',
-      glow: 'shadow-[0_0_12px_rgba(114,137,218,0.2)]',
+      color: '#7289da',
+      cssColor: '#7289da',
       icon: 'M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z'
     },
     telegram: {
-      color: 'text-[#0088cc]',
-      bg: 'bg-[#0088cc]/10',
-      border: 'border-[#0088cc]/25',
-      glow: 'shadow-[0_0_12px_rgba(0,136,204,0.2)]',
+      color: '#0088cc',
+      cssColor: '#0088cc',
       icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z'
     },
     whatsapp: {
-      color: 'text-[#25d366]',
-      bg: 'bg-[#25d366]/10',
-      border: 'border-[#25d366]/25',
-      glow: 'shadow-[0_0_12px_rgba(37,211,102,0.2)]',
+      color: '#25d366',
+      cssColor: '#25d366',
       icon: 'M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z'
     },
     signal: {
-      color: 'text-[#3a76f0]',
-      bg: 'bg-[#3a76f0]/10',
-      border: 'border-[#3a76f0]/25',
-      glow: 'shadow-[0_0_12px_rgba(58,118,240,0.2)]',
+      color: '#3a76f0',
+      cssColor: '#3a76f0',
       icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8z'
     },
     slack: {
-      color: 'text-[#e01e5a]',
-      bg: 'bg-[#e01e5a]/10',
-      border: 'border-[#e01e5a]/25',
-      glow: 'shadow-[0_0_12px_rgba(224,30,90,0.2)]',
+      color: '#e01e5a',
+      cssColor: '#e01e5a',
       icon: 'M5.042 15.165a2.528 2.528 0 01-2.52 2.523A2.528 2.528 0 010 15.165a2.527 2.527 0 012.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 012.521-2.52 2.527 2.527 0 012.521 2.52v6.313A2.528 2.528 0 018.834 24a2.528 2.528 0 01-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 01-2.521-2.52A2.528 2.528 0 018.834 0a2.528 2.528 0 012.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 012.521 2.521 2.528 2.528 0 01-2.521 2.521H2.522A2.528 2.528 0 010 8.834a2.528 2.528 0 012.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 012.522-2.521A2.528 2.528 0 0124 8.834a2.528 2.528 0 01-2.522 2.521h-2.522V8.834zm-1.271 0a2.528 2.528 0 01-2.521 2.521 2.528 2.528 0 01-2.521-2.521V2.522A2.528 2.528 0 0115.164 0a2.528 2.528 0 012.521 2.522v6.312zM15.164 18.956a2.528 2.528 0 012.521 2.522A2.528 2.528 0 0115.164 24a2.528 2.528 0 01-2.521-2.522v-2.522h2.521zm0-1.271a2.528 2.528 0 01-2.521-2.521 2.528 2.528 0 012.521-2.521h6.314A2.528 2.528 0 0124 15.164a2.528 2.528 0 01-2.522 2.521h-6.314z'
     },
     imessage: {
-      color: 'text-[#34c759]',
-      bg: 'bg-[#34c759]/10',
-      border: 'border-[#34c759]/25',
-      glow: 'shadow-[0_0_12px_rgba(52,199,89,0.2)]',
+      color: '#34c759',
+      cssColor: '#34c759',
       icon: 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z'
     },
     nostr: {
-      color: 'text-accent-purple',
-      bg: 'bg-accent-purple/10',
-      border: 'border-accent-purple/25',
-      glow: 'shadow-[0_0_12px_rgba(124,77,255,0.2)]',
+      color: '#7c4dff',
+      cssColor: '#7c4dff',
       icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'
     },
     googlechat: {
-      color: 'text-[#00ac47]',
-      bg: 'bg-[#00ac47]/10',
-      border: 'border-[#00ac47]/25',
-      glow: 'shadow-[0_0_12px_rgba(0,172,71,0.2)]',
+      color: '#00ac47',
+      cssColor: '#00ac47',
       icon: 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z'
     },
     'nextcloud-talk': {
-      color: 'text-[#0082c9]',
-      bg: 'bg-[#0082c9]/10',
-      border: 'border-[#0082c9]/25',
-      glow: 'shadow-[0_0_12px_rgba(0,130,201,0.2)]',
+      color: '#0082c9',
+      cssColor: '#0082c9',
       icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1.41 16.09V20H8.54v-1.91c-1.75-.32-3.29-1.46-3.4-3.33h1.82c.13 1.05.97 1.72 2.59 1.72 1.72 0 2.1-.81 2.1-1.32 0-.69-.42-1.33-2.17-1.79C7.76 12.91 6 12.15 6 10.24c0-1.57 1.27-2.66 2.54-2.98V5.35h2.05v1.93c1.61.42 2.57 1.66 2.62 3.03h-1.82c-.05-.96-.73-1.72-2.12-1.72-1.32 0-2.21.59-2.21 1.48 0 .93.65 1.28 2.42 1.76 1.96.53 3.83 1.14 3.83 3.41 0 1.78-1.36 2.76-2.72 3.15V18.09z'
     }
   };
 
   const defaultTheme = {
-    color: 'text-accent-cyan',
-    bg: 'bg-accent-cyan/10',
-    border: 'border-accent-cyan/25',
-    glow: 'shadow-[0_0_12px_rgba(0,229,255,0.2)]',
+    color: 'var(--color-accent-cyan)',
+    cssColor: 'var(--color-accent-cyan)',
     icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z'
   };
 
@@ -311,19 +293,11 @@
     return 'disconnected';
   }
 
-  function getStatusDotColor(connStatus: string): string {
+  function getStatusColor(connStatus: string): string {
     switch (connStatus) {
-      case 'connected': return 'bg-accent-green';
-      case 'connecting': return 'bg-accent-amber';
-      default: return 'bg-red-500';
-    }
-  }
-
-  function getStatusBadgeClasses(connStatus: string): string {
-    switch (connStatus) {
-      case 'connected': return 'bg-accent-green/15 text-accent-green border border-accent-green/20';
-      case 'connecting': return 'bg-accent-amber/15 text-accent-amber border border-accent-amber/20';
-      default: return 'bg-red-500/10 text-red-400 border border-red-500/20';
+      case 'connected': return 'var(--color-accent-green)';
+      case 'connecting': return 'var(--color-accent-amber)';
+      default: return '#ef4444';
     }
   }
 
@@ -354,105 +328,103 @@
   <title>Channels — Cortex</title>
 </svelte:head>
 
-<div class="h-full flex flex-col overflow-hidden">
-  <!-- Header -->
-  <div class="flex-shrink-0 p-4 md:p-6 pb-4 border-b border-border-default">
-    <div class="flex items-start justify-between gap-4 flex-wrap">
-      <div>
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl gradient-bg border border-border-glow flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5 text-accent-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-          </div>
-          <div>
-            <h1 class="text-xl font-bold text-text-primary glow-text-cyan">Channels</h1>
-            <p class="text-sm text-text-muted">Messaging platform connections and health</p>
-          </div>
-        </div>
+<MatrixRain />
+<CRTOverlay />
+
+<div class="hud-page">
+  <!-- Top bar -->
+  <div class="hud-page-topbar">
+    <a href="/overview" class="hud-back">&larr; OVERVIEW</a>
+    <div class="hud-page-title">CHANNELS</div>
+    <div></div>
+  </div>
+
+  <!-- Header bar -->
+  <div class="hud-header">
+    <div class="hud-header-left">
+      <div class="hud-header-icon">
+        <svg width="20" height="20" fill="none" stroke="var(--color-accent-cyan)" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
       </div>
-
-      <div class="flex items-center gap-2">
-        <!-- Last updated -->
-        {#if lastSuccessAt}
-          <span class="text-xs text-text-muted font-mono">
-            {formatRelativeTime(lastSuccessAt)}
-          </span>
-        {/if}
-
-        <!-- Refresh -->
-        <button
-          onclick={() => loadChannels(false)}
-          disabled={loading || conn.state.status !== 'connected'}
-          class="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-tertiary border border-border-default rounded-lg text-text-secondary hover:text-accent-cyan hover:border-accent-cyan/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <svg class="w-4 h-4 {loading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          {loading ? 'Loading…' : 'Refresh'}
-        </button>
-
-        <!-- Probe -->
-        <button
-          onclick={() => loadChannels(true)}
-          disabled={loading || conn.state.status !== 'connected'}
-          class="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent-cyan/10 border border-accent-cyan/25 rounded-lg text-accent-cyan hover:bg-accent-cyan/20 hover:border-accent-cyan/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-          </svg>
-          Probe All
-        </button>
+      <div>
+        <div class="hud-subtitle">Messaging platform connections and health</div>
       </div>
     </div>
 
-    <!-- Stats bar -->
-    {#if snapshot && sortedChannels.length > 0}
-      <div class="flex items-center gap-4 mt-4">
-        <div class="flex items-center gap-1.5 text-xs">
-          <span class="w-2 h-2 rounded-full bg-accent-cyan"></span>
-          <span class="text-text-muted">Total</span>
-          <span class="text-text-primary font-mono font-semibold">{stats.total}</span>
-        </div>
-        <div class="flex items-center gap-1.5 text-xs">
-          <span class="w-2 h-2 rounded-full bg-accent-green glow-pulse"></span>
-          <span class="text-text-muted">Connected</span>
-          <span class="text-accent-green font-mono font-semibold">{stats.connected}</span>
-        </div>
-        <div class="flex items-center gap-1.5 text-xs">
-          <span class="w-2 h-2 rounded-full bg-accent-amber"></span>
-          <span class="text-text-muted">Configured</span>
-          <span class="text-text-secondary font-mono font-semibold">{stats.configured}</span>
-        </div>
-        {#if stats.errors > 0}
-          <div class="flex items-center gap-1.5 text-xs">
-            <span class="w-2 h-2 rounded-full bg-red-500"></span>
-            <span class="text-text-muted">Errors</span>
-            <span class="text-red-400 font-mono font-semibold">{stats.errors}</span>
-          </div>
-        {/if}
-      </div>
-    {/if}
+    <div class="hud-header-actions">
+      {#if lastSuccessAt}
+        <span class="hud-timestamp">{formatRelativeTime(lastSuccessAt)}</span>
+      {/if}
+
+      <button
+        onclick={() => loadChannels(false)}
+        disabled={loading || conn.state.status !== 'connected'}
+        class="hud-btn"
+      >
+        <svg class="hud-btn-icon {loading ? 'spin' : ''}" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        {loading ? 'Loading...' : 'Refresh'}
+      </button>
+
+      <button
+        onclick={() => loadChannels(true)}
+        disabled={loading || conn.state.status !== 'connected'}
+        class="hud-btn hud-btn-primary"
+      >
+        <svg class="hud-btn-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+        Probe All
+      </button>
+    </div>
   </div>
 
+  <!-- Stats bar -->
+  {#if snapshot && sortedChannels.length > 0}
+    <div class="hud-stats-bar">
+      <div class="hud-stat">
+        <span class="hud-stat-dot" style="background: var(--color-accent-cyan);"></span>
+        <span class="hud-stat-label">Total</span>
+        <span class="hud-stat-value">{stats.total}</span>
+      </div>
+      <div class="hud-stat">
+        <span class="hud-stat-dot pulse" style="background: var(--color-accent-green);"></span>
+        <span class="hud-stat-label">Connected</span>
+        <span class="hud-stat-value" style="color: var(--color-accent-green);">{stats.connected}</span>
+      </div>
+      <div class="hud-stat">
+        <span class="hud-stat-dot" style="background: var(--color-accent-amber);"></span>
+        <span class="hud-stat-label">Configured</span>
+        <span class="hud-stat-value">{stats.configured}</span>
+      </div>
+      {#if stats.errors > 0}
+        <div class="hud-stat">
+          <span class="hud-stat-dot" style="background: #ef4444;"></span>
+          <span class="hud-stat-label">Errors</span>
+          <span class="hud-stat-value" style="color: #ef4444;">{stats.errors}</span>
+        </div>
+      {/if}
+    </div>
+  {/if}
+
   <!-- Content area -->
-  <div class="flex-1 overflow-y-auto p-4 md:p-6">
+  <div class="hud-content">
     {#if conn.state.status !== 'connected'}
-      <!-- Not connected -->
-      <div class="flex flex-col items-center justify-center h-full text-center">
-        <div class="w-16 h-16 rounded-2xl bg-bg-tertiary border border-border-default flex items-center justify-center mb-4">
-          <svg class="w-8 h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="hud-empty">
+        <div class="hud-empty-icon">
+          <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: var(--color-text-muted);">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m-2.829-2.829a5 5 0 000-7.07m-4.243 9.9a9 9 0 01-4.242-1.757" />
           </svg>
         </div>
-        <p class="text-text-muted text-sm">Connect to the gateway to view channel status.</p>
+        <p class="hud-empty-text">Connect to the gateway to view channel status.</p>
       </div>
 
     {:else if lastError && !snapshot}
-      <!-- Error (no data at all) -->
-      <div class="glass rounded-xl p-4 border border-accent-pink/30 mb-4">
-        <div class="flex items-center gap-2 text-accent-pink text-sm">
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="hud-panel hud-panel-error">
+        <div class="hud-error-row">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: #ef4444; flex-shrink: 0;">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           <span>{lastError}</span>
@@ -460,40 +432,37 @@
       </div>
 
     {:else if loading && !snapshot}
-      <!-- Loading skeleton -->
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div class="hud-grid">
         {#each Array(4) as _}
-          <div class="glass rounded-xl p-5 border border-border-default animate-pulse">
-            <div class="flex items-center gap-3 mb-4">
-              <div class="w-10 h-10 rounded-xl bg-bg-tertiary"></div>
+          <div class="hud-panel hud-skeleton">
+            <div class="hud-skeleton-header">
+              <div class="hud-skeleton-icon"></div>
               <div>
-                <div class="h-4 w-24 bg-bg-tertiary rounded mb-1.5"></div>
-                <div class="h-3 w-36 bg-bg-tertiary rounded"></div>
+                <div class="hud-skeleton-line" style="width: 6rem;"></div>
+                <div class="hud-skeleton-line" style="width: 9rem; margin-top: 0.4rem;"></div>
               </div>
             </div>
-            <div class="space-y-2.5">
-              <div class="h-3 w-full bg-bg-tertiary rounded"></div>
-              <div class="h-3 w-3/4 bg-bg-tertiary rounded"></div>
-              <div class="h-3 w-1/2 bg-bg-tertiary rounded"></div>
+            <div class="hud-skeleton-body">
+              <div class="hud-skeleton-line" style="width: 100%;"></div>
+              <div class="hud-skeleton-line" style="width: 75%;"></div>
+              <div class="hud-skeleton-line" style="width: 50%;"></div>
             </div>
           </div>
         {/each}
       </div>
 
     {:else if sortedChannels.length === 0}
-      <!-- Empty state -->
-      <div class="flex flex-col items-center justify-center h-64 text-center">
-        <div class="w-14 h-14 rounded-2xl bg-bg-tertiary border border-border-default flex items-center justify-center mb-4">
-          <svg class="w-7 h-7 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="hud-empty">
+        <div class="hud-empty-icon">
+          <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: var(--color-text-muted);">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
         </div>
-        <p class="text-text-muted text-sm">No channels configured. Add channels in your gateway config.</p>
+        <p class="hud-empty-text">No channels configured. Add channels in your gateway config.</p>
       </div>
 
     {:else}
-      <!-- Channel grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div class="hud-grid">
         {#each sortedChannels as channel (channel.key)}
           {@const theme = getTheme(channel.key)}
           {@const connStatus = getConnectionStatus(channel.status, channel.accounts)}
@@ -501,147 +470,133 @@
           {@const isWhatsApp = channel.key === 'whatsapp'}
           {@const label = resolveLabel(channel.key)}
           {@const description = channelDescriptions[channel.key] ?? 'Channel status and configuration'}
+          {@const statusColor = getStatusColor(connStatus)}
 
           <div
-            class="glass rounded-xl border transition-all duration-300 animate-fade-in
-                   {channel.enabled ? theme.border + ' ' + theme.glow : 'border-border-default opacity-60'}
-                   {isExpanded ? 'md:col-span-2 xl:col-span-2' : ''}
-                   hover:border-opacity-50"
+            class="hud-panel hud-channel-card"
+            class:hud-channel-expanded={isExpanded}
+            class:hud-channel-disabled={!channel.enabled}
+            style="--channel-color: {theme.cssColor};"
           >
             <!-- Card header -->
-            <div class="p-4 pb-3">
-              <div class="flex items-start justify-between gap-3">
-                <div class="flex items-center gap-3 min-w-0">
-                  <!-- Channel icon -->
-                  <div class="w-10 h-10 rounded-xl {theme.bg} {theme.border} border flex items-center justify-center flex-shrink-0">
-                    <svg class="w-5 h-5 {theme.color}" viewBox="0 0 24 24" fill="currentColor">
-                      <path d={theme.icon} />
-                    </svg>
-                  </div>
-                  <div class="min-w-0">
-                    <h3 class="text-sm font-semibold text-text-primary truncate">{label}</h3>
-                    <p class="text-xs text-text-muted truncate">{description}</p>
-                  </div>
+            <div class="hud-channel-header">
+              <div class="hud-channel-identity">
+                <div class="hud-channel-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="color: {theme.cssColor};">
+                    <path d={theme.icon} />
+                  </svg>
                 </div>
-
-                <!-- Status badge -->
-                <span class="flex-shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full {getStatusBadgeClasses(connStatus)}">
-                  <span class="inline-flex items-center gap-1">
-                    <span class="w-1.5 h-1.5 rounded-full {getStatusDotColor(connStatus)} {connStatus === 'connected' ? 'glow-pulse' : ''}"></span>
-                    {connStatus}
-                  </span>
-                </span>
+                <div class="hud-channel-info">
+                  <h3 class="hud-channel-name">{label}</h3>
+                  <p class="hud-channel-desc">{description}</p>
+                </div>
               </div>
 
-              <!-- Account count -->
-              {#if channel.accounts.length > 1}
-                <div class="mt-2 text-[10px] font-medium uppercase tracking-wider text-text-muted {theme.color}">
-                  {channel.accounts.length} accounts
+              <span class="hud-status-badge" style="--status-color: {statusColor};">
+                <span class="hud-status-dot" class:pulse={connStatus === 'connected'} style="background: {statusColor};"></span>
+                {connStatus.toUpperCase()}
+              </span>
+            </div>
+
+            <!-- Account count -->
+            {#if channel.accounts.length > 1}
+              <div class="hud-account-count" style="color: {theme.cssColor};">
+                {channel.accounts.length} accounts
+              </div>
+            {/if}
+
+            <!-- Status fields -->
+            <div class="hud-channel-fields">
+              <div class="hud-field-row">
+                <span class="hud-field-label">Configured</span>
+                <span class="hud-field-value" class:hud-field-ok={channel.status?.configured}>{channel.status?.configured ? 'Yes' : 'No'}</span>
+              </div>
+              <div class="hud-field-row">
+                <span class="hud-field-label">Running</span>
+                <span class="hud-field-value" class:hud-field-ok={channel.status?.running}>{channel.status?.running ? 'Yes' : 'No'}</span>
+              </div>
+              <div class="hud-field-row">
+                <span class="hud-field-label">Connected</span>
+                <span class="hud-field-value" class:hud-field-ok={channel.status?.connected}>{channel.status?.connected ? 'Yes' : 'No'}</span>
+              </div>
+              {#if isWhatsApp && channel.status?.linked !== undefined}
+                <div class="hud-field-row">
+                  <span class="hud-field-label">Linked</span>
+                  <span class="hud-field-value" class:hud-field-ok={channel.status?.linked}>{channel.status?.linked ? 'Yes' : 'No'}</span>
+                </div>
+              {/if}
+              {#if channel.status?.mode}
+                <div class="hud-field-row">
+                  <span class="hud-field-label">Mode</span>
+                  <span class="hud-field-value hud-field-mono">{channel.status.mode}</span>
                 </div>
               {/if}
             </div>
 
-            <!-- Status fields -->
-            <div class="px-4 pb-3">
-              <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-                <div class="flex justify-between">
-                  <span class="text-text-muted">Configured</span>
-                  <span class="{channel.status?.configured ? 'text-accent-green' : 'text-text-secondary'}">{channel.status?.configured ? 'Yes' : 'No'}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-text-muted">Running</span>
-                  <span class="{channel.status?.running ? 'text-accent-green' : 'text-text-secondary'}">{channel.status?.running ? 'Yes' : 'No'}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-text-muted">Connected</span>
-                  <span class="{channel.status?.connected ? 'text-accent-green' : 'text-text-secondary'}">{channel.status?.connected ? 'Yes' : 'No'}</span>
-                </div>
-                {#if isWhatsApp && channel.status?.linked !== undefined}
-                  <div class="flex justify-between">
-                    <span class="text-text-muted">Linked</span>
-                    <span class="{channel.status?.linked ? 'text-accent-green' : 'text-text-secondary'}">{channel.status?.linked ? 'Yes' : 'No'}</span>
-                  </div>
-                {/if}
-                {#if channel.status?.mode}
-                  <div class="flex justify-between">
-                    <span class="text-text-muted">Mode</span>
-                    <span class="text-text-primary font-mono">{channel.status.mode}</span>
-                  </div>
-                {/if}
-              </div>
-            </div>
-
             <!-- Error callout -->
             {#if channel.status?.lastError}
-              <div class="mx-4 mb-3 p-2.5 rounded-lg bg-red-500/8 border border-red-500/20">
-                <p class="text-xs text-red-400 leading-relaxed break-words">{channel.status.lastError}</p>
+              <div class="hud-callout hud-callout-error">
+                <p>{channel.status.lastError}</p>
               </div>
             {/if}
 
             <!-- Probe result -->
             {#if channel.status?.probe}
-              <div class="mx-4 mb-3 p-2.5 rounded-lg {channel.status.probe.ok ? 'bg-accent-green/8 border border-accent-green/20' : 'bg-accent-amber/8 border border-accent-amber/20'}">
-                <p class="text-xs {channel.status.probe.ok ? 'text-accent-green' : 'text-accent-amber'}">
+              <div class="hud-callout" class:hud-callout-ok={channel.status.probe.ok} class:hud-callout-warn={!channel.status.probe.ok}>
+                <p>
                   Probe {channel.status.probe.ok ? 'ok' : 'failed'}
-                  {#if channel.status.probe.status} · {channel.status.probe.status}{/if}
-                  {#if channel.status.probe.error} · {channel.status.probe.error}{/if}
-                  {#if channel.status.probe.bot?.username} · @{channel.status.probe.bot.username}{/if}
+                  {#if channel.status.probe.status} &middot; {channel.status.probe.status}{/if}
+                  {#if channel.status.probe.error} &middot; {channel.status.probe.error}{/if}
+                  {#if channel.status.probe.bot?.username} &middot; @{channel.status.probe.bot.username}{/if}
                 </p>
               </div>
             {/if}
 
             <!-- WhatsApp QR login section -->
             {#if isWhatsApp}
-              <!-- WA login message -->
               {#if waLoginMessage}
-                <div class="mx-4 mb-3 p-2.5 rounded-lg bg-accent-cyan/8 border border-accent-cyan/20">
-                  <p class="text-xs text-accent-cyan">{waLoginMessage}</p>
+                <div class="hud-callout hud-callout-info">
+                  <p>{waLoginMessage}</p>
                 </div>
               {/if}
 
-              <!-- WA connected success -->
               {#if waLoginConnected}
-                <div class="mx-4 mb-3 p-2.5 rounded-lg bg-accent-green/8 border border-accent-green/20">
-                  <div class="flex items-center gap-2">
-                    <svg class="w-4 h-4 text-accent-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="hud-callout hud-callout-ok">
+                  <div class="hud-callout-row">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: var(--color-accent-green);">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <p class="text-xs text-accent-green font-medium">WhatsApp connected successfully!</p>
+                    <p>WhatsApp connected successfully!</p>
                   </div>
                 </div>
               {/if}
 
-              <!-- QR Code display -->
               {#if waLoginQrDataUrl}
-                <div class="mx-4 mb-3 flex justify-center">
-                  <div class="p-3 bg-white rounded-xl border-2 {theme.border}">
-                    <img src={waLoginQrDataUrl} alt="WhatsApp QR Code" class="w-48 h-48" />
+                <div class="hud-qr-container">
+                  <div class="hud-qr-frame">
+                    <img src={waLoginQrDataUrl} alt="WhatsApp QR Code" class="hud-qr-img" />
                   </div>
                 </div>
                 {#if waLoginBusy}
-                  <div class="mx-4 mb-3 text-center">
-                    <p class="text-xs text-text-muted animate-pulse">Waiting for scan…</p>
+                  <div class="hud-qr-waiting">
+                    <p>Waiting for scan...</p>
                   </div>
                 {/if}
               {/if}
 
-              <!-- WA action buttons -->
-              <div class="px-4 pb-3 flex flex-wrap gap-2">
+              <div class="hud-wa-actions">
                 <button
                   onclick={() => startWhatsAppLogin(false)}
                   disabled={waLoginBusy}
-                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all
-                         bg-[#25d366]/15 text-[#25d366] border border-[#25d366]/25
-                         hover:bg-[#25d366]/25 hover:border-[#25d366]/40
-                         disabled:opacity-40 disabled:cursor-not-allowed"
+                  class="hud-btn hud-btn-wa"
                 >
                   {#if waLoginBusy}
-                    <svg class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="hud-btn-icon spin" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    Working…
+                    Working...
                   {:else}
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="hud-btn-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                     </svg>
                     Show QR
@@ -650,10 +605,7 @@
                 <button
                   onclick={() => startWhatsAppLogin(true)}
                   disabled={waLoginBusy}
-                  class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all
-                         bg-bg-tertiary text-text-secondary border border-border-default
-                         hover:text-accent-cyan hover:border-accent-cyan/30
-                         disabled:opacity-40 disabled:cursor-not-allowed"
+                  class="hud-btn"
                 >
                   Relink
                 </button>
@@ -661,10 +613,7 @@
                   <button
                     onclick={waitWhatsAppLogin}
                     disabled={waLoginBusy}
-                    class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all
-                           bg-bg-tertiary text-text-secondary border border-border-default
-                           hover:text-accent-cyan hover:border-accent-cyan/30
-                           disabled:opacity-40 disabled:cursor-not-allowed"
+                    class="hud-btn"
                   >
                     Wait for scan
                   </button>
@@ -674,32 +623,32 @@
 
             <!-- Multi-account cards -->
             {#if channel.accounts.length > 1}
-              <div class="px-4 pb-3 space-y-2">
+              <div class="hud-accounts-list">
                 {#each channel.accounts as account}
                   {@const botUsername = (account.probe as Record<string, Record<string, string>> | undefined)?.bot?.username}
-                  <div class="p-2.5 rounded-lg bg-bg-tertiary/50 border border-border-default">
-                    <div class="flex items-center justify-between mb-1.5">
-                      <span class="text-xs font-medium text-text-primary">
+                  <div class="hud-account-card">
+                    <div class="hud-account-header">
+                      <span class="hud-account-name">
                         {botUsername ? `@${botUsername}` : account.name || account.accountId}
                       </span>
-                      <span class="text-[10px] font-mono text-text-muted">{account.accountId}</span>
+                      <span class="hud-account-id">{account.accountId}</span>
                     </div>
-                    <div class="grid grid-cols-3 gap-2 text-[11px]">
+                    <div class="hud-account-fields">
                       <div>
-                        <span class="text-text-muted">Running</span>
-                        <span class="ml-1 {account.running ? 'text-accent-green' : 'text-text-secondary'}">{account.running ? 'Yes' : 'No'}</span>
+                        <span class="hud-field-label">Running</span>
+                        <span class="hud-field-value" class:hud-field-ok={account.running}>{account.running ? 'Yes' : 'No'}</span>
                       </div>
                       <div>
-                        <span class="text-text-muted">Config</span>
-                        <span class="ml-1 {account.configured ? 'text-accent-green' : 'text-text-secondary'}">{account.configured ? 'Yes' : 'No'}</span>
+                        <span class="hud-field-label">Config</span>
+                        <span class="hud-field-value" class:hud-field-ok={account.configured}>{account.configured ? 'Yes' : 'No'}</span>
                       </div>
                       <div>
-                        <span class="text-text-muted">Inbound</span>
-                        <span class="ml-1 text-text-primary">{account.lastInboundAt ? formatRelativeTime(account.lastInboundAt) : 'n/a'}</span>
+                        <span class="hud-field-label">Inbound</span>
+                        <span class="hud-field-value">{account.lastInboundAt ? formatRelativeTime(account.lastInboundAt) : 'n/a'}</span>
                       </div>
                     </div>
                     {#if account.lastError}
-                      <p class="mt-1.5 text-[11px] text-red-400 break-words">{account.lastError}</p>
+                      <p class="hud-account-error">{account.lastError}</p>
                     {/if}
                   </div>
                 {/each}
@@ -707,92 +656,84 @@
             {/if}
 
             <!-- Action buttons -->
-            <div class="px-4 pb-4 pt-1 flex items-center gap-2 border-t border-border-default mt-1">
-              <!-- Details toggle -->
+            <div class="hud-channel-actions">
               <button
                 onclick={() => toggleExpand(channel.key)}
-                class="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all
-                       text-text-muted hover:text-text-primary hover:bg-bg-hover"
+                class="hud-btn hud-btn-ghost"
               >
-                <svg class="w-3.5 h-3.5 transition-transform duration-200 {isExpanded ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="hud-btn-icon" style="transition: transform 0.2s; {isExpanded ? 'transform: rotate(180deg);' : ''}" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
                 Details
               </button>
 
-              <div class="flex-1"></div>
+              <div style="flex: 1;"></div>
 
-              <!-- Logout -->
               {#if channel.status?.connected || channel.status?.running}
                 <button
                   onclick={() => logoutChannel(channel.key)}
                   disabled={logoutBusy[channel.key]}
-                  class="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all
-                         text-red-400/80 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20
-                         disabled:opacity-40 disabled:cursor-not-allowed"
+                  class="hud-btn hud-btn-danger"
                 >
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="hud-btn-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>
-                  {logoutBusy[channel.key] ? 'Logging out…' : 'Logout'}
+                  {logoutBusy[channel.key] ? 'Logging out...' : 'Logout'}
                 </button>
               {/if}
             </div>
 
             <!-- Expanded details -->
             {#if isExpanded}
-              <div class="border-t border-border-default p-4 animate-slide-in-up">
-                <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+              <div class="hud-channel-details">
+                <div class="hud-details-grid">
                   {#if channel.status?.lastConnectedAt}
                     <div>
-                      <span class="text-text-muted block mb-0.5">Last connected</span>
-                      <span class="text-text-primary">{formatRelativeTime(channel.status.lastConnectedAt)}</span>
+                      <span class="hud-field-label">Last connected</span>
+                      <span class="hud-field-value">{formatRelativeTime(channel.status.lastConnectedAt)}</span>
                     </div>
                   {/if}
                   {#if channel.status?.lastMessageAt}
                     <div>
-                      <span class="text-text-muted block mb-0.5">Last message</span>
-                      <span class="text-text-primary">{formatRelativeTime(channel.status.lastMessageAt)}</span>
+                      <span class="hud-field-label">Last message</span>
+                      <span class="hud-field-value">{formatRelativeTime(channel.status.lastMessageAt)}</span>
                     </div>
                   {/if}
                   {#if channel.status?.lastStartAt}
                     <div>
-                      <span class="text-text-muted block mb-0.5">Last start</span>
-                      <span class="text-text-primary">{formatRelativeTime(channel.status.lastStartAt)}</span>
+                      <span class="hud-field-label">Last start</span>
+                      <span class="hud-field-value">{formatRelativeTime(channel.status.lastStartAt)}</span>
                     </div>
                   {/if}
                   {#if channel.status?.lastProbeAt}
                     <div>
-                      <span class="text-text-muted block mb-0.5">Last probe</span>
-                      <span class="text-text-primary">{formatRelativeTime(channel.status.lastProbeAt)}</span>
+                      <span class="hud-field-label">Last probe</span>
+                      <span class="hud-field-value">{formatRelativeTime(channel.status.lastProbeAt)}</span>
                     </div>
                   {/if}
                   {#if channel.status?.authAgeMs != null}
                     <div>
-                      <span class="text-text-muted block mb-0.5">Auth age</span>
-                      <span class="text-text-primary font-mono">{formatDuration(channel.status.authAgeMs)}</span>
+                      <span class="hud-field-label">Auth age</span>
+                      <span class="hud-field-value hud-field-mono">{formatDuration(channel.status.authAgeMs)}</span>
                     </div>
                   {/if}
                   {#if channel.status?.baseUrl}
                     <div>
-                      <span class="text-text-muted block mb-0.5">Base URL</span>
-                      <span class="text-text-primary font-mono text-[11px] break-all">{channel.status.baseUrl}</span>
+                      <span class="hud-field-label">Base URL</span>
+                      <span class="hud-field-value hud-field-mono" style="font-size: 0.68rem; word-break: break-all;">{channel.status.baseUrl}</span>
                     </div>
                   {/if}
                   {#if channel.status?.mode}
                     <div>
-                      <span class="text-text-muted block mb-0.5">Mode</span>
-                      <span class="text-text-primary font-mono">{channel.status.mode}</span>
+                      <span class="hud-field-label">Mode</span>
+                      <span class="hud-field-value hud-field-mono">{channel.status.mode}</span>
                     </div>
                   {/if}
                 </div>
 
-                <!-- Raw JSON -->
-                <details class="mt-4">
-                  <summary class="text-[11px] text-text-muted cursor-pointer hover:text-text-secondary transition-colors">
-                    Raw status JSON
-                  </summary>
-                  <pre class="mt-2 p-3 rounded-lg bg-bg-tertiary/60 border border-border-default text-[11px] text-text-secondary font-mono overflow-x-auto max-h-64 overflow-y-auto leading-relaxed">{JSON.stringify(channel.status, null, 2)}</pre>
+                <details class="hud-raw-json">
+                  <summary>Raw status JSON</summary>
+                  <pre>{JSON.stringify(channel.status, null, 2)}</pre>
                 </details>
               </div>
             {/if}
@@ -802,28 +743,794 @@
 
       <!-- Raw snapshot section -->
       {#if snapshot}
-        <details class="mt-6">
-          <summary class="glass rounded-xl p-4 border border-border-default cursor-pointer hover:border-accent-cyan/20 transition-all">
-            <div class="inline-flex items-center gap-2">
-              <svg class="w-4 h-4 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <details class="hud-raw-snapshot">
+          <summary class="hud-panel">
+            <div class="hud-raw-summary">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: var(--color-text-muted);">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
               </svg>
-              <span class="text-sm text-text-muted">Channel health snapshot</span>
+              <span>Channel health snapshot</span>
               {#if lastSuccessAt}
-                <span class="text-xs text-text-muted font-mono ml-2">{formatRelativeTime(lastSuccessAt)}</span>
+                <span class="hud-timestamp">{formatRelativeTime(lastSuccessAt)}</span>
               {/if}
             </div>
           </summary>
-          <div class="mt-2 glass rounded-xl p-4 border border-border-default">
+          <div class="hud-panel" style="margin-top: 0.5rem;">
             {#if lastError}
-              <div class="p-2.5 rounded-lg bg-red-500/8 border border-red-500/20 mb-3">
-                <p class="text-xs text-red-400">{lastError}</p>
+              <div class="hud-callout hud-callout-error">
+                <p>{lastError}</p>
               </div>
             {/if}
-            <pre class="text-[11px] text-text-secondary font-mono overflow-x-auto max-h-96 overflow-y-auto leading-relaxed">{JSON.stringify(snapshot, null, 2)}</pre>
+            <pre class="hud-raw-pre">{JSON.stringify(snapshot, null, 2)}</pre>
           </div>
         </details>
       {/if}
     {/if}
   </div>
 </div>
+
+<style>
+  /* ─── HUD Page Layout ─────────────────────────── */
+  .hud-page {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .hud-page-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    background: color-mix(in srgb, var(--color-bg-primary) 85%, transparent);
+    position: relative;
+    z-index: 2;
+  }
+
+  .hud-page-topbar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-accent-cyan), transparent);
+  }
+
+  .hud-back {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    color: var(--color-accent-cyan);
+    text-decoration: none;
+    transition: text-shadow 0.2s;
+  }
+
+  .hud-back:hover {
+    text-shadow: 0 0 8px var(--color-accent-cyan);
+  }
+
+  .hud-page-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--color-accent-cyan);
+    text-shadow: 0 0 10px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  /* ─── HUD Panel ────────────────────────────────── */
+  .hud-panel {
+    background: color-mix(in srgb, var(--color-bg-secondary) 70%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    border-radius: 0.75rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hud-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-accent-cyan), transparent);
+    opacity: 0.5;
+  }
+
+  .hud-panel-lbl {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-panel-error {
+    border-color: color-mix(in srgb, #ef4444 30%, transparent);
+  }
+
+  .hud-panel-error::before {
+    background: linear-gradient(90deg, transparent, #ef4444, transparent);
+  }
+
+  /* ─── HUD Button ───────────────────────────────── */
+  .hud-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.75rem;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 25%, transparent);
+    background: color-mix(in srgb, var(--color-bg-tertiary) 80%, transparent);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .hud-btn:hover:not(:disabled) {
+    color: var(--color-accent-cyan);
+    border-color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    text-shadow: 0 0 6px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  .hud-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .hud-btn-primary {
+    background: color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    color: var(--color-accent-cyan);
+    border-color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  .hud-btn-primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    border-color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  .hud-btn-ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--color-text-muted);
+  }
+
+  .hud-btn-ghost:hover:not(:disabled) {
+    color: var(--color-text-primary);
+    background: color-mix(in srgb, var(--color-accent-cyan) 18%, transparent);
+  }
+
+  .hud-btn-danger {
+    color: color-mix(in srgb, #ef4444 80%, transparent);
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .hud-btn-danger:hover:not(:disabled) {
+    color: #ef4444;
+    background: color-mix(in srgb, #ef4444 10%, transparent);
+    border-color: color-mix(in srgb, #ef4444 25%, transparent);
+  }
+
+  .hud-btn-wa {
+    background: color-mix(in srgb, #25d366 15%, transparent);
+    color: #25d366;
+    border-color: color-mix(in srgb, #25d366 25%, transparent);
+  }
+
+  .hud-btn-wa:hover:not(:disabled) {
+    background: color-mix(in srgb, #25d366 25%, transparent);
+    border-color: color-mix(in srgb, #25d366 40%, transparent);
+    text-shadow: 0 0 6px color-mix(in srgb, #25d366 40%, transparent);
+  }
+
+  .hud-btn-icon {
+    flex-shrink: 0;
+  }
+
+  /* ─── Header ───────────────────────────────────── */
+  .hud-header {
+    flex-shrink: 0;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    background: color-mix(in srgb, var(--color-bg-primary) 80%, transparent);
+    position: relative;
+    z-index: 2;
+  }
+
+  .hud-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .hud-header-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    background: color-mix(in srgb, var(--color-accent-cyan) 18%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .hud-subtitle {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+  }
+
+  .hud-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .hud-timestamp {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ─── Stats Bar ────────────────────────────────── */
+  .hud-stats-bar {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 0.6rem 1.5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    background: color-mix(in srgb, var(--color-bg-primary) 70%, transparent);
+    position: relative;
+    z-index: 2;
+  }
+
+  .hud-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+  }
+
+  .hud-stat-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+  }
+
+  .hud-stat-dot.pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  .hud-stat-label {
+    color: var(--color-text-muted);
+  }
+
+  .hud-stat-value {
+    color: var(--color-text-primary);
+    font-weight: 600;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ─── Content ──────────────────────────────────── */
+  .hud-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 1.5rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  .hud-grid {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .hud-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .hud-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  /* ─── Empty State ──────────────────────────────── */
+  .hud-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+  }
+
+  .hud-empty-icon {
+    width: 4rem;
+    height: 4rem;
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--color-bg-tertiary) 80%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 22%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+
+  .hud-empty-text {
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+  }
+
+  .hud-error-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    font-size: 0.8rem;
+    color: #ef4444;
+  }
+
+  /* ─── Channel Card ─────────────────────────────── */
+  .hud-channel-card {
+    transition: all 0.3s;
+    border-color: color-mix(in srgb, var(--channel-color) 25%, transparent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--channel-color) 15%, transparent);
+  }
+
+  .hud-channel-card::before {
+    background: linear-gradient(90deg, transparent, var(--channel-color), transparent);
+    opacity: 0.6;
+  }
+
+  .hud-channel-card:hover {
+    border-color: color-mix(in srgb, var(--channel-color) 40%, transparent);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--channel-color) 20%, transparent);
+  }
+
+  .hud-channel-disabled {
+    opacity: 0.5;
+    border-color: color-mix(in srgb, var(--color-accent-cyan) 20%, transparent) !important;
+    box-shadow: none !important;
+  }
+
+  .hud-channel-disabled::before {
+    background: linear-gradient(90deg, transparent, var(--color-accent-cyan), transparent);
+    opacity: 0.2;
+  }
+
+  .hud-channel-expanded {
+    grid-column: span 2;
+  }
+
+  .hud-channel-header {
+    padding: 1rem 1rem 0.75rem;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .hud-channel-identity {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .hud-channel-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--channel-color) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--channel-color) 25%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .hud-channel-info {
+    min-width: 0;
+  }
+
+  .hud-channel-name {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+  }
+
+  .hud-channel-desc {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0.15rem 0 0;
+  }
+
+  /* ─── Status Badge ─────────────────────────────── */
+  .hud-status-badge {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.55rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.5rem;
+    border-radius: 9999px;
+    color: var(--status-color);
+    background: color-mix(in srgb, var(--status-color) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--status-color) 25%, transparent);
+  }
+
+  .hud-status-dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 50%;
+  }
+
+  .hud-status-dot.pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 4px currentColor; }
+    50% { opacity: 0.5; box-shadow: 0 0 8px currentColor; }
+  }
+
+  /* ─── Account Count ────────────────────────────── */
+  .hud-account-count {
+    padding: 0 1rem;
+    margin-top: 0.25rem;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* ─── Field Rows ───────────────────────────────── */
+  .hud-channel-fields {
+    padding: 0 1rem 0.75rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.25rem 1rem;
+  }
+
+  .hud-field-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+  }
+
+  .hud-field-label {
+    color: var(--color-text-muted);
+    font-size: 0.7rem;
+  }
+
+  .hud-field-value {
+    color: var(--color-text-secondary);
+    font-size: 0.72rem;
+  }
+
+  .hud-field-ok {
+    color: var(--color-accent-green);
+  }
+
+  .hud-field-mono {
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ─── Callouts ─────────────────────────────────── */
+  .hud-callout {
+    margin: 0 1rem 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+
+  .hud-callout p {
+    margin: 0;
+  }
+
+  .hud-callout-error {
+    background: color-mix(in srgb, #ef4444 8%, transparent);
+    border: 1px solid color-mix(in srgb, #ef4444 20%, transparent);
+    color: #f87171;
+  }
+
+  .hud-callout-ok {
+    background: color-mix(in srgb, var(--color-accent-green) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent-green) 20%, transparent);
+    color: var(--color-accent-green);
+  }
+
+  .hud-callout-warn {
+    background: color-mix(in srgb, var(--color-accent-amber) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent-amber) 20%, transparent);
+    color: var(--color-accent-amber);
+  }
+
+  .hud-callout-info {
+    background: color-mix(in srgb, var(--color-accent-cyan) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-callout-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* ─── WhatsApp QR ──────────────────────────────── */
+  .hud-qr-container {
+    margin: 0 1rem 0.75rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .hud-qr-frame {
+    padding: 0.75rem;
+    background: white;
+    border-radius: 0.75rem;
+    border: 2px solid color-mix(in srgb, #25d366 25%, transparent);
+  }
+
+  .hud-qr-img {
+    width: 12rem;
+    height: 12rem;
+  }
+
+  .hud-qr-waiting {
+    margin: 0 1rem 0.75rem;
+    text-align: center;
+  }
+
+  .hud-qr-waiting p {
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    animation: blink 1.5s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .hud-wa-actions {
+    padding: 0 1rem 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* ─── Multi-account ────────────────────────────── */
+  .hud-accounts-list {
+    padding: 0 1rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .hud-account-card {
+    padding: 0.6rem 0.75rem;
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--color-bg-tertiary) 50%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+  }
+
+  .hud-account-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.4rem;
+  }
+
+  .hud-account-name {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--color-text-primary);
+  }
+
+  .hud-account-id {
+    font-size: 0.75rem;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--color-text-muted);
+  }
+
+  .hud-account-fields {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    font-size: 0.68rem;
+  }
+
+  .hud-account-error {
+    margin-top: 0.4rem;
+    font-size: 0.68rem;
+    color: #f87171;
+    word-break: break-word;
+  }
+
+  /* ─── Channel Actions ──────────────────────────── */
+  .hud-channel-actions {
+    padding: 0.5rem 1rem 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-top: 1px solid color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    margin-top: 0.25rem;
+  }
+
+  /* ─── Expanded Details ─────────────────────────── */
+  .hud-channel-details {
+    border-top: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    padding: 1rem;
+    animation: slide-in 0.2s ease-out;
+  }
+
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateY(-0.5rem); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .hud-details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    font-size: 0.72rem;
+  }
+
+  @media (min-width: 1024px) {
+    .hud-details-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .hud-details-grid .hud-field-label {
+    display: block;
+    margin-bottom: 0.15rem;
+  }
+
+  .hud-raw-json {
+    margin-top: 1rem;
+  }
+
+  .hud-raw-json summary {
+    font-size: 0.68rem;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .hud-raw-json summary:hover {
+    color: var(--color-text-secondary);
+  }
+
+  .hud-raw-json pre {
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--color-bg-tertiary) 60%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    font-size: 0.68rem;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--color-text-secondary);
+    overflow-x: auto;
+    max-height: 16rem;
+    overflow-y: auto;
+    line-height: 1.6;
+  }
+
+  /* ─── Raw Snapshot ──────────────────────────────── */
+  .hud-raw-snapshot {
+    margin-top: 1.5rem;
+  }
+
+  .hud-raw-snapshot > summary {
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .hud-raw-snapshot > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .hud-raw-summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    padding: 1rem;
+  }
+
+  .hud-raw-pre {
+    font-size: 0.68rem;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--color-text-secondary);
+    overflow-x: auto;
+    max-height: 24rem;
+    overflow-y: auto;
+    line-height: 1.6;
+    padding: 1rem;
+    margin: 0;
+  }
+
+  /* ─── Skeleton ─────────────────────────────────── */
+  .hud-skeleton {
+    padding: 1.25rem;
+  }
+
+  .hud-skeleton-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .hud-skeleton-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    background: var(--color-bg-tertiary);
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+  }
+
+  .hud-skeleton-line {
+    height: 0.75rem;
+    border-radius: 0.25rem;
+    background: var(--color-bg-tertiary);
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+  }
+
+  .hud-skeleton-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  @keyframes skeleton-pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ─── Spin Animation ───────────────────────────── */
+  .spin {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+</style>

@@ -3,6 +3,8 @@
   import MessageList from '$lib/components/MessageList.svelte';
   import ChatInput from '$lib/components/ChatInput.svelte';
   import ErrorBoundary from '$lib/components/ErrorBoundary.svelte';
+  import MatrixRain from '$lib/components/MatrixRain.svelte';
+  import CRTOverlay from '$lib/components/CRTOverlay.svelte';
   import { getSessions } from '$lib/stores/sessions.svelte';
   import { getConnection } from '$lib/stores/connection.svelte';
   import { getMessages } from '$lib/stores/messages.svelte';
@@ -23,7 +25,6 @@
     const unsub = gateway.on('chat', (payload: any) => {
       if (payload.state === 'compacting') {
         isCompacting = true;
-        // Auto-clear after 30s in case no follow-up event
         clearTimeout(compactingTimeout);
         compactingTimeout = setTimeout(() => { isCompacting = false; }, 30000);
       } else if (payload.state === 'final' || payload.state === 'error' || payload.state === 'aborted') {
@@ -38,7 +39,6 @@
     };
   });
 
-  // Also detect compaction from streaming content
   let streamingHasCompaction = $derived(
     msgs.streamingContent.toLowerCase().includes('compacting') ||
     msgs.streamingContent.toLowerCase().includes('context compaction')
@@ -46,7 +46,6 @@
 
   let showCompacting = $derived(isCompacting || streamingHasCompaction);
 
-  // Derive active session info
   let activeSession = $derived(sessions.list.find((s: any) => s.key === sessions.activeKey));
   let messageCount = $derived(activeSession?.messageCount ?? msgs.list.length);
 
@@ -59,7 +58,6 @@
     sidebarMobileOpen = false;
   }
 
-  // Format thinking/reasoning level for display
   function formatThinkingLevel(session: any): string | null {
     const level = session?.thinkingLevel || session?.reasoningLevel;
     if (!level || level === 'off' || level === 'none') return null;
@@ -71,11 +69,14 @@
   <title>Chat — Cortex</title>
 </svelte:head>
 
-<div class="flex h-full relative">
+<MatrixRain />
+<CRTOverlay />
+
+<div class="chat-wrapper">
   <!-- Mobile backdrop -->
   {#if sidebarMobileOpen}
     <div 
-      class="fixed inset-0 bg-black/50 z-40 md:hidden"
+      class="mobile-backdrop"
       onclick={closeMobileSidebar}
       onkeydown={(e) => e.key === 'Escape' && closeMobileSidebar()}
       role="button"
@@ -92,13 +93,13 @@
   />
 
   <!-- Main chat area -->
-  <main class="flex-1 flex flex-col min-w-0">
+  <main class="chat-main">
     <!-- Top bar -->
-    <header class="flex items-center gap-3 px-3 py-2.5 md:px-4 md:py-3 border-b border-border-default bg-bg-secondary/50">
+    <header class="chat-header">
       <!-- Mobile hamburger -->
       <button
         onclick={() => sidebarMobileOpen = true}
-        class="p-2 rounded-lg hover:bg-bg-hover text-text-muted hover:text-accent-cyan transition-colors md:hidden min-h-11"
+        class="chat-hamburger md:hidden"
         aria-label="Open sidebar"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -110,7 +111,7 @@
       {#if sidebarCollapsed}
         <button
           onclick={() => sidebarCollapsed = false}
-          class="p-1.5 rounded-lg hover:bg-bg-hover text-text-muted hover:text-accent-cyan transition-colors hidden md:block"
+          class="chat-sidebar-toggle hidden md:block"
           aria-label="Open sidebar"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -119,16 +120,15 @@
         </button>
       {/if}
 
-      <div class="flex-1 min-w-0">
+      <div class="chat-header-info">
         {#if sessions.activeKey}
           {#each sessions.list.filter((s: any) => s.key === sessions.activeKey) as session}
-            <div class="flex items-center gap-2 flex-wrap">
-              <h2 class="text-sm font-medium text-text-primary truncate">
+            <div class="chat-session-row">
+              <h2 class="chat-session-title">
                 {sessions.getSessionTitle(session)}
               </h2>
-              <!-- Message count badge -->
               {#if messageCount > 0}
-                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20 leading-none">
+                <span class="chat-msg-badge">
                   <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
@@ -136,35 +136,34 @@
                 </span>
               {/if}
             </div>
-            <!-- Session metadata line -->
-            <div class="flex items-center gap-2 flex-wrap mt-0.5">
+            <div class="chat-meta-row">
               {#if session.model}
-                <span class="text-[11px] text-text-muted font-mono">{session.model}</span>
+                <span class="chat-model-tag">{session.model}</span>
               {/if}
               {#if formatThinkingLevel(session)}
-                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-accent-purple/10 text-accent-purple border border-accent-purple/20 leading-none font-medium">
+                <span class="chat-thinking-tag">
                   🧠 {formatThinkingLevel(session)}
                 </span>
               {/if}
             </div>
           {/each}
           {#if !sessions.list.find((s: any) => s.key === sessions.activeKey)}
-            <h2 class="text-sm font-medium text-text-primary truncate">{sessions.activeKey}</h2>
+            <h2 class="chat-session-title">{sessions.activeKey}</h2>
           {/if}
         {:else}
-          <h2 class="text-sm text-text-muted">No session selected</h2>
+          <h2 class="chat-session-title" style="opacity:0.5">// NO SESSION SELECTED</h2>
         {/if}
       </div>
 
-      <div class="flex items-center gap-2" role="status" aria-live="polite">
+      <div class="chat-status" role="status" aria-live="polite">
         {#if conn.state.status === 'connected'}
-          <span class="w-2 h-2 rounded-full bg-accent-green" aria-hidden="true"></span>
+          <span class="chat-dot chat-dot-on" aria-hidden="true"></span>
           <span class="sr-only">Connected</span>
         {:else if conn.state.status === 'connecting' || conn.state.status === 'authenticating'}
-          <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse" aria-hidden="true"></span>
+          <span class="chat-dot chat-dot-connecting" aria-hidden="true"></span>
           <span class="sr-only">{conn.state.status}</span>
         {:else}
-          <span class="w-2 h-2 rounded-full bg-red-500" aria-hidden="true"></span>
+          <span class="chat-dot chat-dot-off" aria-hidden="true"></span>
           <span class="sr-only">Disconnected</span>
         {/if}
       </div>
@@ -172,12 +171,12 @@
 
     <!-- Compaction indicator -->
     {#if showCompacting}
-      <div class="flex items-center gap-2 px-4 py-1.5 bg-accent-purple/5 border-b border-accent-purple/15 animate-fade-in">
-        <svg class="w-3.5 h-3.5 text-accent-purple animate-spin" fill="none" viewBox="0 0 24 24">
+      <div class="chat-compaction">
+        <svg class="w-3.5 h-3.5 animate-spin" style="color: var(--color-accent-purple, #7c4dff)" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        <span class="text-xs text-accent-purple font-medium">Context compacting…</span>
+        <span class="chat-compaction-text">CONTEXT COMPACTING…</span>
       </div>
     {/if}
 
@@ -188,3 +187,172 @@
     <ChatInput />
   </main>
 </div>
+
+<style>
+  /* ═══ CHAT WRAPPER ═══ */
+  .chat-wrapper {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    height: 100%;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .mobile-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 40;
+  }
+
+  /* ═══ MAIN AREA ═══ */
+  .chat-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* ═══ HEADER ═══ */
+  .chat-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    background: color-mix(in srgb, var(--color-accent-cyan) 4%, var(--color-bg-secondary, #151d30));
+    flex-shrink: 0;
+  }
+
+  .chat-hamburger,
+  .chat-sidebar-toggle {
+    padding: 8px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .chat-hamburger:hover,
+  .chat-sidebar-toggle:hover {
+    background: color-mix(in srgb, var(--color-accent-cyan) 10%, transparent);
+    color: var(--color-accent-cyan);
+  }
+
+  .chat-header-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .chat-session-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .chat-session-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--color-accent-cyan);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+  }
+
+  .chat-msg-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--color-accent-cyan) 10%, transparent);
+    color: var(--color-accent-cyan);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    line-height: 1;
+  }
+
+  .chat-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+  }
+
+  .chat-model-tag {
+    font-size: 0.65rem;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    letter-spacing: 0.05em;
+  }
+
+  .chat-thinking-tag {
+    font-size: 0.6rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--color-accent-purple, #7c4dff) 10%, transparent);
+    color: var(--color-accent-purple, #7c4dff);
+    border: 1px solid color-mix(in srgb, var(--color-accent-purple, #7c4dff) 20%, transparent);
+    line-height: 1;
+    font-weight: 600;
+  }
+
+  /* ═══ STATUS DOT ═══ */
+  .chat-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .chat-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .chat-dot-on {
+    background: var(--color-accent-green, #00ff88);
+    box-shadow: 0 0 8px var(--color-accent-green, #00ff88);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  .chat-dot-connecting {
+    background: var(--color-accent-amber, #ffb300);
+    animation: pulse-dot 1s ease-in-out infinite;
+  }
+
+  .chat-dot-off {
+    background: #ff3864;
+    box-shadow: 0 0 6px rgba(255, 56, 100, 0.4);
+  }
+
+  /* ═══ COMPACTION BAR ═══ */
+  .chat-compaction {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    background: color-mix(in srgb, var(--color-accent-purple, #7c4dff) 5%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-accent-purple, #7c4dff) 15%, transparent);
+  }
+
+  .chat-compaction-text {
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--color-accent-purple, #7c4dff);
+    font-weight: 600;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+</style>

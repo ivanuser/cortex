@@ -4,12 +4,15 @@
   import type { DisplayMessage } from '$lib/stores/messages.svelte';
   import { formatRelativeTime } from '$lib/utils/time';
   import { getConfig } from '$lib/config';
+  import { getConnection } from '$lib/stores/connection.svelte';
   import ThinkingBlock from './ThinkingBlock.svelte';
   import ToolCallCard from './ToolCallCard.svelte';
   import ImageLightbox from './ImageLightbox.svelte';
   import { browser } from '$app/environment';
 
   const config = getConfig();
+  const conn = getConnection();
+  let aiName = $derived(conn.state.assistantName || config?.branding?.title || 'Assistant');
 
   // User profile from localStorage
   let userAvatarUrl = $state<string | null>(null);
@@ -166,10 +169,10 @@
   {#if !isUser}
     <div class="flex-shrink-0 mr-2.5 mt-5 hidden md:block">
       <img
-        src="/logo.png"
+        src="/avatar/main"
         alt={config.branding.title}
         class="w-8 h-8 rounded-full object-cover border border-accent-purple/30 shadow-[0_0_8px_rgba(124,77,255,0.2)]"
-        onerror={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+        onerror={(e) => { (e.target as HTMLImageElement).src = '/logo.png'; }}
       />
     </div>
   {/if}
@@ -183,7 +186,7 @@
     <!-- Role label with copy button -->
     <div class="flex items-center gap-2 mb-1 {isUser ? 'justify-end' : ''}">
       {#if !isUser}
-        <span class="text-xs font-medium text-accent-purple">{config.branding.title}</span>
+        <span class="text-xs font-medium text-accent-purple">{aiName}</span>
       {:else}
         <span class="text-xs font-medium text-accent-cyan">{userDisplayName || 'You'}</span>
       {/if}

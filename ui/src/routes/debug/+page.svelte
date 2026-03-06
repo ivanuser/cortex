@@ -2,6 +2,8 @@
   import { untrack } from 'svelte';
   import { getConnection } from '$lib/stores/connection.svelte';
   import { gateway } from '$lib/gateway';
+  import MatrixRain from '$lib/components/MatrixRain.svelte';
+  import CRTOverlay from '$lib/components/CRTOverlay.svelte';
 
   const conn = getConnection();
 
@@ -120,276 +122,733 @@
 </script>
 
 <svelte:head>
-  <title>Debug — Cortex</title>
+  <title>Debug -- Cortex</title>
 </svelte:head>
 
-<div class="h-full overflow-y-auto">
-  <div class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+<MatrixRain />
+<CRTOverlay />
 
-    <!-- Page Header -->
-    <div class="flex items-center justify-between flex-wrap gap-3">
-      <div>
-        <h1 class="text-2xl font-bold text-text-primary flex items-center gap-3">
-          <span class="text-accent-cyan">⚡</span>
-          Debug Console
-        </h1>
-        <p class="text-sm text-text-muted mt-1">Gateway diagnostics, snapshots, and raw RPC access.</p>
-      </div>
-      <button
-        onclick={loadDebug}
-        disabled={loading || conn.state.status !== 'connected'}
-        class="px-4 py-2 rounded-lg text-sm border border-border-default hover:border-accent-cyan
-               text-text-secondary hover:text-accent-cyan transition-all
-               disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-      >
-        {#if loading}
-          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-          </svg>
-        {/if}
-        Refresh All
-      </button>
+<div class="hud-page">
+  <!-- TOP BAR -->
+  <div class="hud-page-topbar">
+    <div class="hud-page-topbar-left">
+      <a href="/overview" class="hud-back">&larr; BACK</a>
+      <div class="hud-page-title">DEBUG CONSOLE</div>
     </div>
+    <button
+      onclick={loadDebug}
+      disabled={loading || conn.state.status !== 'connected'}
+      class="hud-btn"
+    >
+      {#if loading}
+        <svg class="w-3 h-3 animate-spin inline mr-1" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+      {/if}
+      REFRESH ALL
+    </button>
+  </div>
 
-    {#if conn.state.status !== 'connected'}
-      <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-8 text-center">
-        <div class="text-text-muted text-sm">Connect to the gateway to use debug tools.</div>
+  {#if conn.state.status !== 'connected'}
+    <div class="hud-panel" style="text-align:center; padding:40px 16px;">
+      <div class="hud-panel-lbl" style="justify-content:center;">AWAITING CONNECTION</div>
+      <div class="hud-muted">Connect to the gateway to use debug tools.</div>
+    </div>
+  {:else}
+
+    <!-- RPC CONSOLE -->
+    <div class="hud-panel hud-panel--hero">
+      <div class="hud-panel-lbl">
+        MANUAL RPC CONSOLE
+        <span class="hud-hint">Ctrl+Enter to execute</span>
       </div>
-    {:else}
 
-      <!-- ═══ RPC Console (Hero Section) ═══ -->
-      <div class="rounded-xl border border-accent-cyan/30 bg-bg-secondary/60 p-5
-                  shadow-[0_0_30px_rgba(0,229,255,0.06)]">
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <h2 class="text-lg font-semibold text-accent-cyan flex items-center gap-2">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      <div class="hud-rpc-grid">
+        <!-- Input Side -->
+        <div class="hud-rpc-input">
+          <label for="rpc-method" class="hud-field-lbl">METHOD</label>
+          <input
+            id="rpc-method"
+            bind:value={callMethod}
+            onkeydown={handleKeydown}
+            placeholder="e.g. status, health, models.list"
+            class="hud-input"
+          />
+
+          <label for="rpc-params" class="hud-field-lbl">PARAMS (JSON)</label>
+          <textarea
+            id="rpc-params"
+            bind:value={callParams}
+            onkeydown={handleKeydown}
+            rows="6"
+            placeholder={'{ }'}
+            class="hud-input hud-textarea"
+          ></textarea>
+
+          <button
+            onclick={executeCall}
+            disabled={callLoading || !callMethod.trim()}
+            class="hud-btn hud-btn--execute"
+          >
+            {#if callLoading}
+              <svg class="w-3 h-3 animate-spin inline mr-1" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
               </svg>
-              Manual RPC Console
-            </h2>
-            <p class="text-xs text-text-muted mt-0.5">Send raw gateway methods with JSON params. <kbd class="text-accent-cyan/70">Ctrl+Enter</kbd> to execute.</p>
-          </div>
+              EXECUTING...
+            {:else}
+              EXECUTE
+            {/if}
+          </button>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <!-- Input Side -->
-          <div class="space-y-3">
-            <div>
-              <label for="rpc-method" class="block text-xs font-medium text-text-muted mb-1.5">Method</label>
-              <input
-                id="rpc-method"
-                bind:value={callMethod}
-                onkeydown={handleKeydown}
-                placeholder="e.g. status, health, models.list"
-                class="w-full bg-bg-input border border-border-default rounded-lg px-3 py-2.5
-                       font-mono text-sm text-text-primary placeholder:text-text-muted/50
-                       focus:outline-none focus:border-accent-cyan focus:shadow-[0_0_8px_rgba(0,229,255,0.15)]
-                       transition-all"
-              />
-            </div>
-            <div>
-              <label for="rpc-params" class="block text-xs font-medium text-text-muted mb-1.5">Params (JSON)</label>
-              <textarea
-                id="rpc-params"
-                bind:value={callParams}
-                onkeydown={handleKeydown}
-                rows="6"
-                placeholder={'{ }'}
-                class="w-full bg-bg-input border border-border-default rounded-lg px-3 py-2.5
-                       font-mono text-sm text-text-primary placeholder:text-text-muted/50
-                       focus:outline-none focus:border-accent-cyan focus:shadow-[0_0_8px_rgba(0,229,255,0.15)]
-                       transition-all resize-y"
-              ></textarea>
-            </div>
-            <button
-              onclick={executeCall}
-              disabled={callLoading || !callMethod.trim()}
-              class="w-full py-2.5 rounded-lg text-sm font-medium transition-all
-                     bg-accent-cyan/10 border border-accent-cyan/40 text-accent-cyan
-                     hover:bg-accent-cyan/20 hover:border-accent-cyan hover:shadow-[0_0_15px_rgba(0,229,255,0.2)]
-                     disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {#if callLoading}
-                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                </svg>
-                Executing…
-              {:else}
-                Execute
-              {/if}
-            </button>
-          </div>
-
-          <!-- Result Side -->
-          <div class="flex flex-col">
-            <div class="text-xs font-medium text-text-muted mb-1.5">Result</div>
-            <div class="flex-1 bg-bg-input border border-border-default rounded-lg overflow-hidden relative">
-              {#if callError}
-                <div class="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 uppercase tracking-wider">Error</div>
-                <pre class="p-3 text-sm font-mono text-red-400 overflow-auto max-h-[280px] whitespace-pre-wrap">{callError}</pre>
-              {:else if callResult}
-                <div class="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold bg-accent-green/20 text-accent-green uppercase tracking-wider">OK</div>
-                <pre class="p-3 text-sm font-mono text-accent-green/90 overflow-auto max-h-[280px] whitespace-pre-wrap">{callResult}</pre>
-              {:else}
-                <div class="h-full flex items-center justify-center text-text-muted/40 text-sm">
-                  Response will appear here
-                </div>
-              {/if}
-            </div>
+        <!-- Result Side -->
+        <div class="hud-rpc-result">
+          <div class="hud-field-lbl">RESULT</div>
+          <div class="hud-result-box">
+            {#if callError}
+              <div class="hud-result-badge hud-result-badge--err">ERROR</div>
+              <pre class="hud-result-pre hud-result-pre--err">{callError}</pre>
+            {:else if callResult}
+              <div class="hud-result-badge hud-result-badge--ok">OK</div>
+              <pre class="hud-result-pre hud-result-pre--ok">{callResult}</pre>
+            {:else}
+              <div class="hud-result-empty">Response will appear here</div>
+            {/if}
           </div>
         </div>
-
-        <!-- History -->
-        {#if callHistory.length > 0}
-          <div class="mt-4 pt-3 border-t border-border-default">
-            <div class="text-xs font-medium text-text-muted mb-2">Recent Calls</div>
-            <div class="flex flex-wrap gap-2">
-              {#each callHistory.slice(0, 8) as entry}
-                <button
-                  onclick={() => replayHistory(entry)}
-                  class="px-2.5 py-1 rounded text-xs font-mono border transition-all
-                         {entry.error
-                           ? 'border-red-500/30 text-red-400/70 hover:border-red-500/60 hover:text-red-400'
-                           : 'border-accent-green/30 text-accent-green/70 hover:border-accent-green/60 hover:text-accent-green'}
-                         bg-bg-input hover:bg-bg-hover"
-                  title="{entry.method} @ {new Date(entry.ts).toLocaleTimeString()}"
-                >
-                  {entry.method}
-                </button>
-              {/each}
-            </div>
-          </div>
-        {/if}
       </div>
 
-      <!-- ═══ Snapshot Cards ═══ -->
-      {#if loadError}
-        <div class="rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-red-400 text-sm">
-          {loadError}
+      <!-- History -->
+      {#if callHistory.length > 0}
+        <div class="hud-history">
+          <div class="hud-field-lbl">RECENT CALLS</div>
+          <div class="hud-history-list">
+            {#each callHistory.slice(0, 8) as entry}
+              <button
+                onclick={() => replayHistory(entry)}
+                class="hud-history-tag {entry.error ? 'hud-history-tag--err' : 'hud-history-tag--ok'}"
+                title="{entry.method} @ {new Date(entry.ts).toLocaleTimeString()}"
+              >
+                {entry.method}
+              </button>
+            {/each}
+          </div>
         </div>
       {/if}
+    </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-        <!-- Status Card -->
-        <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-5">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-semibold text-text-primary flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-accent-green animate-pulse"></span>
-              Status
-            </h2>
-            {#if securityAudit}
-              <span class="px-2 py-0.5 rounded text-xs font-medium
-                          {securityTone === 'error' ? 'bg-red-500/20 text-red-400' :
-                           securityTone === 'warn' ? 'bg-amber-500/20 text-amber-400' :
-                           'bg-accent-green/20 text-accent-green'}">
-                {securityTone === 'error' ? `${securityAudit.critical} critical` :
-                 securityTone === 'warn' ? `${securityAudit.warn} warnings` :
-                 'Clean'}
-              </span>
-            {/if}
-          </div>
-          {#if debugStatus}
-            <div class="grid grid-cols-2 gap-3">
-              {#each flatEntries(debugStatus).filter(([, v]) => !v.startsWith('{') && !v.startsWith('[')) as [key, value]}
-                <div>
-                  <div class="text-[11px] text-text-muted uppercase tracking-wider">{key}</div>
-                  <div class="text-sm text-text-secondary font-mono truncate" title={value}>{value}</div>
-                </div>
-              {/each}
-            </div>
-            {#if flatEntries(debugStatus).some(([, v]) => v.startsWith('{') || v.startsWith('['))}
-              <div class="mt-4 pt-3 border-t border-border-default">
-                <details>
-                  <summary class="text-xs text-text-muted cursor-pointer hover:text-text-secondary transition-colors">
-                    Full JSON
-                  </summary>
-                  <pre class="mt-2 p-3 bg-bg-input rounded-lg text-xs font-mono text-text-secondary overflow-auto max-h-48">{JSON.stringify(debugStatus, null, 2)}</pre>
-                </details>
-              </div>
-            {/if}
-          {:else}
-            <div class="text-sm text-text-muted">No data loaded</div>
-          {/if}
-        </div>
-
-        <!-- Health Card -->
-        <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-5">
-          <div class="flex items-center gap-2 mb-4">
-            <span class="w-2 h-2 rounded-full bg-accent-purple"></span>
-            <h2 class="text-sm font-semibold text-text-primary">Health</h2>
-          </div>
-          {#if debugHealth}
-            <div class="grid grid-cols-2 gap-3">
-              {#each flatEntries(debugHealth).filter(([, v]) => !v.startsWith('{') && !v.startsWith('[')) as [key, value]}
-                <div>
-                  <div class="text-[11px] text-text-muted uppercase tracking-wider">{key}</div>
-                  <div class="text-sm text-text-secondary font-mono truncate" title={value}>{value}</div>
-                </div>
-              {/each}
-            </div>
-            {#if flatEntries(debugHealth).some(([, v]) => v.startsWith('{') || v.startsWith('['))}
-              <div class="mt-4 pt-3 border-t border-border-default">
-                <details>
-                  <summary class="text-xs text-text-muted cursor-pointer hover:text-text-secondary transition-colors">
-                    Full JSON
-                  </summary>
-                  <pre class="mt-2 p-3 bg-bg-input rounded-lg text-xs font-mono text-text-secondary overflow-auto max-h-48">{JSON.stringify(debugHealth, null, 2)}</pre>
-                </details>
-              </div>
-            {/if}
-          {:else}
-            <div class="text-sm text-text-muted">No data loaded</div>
-          {/if}
-        </div>
+    <!-- ERROR BANNER -->
+    {#if loadError}
+      <div class="hud-panel hud-panel--error">
+        {loadError}
       </div>
-
-      <!-- Models + Heartbeat Row -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-        <!-- Models Card -->
-        <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-5">
-          <div class="flex items-center gap-2 mb-4">
-            <span class="w-2 h-2 rounded-full bg-accent-amber"></span>
-            <h2 class="text-sm font-semibold text-text-primary">Models</h2>
-            <span class="ml-auto text-xs text-text-muted font-mono">{debugModels.length} registered</span>
-          </div>
-          {#if debugModels.length > 0}
-            <div class="space-y-1.5 max-h-64 overflow-y-auto">
-              {#each debugModels as model, i}
-                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bg-input/50 border border-border-default/50
-                            hover:border-accent-amber/30 transition-colors group">
-                  <span class="text-[10px] text-text-muted font-mono w-5 text-right">{i + 1}</span>
-                  <span class="text-sm font-mono text-text-secondary group-hover:text-accent-amber transition-colors truncate">
-                    {typeof model === 'object' && model !== null
-                      ? (model as Record<string, unknown>).id ?? (model as Record<string, unknown>).name ?? JSON.stringify(model)
-                      : String(model)}
-                  </span>
-                </div>
-              {/each}
-            </div>
-          {:else}
-            <div class="text-sm text-text-muted">No models available</div>
-          {/if}
-        </div>
-
-        <!-- Heartbeat Card -->
-        <div class="rounded-xl border border-border-default bg-bg-secondary/50 p-5">
-          <div class="flex items-center gap-2 mb-4">
-            <span class="w-2 h-2 rounded-full bg-accent-pink animate-pulse"></span>
-            <h2 class="text-sm font-semibold text-text-primary">Last Heartbeat</h2>
-          </div>
-          {#if debugHeartbeat}
-            <pre class="p-3 bg-bg-input rounded-lg text-xs font-mono text-text-secondary overflow-auto max-h-64 whitespace-pre-wrap">{formatHeartbeat(debugHeartbeat)}</pre>
-          {:else}
-            <div class="text-sm text-text-muted">No heartbeat data</div>
-          {/if}
-        </div>
-      </div>
-
     {/if}
-  </div>
+
+    <!-- SNAPSHOT CARDS -->
+    <div class="hud-card-grid">
+
+      <!-- Status Card -->
+      <div class="hud-panel">
+        <div class="hud-panel-lbl">
+          <span><span class="hud-dot hud-dot--green"></span> STATUS</span>
+          {#if securityAudit}
+            <span class="hud-sec-badge hud-sec-badge--{securityTone}">
+              {securityTone === 'error' ? `${securityAudit.critical} CRITICAL` :
+               securityTone === 'warn' ? `${securityAudit.warn} WARNINGS` :
+               'CLEAN'}
+            </span>
+          {/if}
+        </div>
+        {#if debugStatus}
+          <div class="hud-kv-grid">
+            {#each flatEntries(debugStatus).filter(([, v]) => !v.startsWith('{') && !v.startsWith('[')) as [key, value]}
+              <div class="hud-kv">
+                <div class="hud-kv-key">{key}</div>
+                <div class="hud-kv-val" title={value}>{value}</div>
+              </div>
+            {/each}
+          </div>
+          {#if flatEntries(debugStatus).some(([, v]) => v.startsWith('{') || v.startsWith('['))}
+            <div class="hud-details-wrap">
+              <details>
+                <summary class="hud-details-summary">Full JSON</summary>
+                <pre class="hud-json-pre">{JSON.stringify(debugStatus, null, 2)}</pre>
+              </details>
+            </div>
+          {/if}
+        {:else}
+          <div class="hud-muted">No data loaded</div>
+        {/if}
+      </div>
+
+      <!-- Health Card -->
+      <div class="hud-panel">
+        <div class="hud-panel-lbl">
+          <span><span class="hud-dot hud-dot--purple"></span> HEALTH</span>
+        </div>
+        {#if debugHealth}
+          <div class="hud-kv-grid">
+            {#each flatEntries(debugHealth).filter(([, v]) => !v.startsWith('{') && !v.startsWith('[')) as [key, value]}
+              <div class="hud-kv">
+                <div class="hud-kv-key">{key}</div>
+                <div class="hud-kv-val" title={value}>{value}</div>
+              </div>
+            {/each}
+          </div>
+          {#if flatEntries(debugHealth).some(([, v]) => v.startsWith('{') || v.startsWith('['))}
+            <div class="hud-details-wrap">
+              <details>
+                <summary class="hud-details-summary">Full JSON</summary>
+                <pre class="hud-json-pre">{JSON.stringify(debugHealth, null, 2)}</pre>
+              </details>
+            </div>
+          {/if}
+        {:else}
+          <div class="hud-muted">No data loaded</div>
+        {/if}
+      </div>
+    </div>
+
+    <!-- Models + Heartbeat Row -->
+    <div class="hud-card-grid">
+
+      <!-- Models Card -->
+      <div class="hud-panel">
+        <div class="hud-panel-lbl">
+          <span><span class="hud-dot hud-dot--amber"></span> MODELS</span>
+          <span class="hud-count">{debugModels.length} registered</span>
+        </div>
+        {#if debugModels.length > 0}
+          <div class="hud-model-list">
+            {#each debugModels as model, i}
+              <div class="hud-model-row">
+                <span class="hud-model-idx">{i + 1}</span>
+                <span class="hud-model-name">
+                  {typeof model === 'object' && model !== null
+                    ? (model as Record<string, unknown>).id ?? (model as Record<string, unknown>).name ?? JSON.stringify(model)
+                    : String(model)}
+                </span>
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <div class="hud-muted">No models available</div>
+        {/if}
+      </div>
+
+      <!-- Heartbeat Card -->
+      <div class="hud-panel">
+        <div class="hud-panel-lbl">
+          <span><span class="hud-dot hud-dot--pink"></span> LAST HEARTBEAT</span>
+        </div>
+        {#if debugHeartbeat}
+          <pre class="hud-json-pre">{formatHeartbeat(debugHeartbeat)}</pre>
+        {:else}
+          <div class="hud-muted">No heartbeat data</div>
+        {/if}
+      </div>
+    </div>
+
+  {/if}
 </div>
+
+<style>
+  /* ─── PAGE LAYOUT ─── */
+  .hud-page {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px 24px;
+    height: 100%;
+    overflow-y: auto;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* ─── TOP BAR ─── */
+  .hud-page-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+  }
+
+  .hud-page-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .hud-back {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.15em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .hud-back:hover {
+    color: var(--color-accent-cyan);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  .hud-page-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--color-accent-cyan);
+    text-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  /* ─── BUTTON ─── */
+  .hud-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    color: var(--color-accent-cyan);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    padding: 4px 12px;
+    border-radius: 2px;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .hud-btn:hover:not(:disabled) {
+    border-color: var(--color-accent-cyan);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  .hud-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .hud-btn--execute {
+    width: 100%;
+    padding: 8px 12px;
+    margin-top: 4px;
+  }
+
+  /* ─── PANEL ─── */
+  .hud-panel {
+    background: color-mix(in srgb, var(--color-accent-cyan) 8%, #0a0e1a);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    border-radius: 3px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hud-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-accent-cyan), transparent);
+    opacity: 0.6;
+  }
+
+  .hud-panel--hero {
+    border-color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    box-shadow: 0 0 30px color-mix(in srgb, var(--color-accent-cyan) 10%, transparent);
+  }
+
+  .hud-panel--error {
+    border-color: color-mix(in srgb, #ef4444 35%, transparent);
+    color: #f87171;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+  }
+
+  .hud-panel--error::before {
+    background: linear-gradient(90deg, transparent, #ef4444, transparent);
+  }
+
+  .hud-panel-lbl {
+    font-size: 0.65rem;
+    letter-spacing: 0.35em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    text-transform: uppercase;
+    margin-bottom: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ─── CARD GRID ─── */
+  .hud-card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  @media (max-width: 767px) {
+    .hud-card-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ─── DOTS ─── */
+  .hud-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  .hud-dot--green {
+    background: var(--color-accent-green, #22c55e);
+    box-shadow: 0 0 6px var(--color-accent-green, #22c55e);
+    animation: pulse-dot 2s infinite;
+  }
+
+  .hud-dot--purple {
+    background: var(--color-accent-purple, #a855f7);
+    box-shadow: 0 0 6px var(--color-accent-purple, #a855f7);
+  }
+
+  .hud-dot--amber {
+    background: var(--color-accent-amber, #f59e0b);
+    box-shadow: 0 0 6px var(--color-accent-amber, #f59e0b);
+  }
+
+  .hud-dot--pink {
+    background: var(--color-accent-pink, #ec4899);
+    box-shadow: 0 0 6px var(--color-accent-pink, #ec4899);
+    animation: pulse-dot 2s infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  /* ─── RPC CONSOLE ─── */
+  .hud-rpc-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 767px) {
+    .hud-rpc-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .hud-rpc-input {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .hud-rpc-result {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .hud-field-lbl {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.25em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .hud-input {
+    width: 100%;
+    background: rgba(10, 14, 26, 0.8);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 25%, transparent);
+    border-radius: 2px;
+    padding: 8px 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--color-accent-cyan);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .hud-input::placeholder {
+    color: color-mix(in srgb, var(--color-accent-cyan) 25%, transparent);
+  }
+
+  .hud-input:focus {
+    border-color: var(--color-accent-cyan);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent-cyan) 22%, transparent);
+  }
+
+  .hud-textarea {
+    resize: vertical;
+  }
+
+  .hud-hint {
+    font-size: 0.55rem;
+    letter-spacing: 0.12em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+  }
+
+  /* ─── RESULT BOX ─── */
+  .hud-result-box {
+    flex: 1;
+    background: rgba(10, 14, 26, 0.8);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 25%, transparent);
+    border-radius: 2px;
+    position: relative;
+    min-height: 180px;
+    overflow: hidden;
+  }
+
+  .hud-result-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 1px 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    border-radius: 1px;
+    font-weight: 700;
+  }
+
+  .hud-result-badge--err {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .hud-result-badge--ok {
+    background: color-mix(in srgb, var(--color-accent-green, #22c55e) 20%, transparent);
+    color: var(--color-accent-green, #22c55e);
+    border: 1px solid color-mix(in srgb, var(--color-accent-green, #22c55e) 30%, transparent);
+  }
+
+  .hud-result-pre {
+    padding: 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.78rem;
+    overflow: auto;
+    max-height: 280px;
+    white-space: pre-wrap;
+    margin: 0;
+  }
+
+  .hud-result-pre--err {
+    color: #f87171;
+  }
+
+  .hud-result-pre--ok {
+    color: var(--color-accent-green, #22c55e);
+  }
+
+  .hud-result-empty {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: color-mix(in srgb, var(--color-accent-cyan) 25%, transparent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    min-height: 180px;
+  }
+
+  /* ─── HISTORY ─── */
+  .hud-history {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--color-accent-cyan) 22%, transparent);
+  }
+
+  .hud-history-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .hud-history-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.68rem;
+    padding: 3px 8px;
+    border-radius: 1px;
+    background: rgba(10, 14, 26, 0.8);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .hud-history-tag--ok {
+    border: 1px solid color-mix(in srgb, var(--color-accent-green, #22c55e) 30%, transparent);
+    color: color-mix(in srgb, var(--color-accent-green, #22c55e) 70%, transparent);
+  }
+
+  .hud-history-tag--ok:hover {
+    border-color: var(--color-accent-green, #22c55e);
+    color: var(--color-accent-green, #22c55e);
+  }
+
+  .hud-history-tag--err {
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: rgba(248, 113, 113, 0.7);
+  }
+
+  .hud-history-tag--err:hover {
+    border-color: #ef4444;
+    color: #f87171;
+  }
+
+  /* ─── KEY-VALUE GRID ─── */
+  .hud-kv-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .hud-kv-key {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.2em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    text-transform: uppercase;
+  }
+
+  .hud-kv-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--color-accent-cyan);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ─── DETAILS / JSON ─── */
+  .hud-details-wrap {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+  }
+
+  .hud-details-summary {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.15em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 60%, transparent);
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .hud-details-summary:hover {
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-json-pre {
+    margin: 8px 0 0;
+    padding: 10px;
+    background: rgba(10, 14, 26, 0.8);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 22%, transparent);
+    border-radius: 2px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    color: color-mix(in srgb, var(--color-accent-cyan) 75%, transparent);
+    overflow: auto;
+    max-height: 240px;
+    white-space: pre-wrap;
+  }
+
+  /* ─── MUTED TEXT ─── */
+  .hud-muted {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    letter-spacing: 0.08em;
+  }
+
+  /* ─── SECURITY BADGE ─── */
+  .hud-sec-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.15em;
+    padding: 1px 8px;
+    border-radius: 1px;
+  }
+
+  .hud-sec-badge--error {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+  }
+
+  .hud-sec-badge--warn {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+  }
+
+  .hud-sec-badge--ok {
+    background: color-mix(in srgb, var(--color-accent-green, #22c55e) 20%, transparent);
+    color: var(--color-accent-green, #22c55e);
+  }
+
+  /* ─── COUNT BADGE ─── */
+  .hud-count {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: color-mix(in srgb, var(--color-accent-cyan) 60%, transparent);
+  }
+
+  /* ─── MODEL LIST ─── */
+  .hud-model-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 250px;
+    overflow-y: auto;
+  }
+
+  .hud-model-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    border-radius: 2px;
+    background: rgba(10, 14, 26, 0.4);
+    transition: border-color 0.2s;
+  }
+
+  .hud-model-row:hover {
+    border-color: color-mix(in srgb, var(--color-accent-amber, #f59e0b) 40%, transparent);
+  }
+
+  .hud-model-idx {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    width: 18px;
+    text-align: right;
+  }
+
+  .hud-model-name {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.78rem;
+    color: color-mix(in srgb, var(--color-accent-cyan) 75%, transparent);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color 0.2s;
+  }
+
+  .hud-model-row:hover .hud-model-name {
+    color: var(--color-accent-amber, #f59e0b);
+  }
+</style>

@@ -3,6 +3,8 @@
   import { gateway } from '$lib/gateway';
   import { getConnection } from '$lib/stores/connection.svelte';
   import { getToasts } from '$lib/stores/toasts.svelte';
+  import MatrixRain from '$lib/components/MatrixRain.svelte';
+  import CRTOverlay from '$lib/components/CRTOverlay.svelte';
 
   const conn = getConnection();
   const toasts = getToasts();
@@ -124,7 +126,6 @@
   // ─── Computed ──────────────────────────────────
   let sortedEntries = $derived.by(() => {
     return [...entries].sort((a, b) => {
-      // Gateway/agent first, then by uptime
       const aScore = (a.mode === 'gateway' ? 0 : 1);
       const bScore = (b.mode === 'gateway' ? 0 : 1);
       if (aScore !== bScore) return aScore - bScore;
@@ -153,277 +154,179 @@
   <title>Instances — Cortex</title>
 </svelte:head>
 
-<div class="h-full flex flex-col overflow-hidden">
-  <!-- Header -->
-  <div class="flex-shrink-0 p-4 md:p-6 pb-4 border-b border-border-default">
-    <div class="flex items-start justify-between gap-4 flex-wrap">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl gradient-bg border border-border-glow flex items-center justify-center">
-          <svg class="w-5 h-5 text-accent-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M12 12h.01" />
-          </svg>
-        </div>
-        <div>
-          <h1 class="text-xl font-bold text-text-primary glow-text-cyan">Connected Instances</h1>
-          <p class="text-sm text-text-muted">Presence beacons from the gateway and clients</p>
-        </div>
-      </div>
+<MatrixRain />
+<CRTOverlay />
 
-      <button
-        onclick={loadPresence}
-        disabled={loading || conn.state.status !== 'connected'}
-        class="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-tertiary border border-border-default rounded-lg text-text-secondary hover:text-accent-cyan hover:border-accent-cyan/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        <svg class="w-4 h-4 {loading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-        {loading ? 'Loading…' : 'Refresh'}
-      </button>
-    </div>
-
-    {#if entries.length > 0}
-      <div class="flex items-center gap-1.5 mt-3 text-xs">
-        <span class="w-2 h-2 rounded-full bg-accent-green glow-pulse"></span>
-        <span class="text-text-muted">Active instances:</span>
-        <span class="text-accent-green font-mono font-semibold">{entries.length}</span>
-      </div>
-    {/if}
+<div class="hud-page">
+  <!-- Top bar -->
+  <div class="hud-page-topbar">
+    <a href="/overview" class="hud-back">&#8592; BACK</a>
+    <span class="hud-page-title">INSTANCES</span>
+    <button class="hud-btn" onclick={loadPresence} disabled={loading || conn.state.status !== 'connected'}>
+      {loading ? 'LOADING...' : 'REFRESH'}
+    </button>
   </div>
 
+  {#if entries.length > 0}
+    <div class="hud-instance-count">
+      <span class="hud-dot hud-dot--green"></span>
+      <span class="hud-panel-lbl">ACTIVE:</span>
+      <span class="hud-count">{entries.length}</span>
+    </div>
+  {/if}
+
   <!-- Content -->
-  <div class="flex-1 overflow-y-auto p-4 md:p-6">
+  <div class="hud-content">
     {#if conn.state.status !== 'connected'}
-      <div class="flex flex-col items-center justify-center h-full text-center">
-        <div class="w-16 h-16 rounded-2xl bg-bg-tertiary border border-border-default flex items-center justify-center mb-4">
-          <svg class="w-8 h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m-2.829-2.829a5 5 0 000-7.07" />
-          </svg>
-        </div>
-        <p class="text-text-muted text-sm">Connect to the gateway to view instances.</p>
+      <div class="hud-panel hud-empty">
+        <p class="hud-panel-lbl">CONNECT TO GATEWAY TO VIEW INSTANCES</p>
       </div>
 
     {:else if lastError}
-      <div class="glass rounded-xl p-4 border border-accent-pink/30 mb-4">
-        <div class="flex items-center gap-2 text-accent-pink text-sm">
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <span>{lastError}</span>
-        </div>
+      <div class="hud-panel hud-panel--error">
+        <span class="hud-panel-lbl">ERROR:</span> {lastError}
       </div>
 
     {:else if loading && entries.length === 0}
-      <div class="flex flex-col gap-3">
-        {#each Array(3) as _}
-          <div class="glass rounded-xl p-5 border border-border-default animate-pulse">
-            <div class="h-4 w-40 bg-bg-tertiary rounded mb-2"></div>
-            <div class="h-3 w-64 bg-bg-tertiary rounded mb-3"></div>
-            <div class="flex gap-2">
-              <div class="h-5 w-14 bg-bg-tertiary rounded-full"></div>
-              <div class="h-5 w-14 bg-bg-tertiary rounded-full"></div>
-            </div>
-          </div>
-        {/each}
+      <div class="hud-panel hud-empty">
+        <p class="hud-panel-lbl">SCANNING...</p>
       </div>
 
     {:else if entries.length === 0}
-      <div class="flex flex-col items-center justify-center h-64 text-center">
-        <p class="text-text-muted text-sm">No instances reported yet.</p>
+      <div class="hud-panel hud-empty">
+        <p class="hud-panel-lbl">NO INSTANCES REPORTED</p>
       </div>
 
     {:else}
-      <div class="flex flex-col gap-3">
+      <div class="hud-instance-list">
         {#each sortedEntries as entry, i}
           {@const status = getInstanceStatus(entry)}
           {@const isExpanded = expandedIdx === i}
           {@const isPatching = patchingIdx === i}
 
-          <div class="rounded-xl border border-border-default bg-bg-secondary/50 hover:border-accent-cyan/20 transition-all animate-fade-in" style="animation-delay: {i * 50}ms">
+          <div class="hud-panel hud-instance-card">
             <!-- Main row -->
-            <div class="p-4">
-              <div class="flex items-start justify-between gap-4">
-                <div class="min-w-0 flex-1">
-                  <!-- Host + status -->
-                  <div class="flex items-center gap-2 mb-1.5">
-                    <span class="w-2 h-2 rounded-full flex-shrink-0
-                      {status === 'online' ? 'bg-accent-green glow-pulse' :
-                       status === 'idle' ? 'bg-accent-amber' :
-                       'bg-text-muted'}">
-                    </span>
-                    <h3 class="text-sm font-semibold text-text-primary truncate">
-                      {entry.displayName ?? entry.host ?? 'unknown host'}
-                    </h3>
-                    {#if entry.displayName && entry.host && entry.displayName !== entry.host}
-                      <span class="text-xs text-text-muted">({entry.host})</span>
-                    {/if}
-                  </div>
-
-                  <!-- Platform details line -->
-                  <p class="text-xs text-text-muted mb-2">
-                    {#if entry.platform}{entry.platform}{/if}
-                    {#if entry.deviceFamily} · {entry.deviceFamily}{/if}
-                    {#if entry.modelIdentifier} · {entry.modelIdentifier}{/if}
-                    {#if entry.clientId && entry.clientId !== entry.host}
-                      <span class="text-text-muted/50"> · {entry.clientId}</span>
-                    {/if}
-                  </p>
-
-                  <!-- Chips row -->
-                  <div class="flex flex-wrap gap-1.5">
-                    {#if entry.mode}
-                      <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">
-                        {entry.mode}
-                      </span>
-                    {/if}
-                    {#each (entry.roles ?? []) as role}
-                      <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-accent-purple/10 text-accent-purple border border-accent-purple/20">
-                        {role}
-                      </span>
-                    {/each}
-                    {#if entry.version || entry.clientVersion}
-                      <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-bg-tertiary text-text-muted border border-border-default">
-                        v{entry.clientVersion ?? entry.version}
-                      </span>
-                    {/if}
-                    {#if (entry.capabilities ?? []).length > 0}
-                      {#each (entry.capabilities ?? []) as cap}
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-accent-green/10 text-accent-green border border-accent-green/10">
-                          {cap}
-                        </span>
-                      {/each}
-                    {:else if (entry.scopes ?? []).length > 0}
-                      <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-bg-tertiary text-text-muted border border-border-default">
-                        {(entry.scopes ?? []).length} scopes
-                      </span>
-                    {/if}
-                    {#if entry.model}
-                      <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-accent-purple/10 text-purple-300 border border-accent-purple/10">
-                        {entry.model}
-                      </span>
-                    {/if}
-                    {#if entry.agentId}
-                      <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-accent-amber/10 text-accent-amber border border-accent-amber/10">
-                        {entry.agentId}
-                      </span>
-                    {/if}
-                  </div>
-                </div>
-
-                <!-- Right side: meta + controls -->
-                <div class="flex flex-col items-end gap-2 flex-shrink-0">
-                  <!-- Uptime / input info -->
-                  <div class="text-right text-xs text-text-muted space-y-0.5">
-                    {#if entry.uptimeMs}
-                      <div class="flex items-center gap-1 justify-end">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Up {formatUptime(entry.uptimeMs)}
-                      </div>
-                    {/if}
-                    {#if entry.lastInputSeconds != null}
-                      <div>Input {formatInputAge(entry.lastInputSeconds)}</div>
-                    {/if}
-                    {#if entry.reason}
-                      <div class="text-text-muted/60">{entry.reason}</div>
-                    {/if}
-                  </div>
-
-                  <!-- Session controls (if session key exists) -->
-                  {#if entry.sessionKey}
-                    <div class="flex items-center gap-1">
-                      <button onclick={() => cycleThinking(entry, i)} disabled={isPatching}
-                        class="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border transition-all disabled:opacity-50
-                          {entry.thinkingLevel === 'stream' ? 'bg-accent-cyan/15 text-accent-cyan border-accent-cyan/30' :
-                           entry.thinkingLevel === 'on' ? 'bg-accent-purple/15 text-accent-purple border-accent-purple/30' :
-                           'bg-bg-tertiary text-text-muted border-border-default hover:border-accent-cyan/30'}"
-                        title="Thinking: {entry.thinkingLevel ?? 'off'}">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                        </svg>
-                        T:{entry.thinkingLevel ?? 'off'}
-                      </button>
-                      <button onclick={() => toggleVerbose(entry, i)} disabled={isPatching}
-                        class="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border transition-all disabled:opacity-50
-                          {entry.verboseLevel === 'on' ? 'bg-accent-green/15 text-accent-green border-accent-green/30' :
-                           'bg-bg-tertiary text-text-muted border-border-default hover:border-accent-green/30'}"
-                        title="Verbose: {entry.verboseLevel ?? 'off'}">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        V:{entry.verboseLevel ?? 'off'}
-                      </button>
-                    </div>
+            <div class="hud-instance-main">
+              <div class="hud-instance-info">
+                <!-- Host + status -->
+                <div class="hud-instance-host">
+                  <span class="hud-dot {status === 'online' ? 'hud-dot--green' : status === 'idle' ? 'hud-dot--amber' : 'hud-dot--dim'}"></span>
+                  <span class="hud-host-name">
+                    {entry.displayName ?? entry.host ?? 'UNKNOWN HOST'}
+                  </span>
+                  {#if entry.displayName && entry.host && entry.displayName !== entry.host}
+                    <span class="hud-host-sub">({entry.host})</span>
                   {/if}
-
-                  <!-- Expand button -->
-                  <button onclick={() => expandedIdx = isExpanded ? null : i}
-                    class="flex items-center gap-1 text-[10px] text-text-muted hover:text-accent-cyan transition-colors">
-                    <svg class="w-3.5 h-3.5 transition-transform {isExpanded ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                    {isExpanded ? 'Less' : 'Details'}
-                  </button>
                 </div>
+
+                <!-- Platform details line -->
+                <div class="hud-instance-platform">
+                  {#if entry.platform}{entry.platform}{/if}
+                  {#if entry.deviceFamily} / {entry.deviceFamily}{/if}
+                  {#if entry.modelIdentifier} / {entry.modelIdentifier}{/if}
+                  {#if entry.clientId && entry.clientId !== entry.host}
+                    <span class="hud-dim"> / {entry.clientId}</span>
+                  {/if}
+                </div>
+
+                <!-- Chips row -->
+                <div class="hud-chips">
+                  {#if entry.mode}
+                    <span class="hud-chip hud-chip--cyan">{entry.mode}</span>
+                  {/if}
+                  {#each (entry.roles ?? []) as role}
+                    <span class="hud-chip hud-chip--purple">{role}</span>
+                  {/each}
+                  {#if entry.version || entry.clientVersion}
+                    <span class="hud-chip">v{entry.clientVersion ?? entry.version}</span>
+                  {/if}
+                  {#if (entry.capabilities ?? []).length > 0}
+                    {#each (entry.capabilities ?? []) as cap}
+                      <span class="hud-chip hud-chip--green">{cap}</span>
+                    {/each}
+                  {:else if (entry.scopes ?? []).length > 0}
+                    <span class="hud-chip">{(entry.scopes ?? []).length} scopes</span>
+                  {/if}
+                  {#if entry.model}
+                    <span class="hud-chip hud-chip--purple">{entry.model}</span>
+                  {/if}
+                  {#if entry.agentId}
+                    <span class="hud-chip hud-chip--amber">{entry.agentId}</span>
+                  {/if}
+                </div>
+              </div>
+
+              <!-- Right side: meta + controls -->
+              <div class="hud-instance-meta">
+                <div class="hud-instance-stats">
+                  {#if entry.uptimeMs}
+                    <div>UP {formatUptime(entry.uptimeMs)}</div>
+                  {/if}
+                  {#if entry.lastInputSeconds != null}
+                    <div>INPUT {formatInputAge(entry.lastInputSeconds)}</div>
+                  {/if}
+                  {#if entry.reason}
+                    <div class="hud-dim">{entry.reason}</div>
+                  {/if}
+                </div>
+
+                <!-- Session controls -->
+                {#if entry.sessionKey}
+                  <div class="hud-session-controls">
+                    <button class="hud-btn hud-btn--sm {entry.thinkingLevel === 'stream' ? 'hud-btn--cyan' : entry.thinkingLevel === 'on' ? 'hud-btn--purple' : ''}"
+                      onclick={() => cycleThinking(entry, i)} disabled={isPatching}
+                      title="Thinking: {entry.thinkingLevel ?? 'off'}">
+                      T:{entry.thinkingLevel ?? 'off'}
+                    </button>
+                    <button class="hud-btn hud-btn--sm {entry.verboseLevel === 'on' ? 'hud-btn--green' : ''}"
+                      onclick={() => toggleVerbose(entry, i)} disabled={isPatching}
+                      title="Verbose: {entry.verboseLevel ?? 'off'}">
+                      V:{entry.verboseLevel ?? 'off'}
+                    </button>
+                  </div>
+                {/if}
+
+                <button class="hud-btn hud-btn--sm" onclick={() => expandedIdx = isExpanded ? null : i}>
+                  {isExpanded ? '[-] LESS' : '[+] DETAILS'}
+                </button>
               </div>
             </div>
 
             <!-- Expanded detail section -->
             {#if isExpanded}
-              <div class="px-4 pb-4 border-t border-border-default/50 pt-3 animate-fade-in">
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-                  <div>
-                    <span class="text-text-muted block mb-0.5">Mode</span>
-                    <span class="text-text-primary font-mono">{entry.mode ?? '—'}</span>
-                  </div>
-                  <div>
-                    <span class="text-text-muted block mb-0.5">Platform</span>
-                    <span class="text-text-primary font-mono">{entry.platform ?? '—'}</span>
-                  </div>
-                  <div>
-                    <span class="text-text-muted block mb-0.5">Device</span>
-                    <span class="text-text-primary font-mono">{entry.deviceFamily ?? '—'}</span>
-                  </div>
-                  <div>
-                    <span class="text-text-muted block mb-0.5">Model ID</span>
-                    <span class="text-text-primary font-mono">{entry.modelIdentifier ?? '—'}</span>
-                  </div>
-                  <div>
-                    <span class="text-text-muted block mb-0.5">Client Version</span>
-                    <span class="text-text-primary font-mono">{entry.clientVersion ?? entry.version ?? '—'}</span>
-                  </div>
-                  <div>
-                    <span class="text-text-muted block mb-0.5">Client ID</span>
-                    <span class="text-text-primary font-mono">{entry.clientId ?? '—'}</span>
-                  </div>
+              <div class="hud-instance-details">
+                <div class="hud-detail-grid">
+                  <div><span class="hud-panel-lbl">MODE</span><span class="hud-detail-val">{entry.mode ?? '—'}</span></div>
+                  <div><span class="hud-panel-lbl">PLATFORM</span><span class="hud-detail-val">{entry.platform ?? '—'}</span></div>
+                  <div><span class="hud-panel-lbl">DEVICE</span><span class="hud-detail-val">{entry.deviceFamily ?? '—'}</span></div>
+                  <div><span class="hud-panel-lbl">MODEL ID</span><span class="hud-detail-val">{entry.modelIdentifier ?? '—'}</span></div>
+                  <div><span class="hud-panel-lbl">CLIENT VER</span><span class="hud-detail-val">{entry.clientVersion ?? entry.version ?? '—'}</span></div>
+                  <div><span class="hud-panel-lbl">CLIENT ID</span><span class="hud-detail-val">{entry.clientId ?? '—'}</span></div>
                   {#if entry.sessionKey}
-                    <div class="col-span-2 md:col-span-3">
-                      <span class="text-text-muted block mb-0.5">Session Key</span>
-                      <span class="text-text-primary font-mono text-[10px] break-all">{entry.sessionKey}</span>
+                    <div class="hud-detail-wide">
+                      <span class="hud-panel-lbl">SESSION KEY</span>
+                      <span class="hud-detail-val hud-detail-val--break">{entry.sessionKey}</span>
                     </div>
                   {/if}
                   {#if entry.model}
-                    <div>
-                      <span class="text-text-muted block mb-0.5">Model</span>
-                      <span class="text-accent-purple font-mono">{entry.model}</span>
-                    </div>
+                    <div><span class="hud-panel-lbl">MODEL</span><span class="hud-detail-val hud-detail-val--purple">{entry.model}</span></div>
                   {/if}
                   {#if (entry.scopes ?? []).length > 0}
-                    <div class="col-span-2 md:col-span-3">
-                      <span class="text-text-muted block mb-0.5">Scopes</span>
-                      <div class="flex flex-wrap gap-1 mt-1">
+                    <div class="hud-detail-wide">
+                      <span class="hud-panel-lbl">SCOPES</span>
+                      <div class="hud-chips">
                         {#each (entry.scopes ?? []) as scope}
-                          <span class="px-1.5 py-0.5 rounded text-[10px] bg-bg-tertiary text-text-muted border border-border-default font-mono">{scope}</span>
+                          <span class="hud-chip">{scope}</span>
                         {/each}
                       </div>
                     </div>
                   {/if}
                   {#if (entry.capabilities ?? []).length > 0}
-                    <div class="col-span-2 md:col-span-3">
-                      <span class="text-text-muted block mb-0.5">Capabilities</span>
-                      <div class="flex flex-wrap gap-1 mt-1">
+                    <div class="hud-detail-wide">
+                      <span class="hud-panel-lbl">CAPABILITIES</span>
+                      <div class="hud-chips">
                         {#each (entry.capabilities ?? []) as cap}
-                          <span class="px-1.5 py-0.5 rounded text-[10px] bg-accent-green/10 text-accent-green border border-accent-green/10 font-mono">{cap}</span>
+                          <span class="hud-chip hud-chip--green">{cap}</span>
                         {/each}
                       </div>
                     </div>
@@ -437,3 +340,250 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .hud-page {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    gap: 1rem;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    color: #b0ffc8;
+  }
+
+  .hud-page-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid #0ff3;
+    padding-bottom: 0.75rem;
+  }
+
+  .hud-back {
+    color: #0ff;
+    text-decoration: none;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+  }
+  .hud-back:hover { opacity: 1; text-shadow: 0 0 6px #0ff; }
+
+  .hud-page-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #0ff;
+    text-shadow: 0 0 10px #0ff6, 0 0 30px #0ff3;
+  }
+
+  .hud-panel {
+    background: #0a0a0aee;
+    border: 1px solid #0ff3;
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+  }
+
+  .hud-panel--error {
+    border-color: #f0a;
+    color: #f0a;
+  }
+
+  .hud-panel-lbl {
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #0ff9;
+    display: block;
+    margin-bottom: 0.15rem;
+  }
+
+  .hud-btn {
+    background: transparent;
+    border: 1px solid #0ff4;
+    color: #0ff;
+    font-family: inherit;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    padding: 0.35rem 0.75rem;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .hud-btn:hover:not(:disabled) {
+    background: #0ff1;
+    border-color: #0ff;
+    text-shadow: 0 0 6px #0ff;
+  }
+  .hud-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .hud-btn--sm {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+  }
+  .hud-btn--cyan { border-color: #0ff8; color: #0ff; text-shadow: 0 0 4px #0ff6; }
+  .hud-btn--purple { border-color: #a855f78a; color: #c084fc; text-shadow: 0 0 4px #a855f74d; }
+  .hud-btn--green { border-color: #22c55e8a; color: #4ade80; text-shadow: 0 0 4px #22c55e4d; }
+
+  .hud-instance-count {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+  }
+  .hud-count {
+    color: #4ade80;
+    font-weight: 700;
+  }
+
+  .hud-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: #555;
+  }
+  .hud-dot--green { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+  .hud-dot--amber { background: #fbbf24; box-shadow: 0 0 6px #fbbf24; }
+  .hud-dot--dim { background: #555; }
+
+  .hud-content {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .hud-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 12rem;
+  }
+
+  .hud-instance-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .hud-instance-card {
+    padding: 0;
+  }
+
+  .hud-instance-main {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .hud-instance-info {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .hud-instance-host {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .hud-host-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #e0ffe8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .hud-host-sub {
+    font-size: 0.65rem;
+    color: #0ff6;
+  }
+
+  .hud-instance-platform {
+    font-size: 0.65rem;
+    color: #b0ffc877;
+  }
+
+  .hud-dim { opacity: 0.6; }
+
+  .hud-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+
+  .hud-chip {
+    padding: 0.1rem 0.4rem;
+    border: 1px solid #0ff2;
+    border-radius: 2px;
+    font-size: 0.55rem;
+    font-family: inherit;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #b0ffc8aa;
+  }
+  .hud-chip--cyan { border-color: #0ff4; color: #0ff; }
+  .hud-chip--purple { border-color: #a855f74d; color: #c084fc; }
+  .hud-chip--green { border-color: #22c55e4d; color: #4ade80; }
+  .hud-chip--amber { border-color: #fbbf244d; color: #fbbf24; }
+
+  .hud-instance-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.4rem;
+    flex-shrink: 0;
+  }
+
+  .hud-instance-stats {
+    text-align: right;
+    font-size: 0.75rem;
+    color: #b0ffc877;
+    line-height: 1.4;
+  }
+
+  .hud-session-controls {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .hud-instance-details {
+    border-top: 1px solid #0ff2;
+    padding: 0.75rem 1rem;
+  }
+
+  .hud-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+  }
+  @media (max-width: 640px) {
+    .hud-detail-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .hud-detail-wide {
+    grid-column: 1 / -1;
+  }
+
+  .hud-detail-val {
+    display: block;
+    font-size: 0.7rem;
+    color: #e0ffe8;
+  }
+  .hud-detail-val--break {
+    font-size: 0.75rem;
+    word-break: break-all;
+  }
+  .hud-detail-val--purple {
+    color: #c084fc;
+  }
+</style>

@@ -3,6 +3,8 @@
   import { gateway } from '$lib/gateway';
   import { getConnection } from '$lib/stores/connection.svelte';
   import { getToasts } from '$lib/stores/toasts.svelte';
+  import MatrixRain from '$lib/components/MatrixRain.svelte';
+  import CRTOverlay from '$lib/components/CRTOverlay.svelte';
 
   const conn = getConnection();
   const toasts = getToasts();
@@ -39,13 +41,6 @@
   let revokingId = $state<number | null>(null);
 
   const ROLES = ['admin', 'operator', 'viewer', 'chat-only'] as const;
-
-  const roleBadgeColors: Record<string, string> = {
-    admin: 'bg-accent-pink/20 text-accent-pink border-accent-pink/30',
-    operator: 'bg-accent-purple/20 text-accent-purple border-accent-purple/30',
-    viewer: 'bg-accent-cyan/20 text-accent-cyan border-accent-cyan/30',
-    'chat-only': 'bg-accent-amber/20 text-accent-amber border-accent-amber/30',
-  };
 
   const roleDescriptions: Record<string, string> = {
     admin: 'Full access — config, pairing, audit, updates',
@@ -153,240 +148,165 @@
   <title>API Tokens — Cortex</title>
 </svelte:head>
 
-<div class="h-full flex flex-col bg-bg-primary">
-  <!-- Header -->
-  <div class="flex-shrink-0 border-b border-border-default bg-bg-secondary/50">
-    <div class="px-4 md:px-6 py-4">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-accent-purple/20 border border-accent-purple/30 flex items-center justify-center">
-            <svg class="w-5 h-5 text-accent-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-            </svg>
-          </div>
-          <div>
-            <h1 class="text-lg font-bold text-text-primary tracking-tight">API Tokens</h1>
-            <p class="text-xs text-text-muted">Create and manage scoped API access tokens</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-3">
-          <!-- Stats badges -->
-          <div class="flex items-center gap-2 text-xs">
-            <span class="px-2 py-1 rounded-lg bg-accent-green/10 text-accent-green border border-accent-green/20">
-              {activeCount} active
-            </span>
-            {#if revokedCount > 0}
-              <span class="px-2 py-1 rounded-lg bg-bg-tertiary text-text-muted border border-border-default">
-                {revokedCount} revoked
-              </span>
-            {/if}
-          </div>
-          <button
-            onclick={() => { showCreate = !showCreate; createdToken = null; }}
-            class="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all
-              {showCreate
-                ? 'bg-accent-purple text-white shadow-lg shadow-accent-purple/25'
-                : 'bg-accent-purple/20 text-accent-purple border border-accent-purple/30 hover:bg-accent-purple/30'}"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{showCreate ? 'M6 18L18 6M6 6l12 12' : 'M12 4v16m8-8H4'}" />
-            </svg>
-            {showCreate ? 'Cancel' : 'Create Token'}
-          </button>
-        </div>
-      </div>
+<div class="hud-page">
+  <MatrixRain />
+  <CRTOverlay />
+
+  <!-- Top bar -->
+  <div class="hud-page-topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <a href="/overview" class="hud-back">&#x25C0; BACK</a>
+      <span class="hud-page-title">TOKEN MANAGEMENT</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="hud-badge hud-badge-green">{activeCount} ACTIVE</span>
+      {#if revokedCount > 0}
+        <span class="hud-badge hud-badge-dim">{revokedCount} REVOKED</span>
+      {/if}
+      <button
+        class="hud-btn"
+        onclick={() => { showCreate = !showCreate; createdToken = null; }}
+      >
+        {showCreate ? '[ CANCEL ]' : '[ + CREATE TOKEN ]'}
+      </button>
     </div>
   </div>
 
   <!-- Create Token Form -->
   {#if showCreate}
-    <div class="flex-shrink-0 mx-4 md:mx-6 mt-4">
-      <div class="p-5 rounded-xl border border-accent-purple/30 bg-accent-purple/5">
-        <h3 class="text-sm font-semibold text-accent-purple mb-4">Create New API Token</h3>
+    <div class="hud-panel">
+      <div class="hud-panel-lbl">CREATE NEW API TOKEN</div>
 
-        {#if createdToken}
-          <!-- Token created — show it -->
-          <div class="space-y-4">
-            <div class="p-4 rounded-lg border border-accent-green/30 bg-accent-green/5">
-              <div class="flex items-center gap-2 mb-2">
-                <svg class="w-4 h-4 text-accent-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span class="text-sm font-semibold text-accent-green">Token Created Successfully</span>
-              </div>
-              <p class="text-xs text-text-muted mb-3">Copy this token now — it won't be shown again.</p>
-              <div class="flex items-center gap-2">
-                <code class="flex-1 px-3 py-2 text-xs font-mono bg-bg-primary rounded-lg border border-border-default text-text-primary break-all select-all">
-                  {createdToken}
-                </code>
-                <button
-                  onclick={() => copyToClipboard(createdToken!)}
-                  class="flex-shrink-0 px-3 py-2 text-xs font-medium rounded-lg transition-all
-                    {copiedToken
-                      ? 'bg-accent-green/20 text-accent-green border border-accent-green/30'
-                      : 'bg-bg-tertiary text-text-secondary border border-border-default hover:text-accent-purple hover:border-accent-purple/30'}"
-                >
-                  {copiedToken ? '✓ Copied' : 'Copy'}
-                </button>
-              </div>
-            </div>
+      {#if createdToken}
+        <div class="hud-success-box">
+          <div class="hud-success-title">TOKEN CREATED SUCCESSFULLY</div>
+          <p class="hud-dim-text">Copy this token now — it will not be shown again.</p>
+          <div class="hud-token-row">
+            <code class="hud-token-code">{createdToken}</code>
             <button
-              onclick={() => { createdToken = null; }}
-              class="text-xs text-accent-purple hover:text-accent-purple/80"
+              class="hud-btn {copiedToken ? 'hud-btn-green' : ''}"
+              onclick={() => copyToClipboard(createdToken!)}
             >
-              Create another token →
+              {copiedToken ? 'COPIED' : 'COPY'}
             </button>
           </div>
-        {:else}
-          <!-- Create form -->
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div class="md:col-span-1">
-              <label class="text-xs text-text-muted block mb-1.5">Token Name</label>
-              <input
-                type="text"
-                bind:value={createName}
-                placeholder="e.g. monitoring-bot"
-                class="w-full px-3 py-2 text-sm bg-bg-input border border-border-default rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/20 transition-all"
-              />
-            </div>
-            <div>
-              <label class="text-xs text-text-muted block mb-1.5">Role</label>
-              <select
-                bind:value={createRole}
-                class="w-full px-3 py-2 text-sm bg-bg-input border border-border-default rounded-lg text-text-primary focus:outline-none focus:border-accent-purple/50"
-              >
-                {#each ROLES as r}
-                  <option value={r}>{r}</option>
-                {/each}
-              </select>
-              <p class="text-[10px] text-text-muted mt-1">{roleDescriptions[createRole] ?? ''}</p>
-            </div>
-            <div>
-              <label class="text-xs text-text-muted block mb-1.5">Expires (optional)</label>
-              <input
-                type="text"
-                bind:value={createExpires}
-                placeholder="e.g. 30d, 24h, never"
-                class="w-full px-3 py-2 text-sm bg-bg-input border border-border-default rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-purple/50 focus:ring-1 focus:ring-accent-purple/20 transition-all"
-              />
-            </div>
-            <div class="flex items-end">
-              <button
-                onclick={createToken}
-                disabled={creating || !createName.trim()}
-                class="w-full px-4 py-2 text-sm font-medium rounded-lg transition-all
-                  bg-accent-purple/20 text-accent-purple border border-accent-purple/30
-                  hover:bg-accent-purple/30 hover:border-accent-purple/50
-                  disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {creating ? 'Creating…' : 'Create Token'}
-              </button>
-            </div>
+          <button class="hud-link" onclick={() => { createdToken = null; }}>
+            CREATE ANOTHER TOKEN &rarr;
+          </button>
+        </div>
+      {:else}
+        <div class="hud-form-grid">
+          <div class="hud-field">
+            <label class="hud-field-lbl">TOKEN NAME</label>
+            <input
+              type="text"
+              bind:value={createName}
+              placeholder="e.g. monitoring-bot"
+              class="hud-input"
+            />
           </div>
-        {/if}
-      </div>
+          <div class="hud-field">
+            <label class="hud-field-lbl">ROLE</label>
+            <select bind:value={createRole} class="hud-input">
+              {#each ROLES as r}
+                <option value={r}>{r.toUpperCase()}</option>
+              {/each}
+            </select>
+            <span class="hud-dim-text" style="margin-top:4px;display:block;font-size:0.6rem;">{roleDescriptions[createRole] ?? ''}</span>
+          </div>
+          <div class="hud-field">
+            <label class="hud-field-lbl">EXPIRES (OPTIONAL)</label>
+            <input
+              type="text"
+              bind:value={createExpires}
+              placeholder="e.g. 30d, 24h, never"
+              class="hud-input"
+            />
+          </div>
+          <div class="hud-field" style="display:flex;align-items:flex-end;">
+            <button
+              class="hud-btn hud-btn-full"
+              onclick={createToken}
+              disabled={creating || !createName.trim()}
+            >
+              {creating ? 'CREATING...' : '[ CREATE TOKEN ]'}
+            </button>
+          </div>
+        </div>
+      {/if}
     </div>
   {/if}
 
   <!-- Content area -->
-  <div class="flex-1 overflow-y-auto p-4 md:p-6">
+  <div class="hud-content">
     {#if conn.state.status !== 'connected'}
-      <div class="flex flex-col items-center justify-center h-full text-center">
-        <div class="w-16 h-16 rounded-2xl bg-bg-tertiary border border-border-default flex items-center justify-center mb-4">
-          <svg class="w-8 h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="hud-empty">
+        <div class="hud-empty-icon">
+          <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
           </svg>
         </div>
-        <p class="text-text-muted text-sm">Connect to the gateway to manage API tokens.</p>
+        <p class="hud-dim-text">CONNECT TO GATEWAY TO MANAGE API TOKENS</p>
       </div>
 
     {:else if loading && tokens.length === 0}
-      <div class="space-y-3">
-        {#each Array(3) as _}
-          <div class="glass rounded-xl p-4 border border-border-default animate-pulse">
-            <div class="flex items-center gap-3">
-              <div class="w-3 h-3 rounded-full bg-bg-tertiary"></div>
-              <div class="h-4 w-40 bg-bg-tertiary rounded"></div>
-              <div class="h-5 w-16 bg-bg-tertiary rounded-full ml-auto"></div>
-            </div>
-          </div>
-        {/each}
+      <div class="hud-panel" style="padding:20px;">
+        <div class="hud-dim-text" style="text-align:center;letter-spacing:0.2em;">LOADING TOKENS...</div>
       </div>
 
     {:else if tokens.length === 0}
-      <div class="flex flex-col items-center justify-center h-64 text-center">
-        <div class="w-14 h-14 rounded-2xl bg-bg-tertiary border border-border-default flex items-center justify-center mb-4">
-          <svg class="w-7 h-7 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="hud-empty">
+        <div class="hud-empty-icon">
+          <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
           </svg>
         </div>
-        <p class="text-text-muted text-sm mb-4">No API tokens yet.</p>
-        <button
-          onclick={() => { showCreate = true; }}
-          class="px-4 py-2 text-sm font-medium rounded-xl bg-accent-purple/20 text-accent-purple border border-accent-purple/30 hover:bg-accent-purple/30 transition-all"
-        >
-          Create Your First Token
+        <p class="hud-dim-text">NO API TOKENS YET</p>
+        <button class="hud-btn" onclick={() => { showCreate = true; }}>
+          [ CREATE YOUR FIRST TOKEN ]
         </button>
       </div>
 
     {:else}
       <!-- Token list -->
-      <div class="space-y-3">
+      <div class="hud-token-list">
         {#each tokens as token (token.id)}
           {@const expired = isExpired(token.expires_at)}
-          {@const badgeClass = token.revoked
-            ? 'bg-red-500/20 text-red-400 border-red-500/30'
-            : expired
-              ? 'bg-accent-amber/20 text-accent-amber border-accent-amber/30'
-              : roleBadgeColors[token.role] ?? roleBadgeColors['operator']}
-          {@const statusText = token.revoked ? 'revoked' : expired ? 'expired' : 'active'}
-          {@const statusColor = token.revoked ? 'bg-red-500' : expired ? 'bg-accent-amber' : 'bg-accent-green'}
-          <div class="glass rounded-xl p-4 border border-border-default hover:border-accent-purple/20 transition-all
-            {token.revoked ? 'opacity-60' : ''}">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-3 min-w-0">
-                <div class="w-2.5 h-2.5 rounded-full {statusColor} flex-shrink-0"></div>
-                <div class="min-w-0">
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <span class="text-sm font-semibold text-text-primary">{token.name}</span>
-                    <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full border {badgeClass}">
-                      {token.role}
-                    </span>
-                    {#if token.revoked}
-                      <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
-                        revoked
-                      </span>
-                    {:else if expired}
-                      <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-accent-amber/20 text-accent-amber border border-accent-amber/30">
-                        expired
-                      </span>
-                    {/if}
-                  </div>
-                  <div class="flex items-center gap-3 mt-1 text-xs text-text-muted">
-                    <span>Created {formatDate(token.created_at)}</span>
-                    {#if token.expires_at}
-                      <span>· Expires {formatDate(token.expires_at)}</span>
-                    {/if}
-                    {#if token.last_used_at}
-                      <span>· Last used {formatDate(token.last_used_at)}</span>
-                    {/if}
-                  </div>
-                </div>
+          {@const statusText = token.revoked ? 'REVOKED' : expired ? 'EXPIRED' : 'ACTIVE'}
+          {@const statusClass = token.revoked ? 'hud-status-red' : expired ? 'hud-status-amber' : 'hud-status-green'}
+          {@const roleClass = token.role === 'admin' ? 'hud-role-pink' : token.role === 'operator' ? 'hud-role-purple' : token.role === 'viewer' ? 'hud-role-cyan' : 'hud-role-amber'}
+          <div class="hud-panel hud-token-card {token.revoked ? 'hud-revoked' : ''}">
+            <div class="hud-token-header">
+              <div class="hud-token-info">
+                <div class="hud-status-dot {statusClass}"></div>
+                <span class="hud-token-name">{token.name}</span>
+                <span class="hud-role-badge {roleClass}">{token.role.toUpperCase()}</span>
+                {#if token.revoked}
+                  <span class="hud-status-badge hud-status-red-badge">REVOKED</span>
+                {:else if expired}
+                  <span class="hud-status-badge hud-status-amber-badge">EXPIRED</span>
+                {/if}
               </div>
-              <div class="flex items-center gap-2 flex-shrink-0 ml-4">
+              <div class="hud-token-actions">
                 {#if !token.revoked}
                   <button
+                    class="hud-btn hud-btn-danger"
                     onclick={() => revokeToken(token.id, token.name)}
                     disabled={revokingId === token.id}
-                    class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all
-                      bg-red-500/10 text-red-400 border border-red-500/20
-                      hover:bg-red-500/20 hover:border-red-500/30
-                      disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {revokingId === token.id ? 'Revoking…' : 'Revoke'}
+                    {revokingId === token.id ? 'REVOKING...' : '[ REVOKE ]'}
                   </button>
                 {/if}
               </div>
+            </div>
+            <div class="hud-token-meta">
+              <span>CREATED {formatDate(token.created_at)}</span>
+              {#if token.expires_at}
+                <span>EXPIRES {formatDate(token.expires_at)}</span>
+              {/if}
+              {#if token.last_used_at}
+                <span>LAST USED {formatDate(token.last_used_at)}</span>
+              {/if}
             </div>
           </div>
         {/each}
@@ -394,9 +314,9 @@
     {/if}
 
     {#if lastError}
-      <div class="glass rounded-xl p-4 border border-accent-pink/30 mt-4">
-        <div class="flex items-center gap-2 text-accent-pink text-sm">
-          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="hud-panel hud-error-panel">
+        <div class="hud-error-row">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           <span>{lastError}</span>
@@ -405,3 +325,440 @@
     {/if}
   </div>
 </div>
+
+<style>
+  /* ═══════════════════════════════════════════════
+     HUD PAGE LAYOUT
+  ═══════════════════════════════════════════════ */
+  .hud-page {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 22px;
+    gap: 14px;
+    overflow-y: auto;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--color-accent-cyan);
+    background: #0a0e1a;
+  }
+
+  /* ─── TOP BAR ─── */
+  .hud-page-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    padding-bottom: 9px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    gap: 8px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .hud-back {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .hud-back:hover {
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-page-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 900;
+    letter-spacing: 0.25em;
+    color: var(--color-accent-cyan);
+    text-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent),
+                 0 0 60px color-mix(in srgb, var(--color-accent-cyan) 22%, transparent);
+    animation: hud-glow 4s ease-in-out infinite;
+  }
+
+  /* ─── BADGES ─── */
+  .hud-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.22em;
+    padding: 3px 9px;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+
+  .hud-badge-green {
+    color: var(--color-accent-green);
+    border: 1px solid color-mix(in srgb, var(--color-accent-green) 28%, transparent);
+  }
+
+  .hud-badge-dim {
+    color: color-mix(in srgb, var(--color-accent-cyan) 60%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 22%, transparent);
+  }
+
+  /* ─── BUTTONS ─── */
+  .hud-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    color: var(--color-accent-cyan);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    padding: 4px 12px;
+    border-radius: 2px;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .hud-btn:hover:not(:disabled) {
+    border-color: var(--color-accent-cyan);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  .hud-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .hud-btn-full {
+    width: 100%;
+    padding: 8px 12px;
+  }
+
+  .hud-btn-green {
+    color: var(--color-accent-green);
+    border-color: color-mix(in srgb, var(--color-accent-green) 50%, transparent);
+  }
+
+  .hud-btn-danger {
+    color: #ff3864;
+    border-color: color-mix(in srgb, #ff3864 35%, transparent);
+  }
+
+  .hud-btn-danger:hover:not(:disabled) {
+    border-color: #ff3864;
+    box-shadow: 0 0 10px color-mix(in srgb, #ff3864 30%, transparent);
+  }
+
+  /* ─── PANELS ─── */
+  .hud-panel {
+    background: color-mix(in srgb, var(--color-accent-cyan) 8%, #0a0e1a);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    border-radius: 3px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+    z-index: 10;
+  }
+
+  .hud-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-accent-cyan), transparent);
+    opacity: 0.6;
+  }
+
+  .hud-panel-lbl {
+    font-size: 0.65rem;
+    letter-spacing: 0.35em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  /* ─── CONTENT ─── */
+  .hud-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    z-index: 10;
+    min-height: 0;
+  }
+
+  /* ─── FORM ─── */
+  .hud-form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+
+  @media (max-width: 767px) {
+    .hud-form-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .hud-field {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .hud-field-lbl {
+    font-size: 0.75rem;
+    letter-spacing: 0.28em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .hud-input {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--color-accent-cyan);
+    background: color-mix(in srgb, var(--color-accent-cyan) 10%, #0a0e1a);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 25%, transparent);
+    border-radius: 2px;
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .hud-input::placeholder {
+    color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  .hud-input:focus {
+    border-color: color-mix(in srgb, var(--color-accent-cyan) 60%, transparent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent-cyan) 22%, transparent);
+  }
+
+  /* ─── SUCCESS BOX ─── */
+  .hud-success-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .hud-success-title {
+    font-size: 0.75rem;
+    letter-spacing: 0.18em;
+    color: var(--color-accent-green);
+  }
+
+  .hud-token-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hud-token-code {
+    flex: 1;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--color-accent-cyan);
+    background: color-mix(in srgb, var(--color-accent-cyan) 10%, #0a0e1a);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    border-radius: 2px;
+    padding: 8px 10px;
+    word-break: break-all;
+    user-select: all;
+  }
+
+  /* ─── LINK ─── */
+  .hud-link {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.15em;
+    color: var(--color-accent-cyan);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: opacity 0.2s;
+  }
+
+  .hud-link:hover {
+    opacity: 0.7;
+  }
+
+  /* ─── DIM TEXT ─── */
+  .hud-dim-text {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  /* ─── TOKEN LIST ─── */
+  .hud-token-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .hud-token-card {
+    transition: border-color 0.2s;
+  }
+
+  .hud-token-card:hover {
+    border-color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+  }
+
+  .hud-revoked {
+    opacity: 0.5;
+  }
+
+  .hud-token-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .hud-token-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .hud-token-name {
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--color-accent-cyan);
+  }
+
+  .hud-token-actions {
+    flex-shrink: 0;
+  }
+
+  .hud-token-meta {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    color: color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
+    flex-wrap: wrap;
+  }
+
+  /* ─── STATUS DOT ─── */
+  .hud-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .hud-status-green {
+    background: var(--color-accent-green);
+    box-shadow: 0 0 6px var(--color-accent-green);
+    animation: hud-dp 1.6s ease-in-out infinite;
+  }
+
+  .hud-status-amber {
+    background: var(--color-accent-amber);
+    box-shadow: 0 0 6px var(--color-accent-amber);
+  }
+
+  .hud-status-red {
+    background: #ff3864;
+    box-shadow: 0 0 6px #ff3864;
+  }
+
+  /* ─── ROLE BADGES ─── */
+  .hud-role-badge {
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    padding: 2px 7px;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+
+  .hud-role-pink {
+    color: var(--color-accent-pink);
+    border: 1px solid color-mix(in srgb, var(--color-accent-pink) 35%, transparent);
+  }
+
+  .hud-role-purple {
+    color: var(--color-accent-purple);
+    border: 1px solid color-mix(in srgb, var(--color-accent-purple) 35%, transparent);
+  }
+
+  .hud-role-cyan {
+    color: var(--color-accent-cyan);
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+  }
+
+  .hud-role-amber {
+    color: var(--color-accent-amber);
+    border: 1px solid color-mix(in srgb, var(--color-accent-amber) 35%, transparent);
+  }
+
+  /* ─── STATUS BADGES ─── */
+  .hud-status-badge {
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    padding: 2px 7px;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+
+  .hud-status-red-badge {
+    color: #ff3864;
+    border: 1px solid color-mix(in srgb, #ff3864 35%, transparent);
+  }
+
+  .hud-status-amber-badge {
+    color: var(--color-accent-amber);
+    border: 1px solid color-mix(in srgb, var(--color-accent-amber) 35%, transparent);
+  }
+
+  /* ─── EMPTY STATE ─── */
+  .hud-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 60px 20px;
+    text-align: center;
+  }
+
+  .hud-empty-icon {
+    color: color-mix(in srgb, var(--color-accent-cyan) 55%, transparent);
+  }
+
+  /* ─── ERROR PANEL ─── */
+  .hud-error-panel {
+    border-color: color-mix(in srgb, #ff3864 30%, transparent);
+    margin-top: 8px;
+  }
+
+  .hud-error-panel::before {
+    background: linear-gradient(90deg, transparent, #ff3864, transparent);
+  }
+
+  .hud-error-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: #ff3864;
+  }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes hud-glow {
+    0%, 100% { text-shadow: 0 0 20px color-mix(in srgb, var(--color-accent-cyan) 50%, transparent), 0 0 60px color-mix(in srgb, var(--color-accent-cyan) 22%, transparent); }
+    50% { text-shadow: 0 0 40px color-mix(in srgb, var(--color-accent-cyan) 95%, transparent), 0 0 120px color-mix(in srgb, var(--color-accent-cyan) 55%, transparent); }
+  }
+
+  @keyframes hud-dp {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+</style>
