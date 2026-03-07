@@ -437,27 +437,33 @@ export function createAgentEventHandler({
     // Tool results contain image content blocks ({ type:"image", data, mimeType })
     // that would otherwise be invisible to webchat clients.
     if (isToolEvent && evt.data?.phase === "result" && !isAborted) {
+      // Check evt.data.images first (raw images passed alongside sanitized result),
+      // then fall back to evt.data.result.content (for older code paths).
+      const rawImages = Array.isArray(evt.data?.images) ? (evt.data.images as unknown[]) : [];
       const toolResult = evt.data?.result;
-      if (toolResult && typeof toolResult === "object") {
-        const content = Array.isArray((toolResult as Record<string, unknown>).content)
-          ? ((toolResult as Record<string, unknown>).content as unknown[])
-          : [];
-        for (const block of content) {
-          if (
-            block &&
-            typeof block === "object" &&
-            (block as Record<string, unknown>).type === "image" &&
-            typeof (block as Record<string, unknown>).data === "string" &&
-            typeof (block as Record<string, unknown>).mimeType === "string"
-          ) {
-            const existing = chatRunState.runImages.get(clientRunId) ?? [];
-            existing.push({
-              type: "image",
-              data: (block as Record<string, unknown>).data as string,
-              mimeType: (block as Record<string, unknown>).mimeType as string,
-            });
-            chatRunState.runImages.set(clientRunId, existing);
-          }
+      const contentBlocks =
+        rawImages.length > 0
+          ? rawImages
+          : toolResult && typeof toolResult === "object"
+            ? Array.isArray((toolResult as Record<string, unknown>).content)
+              ? ((toolResult as Record<string, unknown>).content as unknown[])
+              : []
+            : [];
+      for (const block of contentBlocks) {
+        if (
+          block &&
+          typeof block === "object" &&
+          (block as Record<string, unknown>).type === "image" &&
+          typeof (block as Record<string, unknown>).data === "string" &&
+          typeof (block as Record<string, unknown>).mimeType === "string"
+        ) {
+          const existing = chatRunState.runImages.get(clientRunId) ?? [];
+          existing.push({
+            type: "image",
+            data: (block as Record<string, unknown>).data as string,
+            mimeType: (block as Record<string, unknown>).mimeType as string,
+          });
+          chatRunState.runImages.set(clientRunId, existing);
         }
       }
     }

@@ -46,23 +46,23 @@ function extractContent(content: unknown): { text: string; thinkingContent?: str
               mimeType: mediaType,
               dataUrl: `data:${mediaType};base64,${source.data}`
             });
-          } else if (typeof b.data === 'string' && (b.data as string).startsWith('data:')) {
+          } else if (typeof b.data === 'string' && (b.data).startsWith('data:')) {
             // Already a data URL
             images.push({
               mimeType: (b.mimeType as string) || 'image/png',
-              dataUrl: b.data as string
+              dataUrl: b.data
             });
           } else if (typeof b.data === 'string' && typeof b.mimeType === 'string') {
             // Gateway format: raw base64 + mimeType
             images.push({
-              mimeType: b.mimeType as string,
+              mimeType: b.mimeType,
               dataUrl: `data:${b.mimeType};base64,${b.data}`
             });
           } else if (typeof b.url === 'string') {
             // URL-based image
             images.push({
               mimeType: (b.mimeType as string) || 'image/png',
-              dataUrl: b.url as string
+              dataUrl: b.url
             });
           }
         } else if (b.type === 'toolCall' || b.type === 'tool_use') {
@@ -133,7 +133,7 @@ gateway.on('chat', (payload) => {
   const event = payload as ChatEvent;
   
   // Only handle events for the active session
-  if (event.sessionKey !== activeSessionKey) return;
+  if (event.sessionKey !== activeSessionKey) {return;}
 
   switch (event.state) {
     case 'delta': {
@@ -141,9 +141,9 @@ gateway.on('chat', (payload) => {
       activeRunId = event.runId;
       if (event.message?.content) {
         const extracted = extractContent(event.message.content);
-        if (extracted.text) streamingContent += extracted.text;
-        if (extracted.thinkingContent) streamingThinkingContent = extracted.thinkingContent;
-        if (extracted.toolCalls.length) streamingToolCalls = [...streamingToolCalls, ...extracted.toolCalls];
+        if (extracted.text) {streamingContent += extracted.text;}
+        if (extracted.thinkingContent) {streamingThinkingContent = extracted.thinkingContent;}
+        if (extracted.toolCalls.length) {streamingToolCalls = [...streamingToolCalls, ...extracted.toolCalls];}
       }
       break;
     }
@@ -258,7 +258,7 @@ async function loadHistory(sessionKey: string): Promise<void> {
     const toolResultMap = new Map<string, { toolCallId: string; name?: string; content?: string; isError?: boolean }>();
     for (const msg of allExtracted) {
       for (const tr of msg.toolResults) {
-        if (tr.toolCallId) toolResultMap.set(tr.toolCallId, tr);
+        if (tr.toolCallId) {toolResultMap.set(tr.toolCallId, tr);}
       }
       // Also check raw content for tool_result blocks in user/tool messages
       if (Array.isArray(msg.rawContent)) {
@@ -267,10 +267,10 @@ async function loadHistory(sessionKey: string): Promise<void> {
             const b = block as Record<string, unknown>;
             if ((b.type === 'tool_result' || b.type === 'toolResult') && typeof b.tool_use_id === 'string') {
               const resultContent = typeof b.content === 'string' ? b.content :
-                Array.isArray(b.content) ? (b.content as any[]).filter((c: any) => c?.type === 'text').map((c: any) => c.text).join('\n') :
+                Array.isArray(b.content) ? (b.content).filter((c: any) => c?.type === 'text').map((c: any) => c.text).join('\n') :
                 JSON.stringify(b.content);
-              toolResultMap.set(b.tool_use_id as string, {
-                toolCallId: b.tool_use_id as string,
+              toolResultMap.set(b.tool_use_id, {
+                toolCallId: b.tool_use_id,
                 content: resultContent,
                 isError: b.is_error as boolean || false
               });
@@ -288,7 +288,7 @@ async function loadHistory(sessionKey: string): Promise<void> {
         const associatedResults: typeof m.toolResults = [];
         for (const tc of m.toolCalls) {
           const result = toolResultMap.get(tc.id);
-          if (result) associatedResults.push(result);
+          if (result) {associatedResults.push(result);}
         }
         const finalResults = associatedResults.length ? associatedResults : m.toolResults.length ? m.toolResults : undefined;
 
@@ -317,7 +317,7 @@ async function loadHistory(sessionKey: string): Promise<void> {
 async function sendMessage(text: string, attachments?: ImageAttachment[]): Promise<void> {
   const hasText = text.trim().length > 0;
   const hasAttachments = attachments && attachments.length > 0;
-  if ((!hasText && !hasAttachments) || !activeSessionKey || !gateway.connected) return;
+  if ((!hasText && !hasAttachments) || !activeSessionKey || !gateway.connected) {return;}
 
   // Add user message immediately (optimistic) with image previews
   messages = [...messages, {
@@ -338,7 +338,7 @@ async function sendMessage(text: string, attachments?: ImageAttachment[]): Promi
     const apiAttachments = hasAttachments
       ? attachments.map(att => {
           const match = /^data:([^;]+);base64,(.+)$/.exec(att.dataUrl);
-          if (!match) return null;
+          if (!match) {return null;}
           return { type: 'image', mimeType: match[1], content: match[2] };
         }).filter((a): a is NonNullable<typeof a> => a !== null)
       : undefined;
@@ -355,7 +355,7 @@ async function sendMessage(text: string, attachments?: ImageAttachment[]): Promi
 }
 
 async function abortResponse(): Promise<void> {
-  if (!activeSessionKey) return;
+  if (!activeSessionKey) {return;}
   try {
     await gateway.chatAbort(activeSessionKey, activeRunId ?? undefined);
   } catch (e) {

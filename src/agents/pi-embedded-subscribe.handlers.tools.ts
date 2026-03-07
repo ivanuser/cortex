@@ -344,6 +344,21 @@ export async function handleToolExecutionEnd(
     ctx.state.successfulCronAdds += 1;
   }
 
+  // Extract raw image blocks before sanitization strips them.
+  // These are passed alongside the sanitized result so the gateway
+  // can accumulate images for the final chat event.
+  const rawContent = Array.isArray((result as Record<string, unknown> | null)?.content)
+    ? ((result as Record<string, unknown>).content as unknown[])
+    : [];
+  const resultImages = rawContent.filter(
+    (b): b is { type: "image"; data: string; mimeType: string } =>
+      !!b &&
+      typeof b === "object" &&
+      (b as Record<string, unknown>).type === "image" &&
+      typeof (b as Record<string, unknown>).data === "string" &&
+      typeof (b as Record<string, unknown>).mimeType === "string",
+  );
+
   emitAgentEvent({
     runId: ctx.params.runId,
     stream: "tool",
@@ -354,6 +369,9 @@ export async function handleToolExecutionEnd(
       meta,
       isError: isToolError,
       result: sanitizedResult,
+      // Pass raw images separately so gateway can accumulate them
+      // (sanitizedResult strips image data for transcript size)
+      ...(resultImages.length > 0 ? { images: resultImages } : {}),
     },
   });
   void ctx.params.onAgentEvent?.({
