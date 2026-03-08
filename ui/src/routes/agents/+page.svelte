@@ -448,7 +448,7 @@
             <div class="hud-agent-item-inner">
               <div class="sidebar-avatar">
                 {#if agent.identity?.avatar}
-                  <img class="sidebar-avatar-img" src={agent.identity.avatar} alt="" />
+                  <img class="sidebar-avatar-img" src="/avatar/{agent.id}" alt="" />
                 {:else}
                   <span class="sidebar-avatar-letter">{(agent.identity?.emoji || agent.identity?.name?.[0] || agent.id[0] || '>').toUpperCase()}</span>
                 {/if}
@@ -500,7 +500,7 @@
             <div class="identity-card-body">
               <div class="identity-card-avatar-wrap">
                 {#if identity?.avatar || selectedAgent.identity?.avatar}
-                  <img class="identity-card-avatar" src={identity?.avatar || selectedAgent.identity?.avatar} alt="" />
+                  <img class="identity-card-avatar" src="/avatar/{selectedAgent.id}" alt="" />
                 {:else}
                   <div class="identity-card-avatar-placeholder">{(resolveAgentEmoji(selectedAgent) || agentContext?.identityName?.[0] || '>').toUpperCase()}</div>
                 {/if}
