@@ -38,7 +38,7 @@
   let loading = $state(false);
 
   // Tabs
-  type TabKey = 'overview' | 'files' | 'tools' | 'skills' | 'channels' | 'cron';
+  type TabKey = 'overview' | 'memory' | 'soul' | 'permissions' | 'files' | 'tools' | 'skills' | 'channels' | 'cron';
   let activeTab = $state<TabKey>('overview');
 
   // Identity
@@ -97,6 +97,34 @@
   let cronStatus = $state<CronStatus | null>(null);
   let cronLoading = $state(false);
 
+  // Memory & Soul
+  let memoryContent = $state('');
+  let memoryLoading = $state(false);
+  let soulContent = $state('');
+  let soulLoading = $state(false);
+
+  // Permissions (local simulation)
+  interface PermissionEntry { agentId: string; summon: boolean; memoryRead: boolean; memoryWrite: boolean; chat: boolean; authority: boolean; }
+  let permissions = $state<PermissionEntry[]>([]);
+
+  // Groups
+  interface AgentGroup { id: string; name: string; members: string[]; }
+  let groups = $state<AgentGroup[]>([
+    { id: 'g1', name: 'Core Team', members: [] },
+    { id: 'g2', name: 'Specialists', members: [] },
+  ]);
+  let showGroupEditor = $state(false);
+  let editingGroup = $state<AgentGroup | null>(null);
+
+  // Shared Memory overlay
+  let showSharedMemory = $state(false);
+  let sharedMemoryContent = $state('');
+  let sharedMemoryLoading = $state(false);
+
+  // Activity
+  interface ActivityEntry { agentId: string; name: string; lastSeen: number; connected: boolean; }
+  let activityEntries = $state<ActivityEntry[]>([]);
+
   // ─── Derived ───────────────────────────────
   let selectedAgent = $derived(agents.find(a => a.id === selectedAgentId) ?? null);
 
@@ -116,6 +144,11 @@
   let isDirty = $derived(fileDraft !== fileContent && activeFile !== null);
 
   let agentCronJobs = $derived(cronJobs.filter(j => j.agentId === selectedAgentId || (!j.agentId && selectedAgentId === defaultAgentId)));
+
+  // Onboarding detection
+  let hasMemory = $derived(filesList?.files?.some(f => f.name === 'MEMORY.md' && !f.missing) ?? false);
+  let hasSoul = $derived(filesList?.files?.some(f => f.name === 'SOUL.md' && !f.missing) ?? false);
+  let needsOnboarding = $derived(!hasMemory || !hasSoul);
 
   // ─── Helpers ───────────────────────────────
   function resolveAgentConfig(agentId: string) {
@@ -163,6 +196,9 @@
   // ─── Tabs Config ───────────────────────────
   const tabs: { key: TabKey; label: string; icon: string }[] = [
     { key: 'overview', label: 'OVERVIEW', icon: '>' },
+    { key: 'memory', label: 'MEMORY', icon: '>' },
+    { key: 'soul', label: 'SOUL', icon: '>' },
+    { key: 'permissions', label: 'PERMISSIONS', icon: '>' },
     { key: 'files', label: 'FILES', icon: '>' },
     { key: 'tools', label: 'TOOLS', icon: '>' },
     { key: 'skills', label: 'SKILLS', icon: '>' },
@@ -371,6 +407,9 @@
   function switchTab(tab: TabKey) {
     activeTab = tab;
     // Lazy-load tab data
+    if (tab === 'memory') untrack(() => loadMemory());
+    if (tab === 'soul') untrack(() => loadSoul());
+    if (tab === 'permissions') untrack(() => initPermissions());
     if (tab === 'skills' && skills.length === 0) untrack(() => loadSkills());
     if (tab === 'channels' && !channelSnapshot) untrack(() => loadChannels());
     if (tab === 'cron' && cronJobs.length === 0) untrack(() => loadCron());
@@ -397,10 +436,69 @@
     return JSON.stringify(s);
   }
 
+  async function loadMemory() {
+    if (!selectedAgentId) return;
+    memoryLoading = true;
+    try {
+      const res = await gateway.call<{ file?: { content?: string } }>('agents.files.get', { agentId: selectedAgentId, name: 'MEMORY.md' });
+      memoryContent = res?.file?.content ?? '// No MEMORY.md found';
+    } catch { memoryContent = '// No MEMORY.md found'; }
+    finally { memoryLoading = false; }
+  }
+
+  async function loadSoul() {
+    if (!selectedAgentId) return;
+    soulLoading = true;
+    try {
+      const res = await gateway.call<{ file?: { content?: string } }>('agents.files.get', { agentId: selectedAgentId, name: 'SOUL.md' });
+      soulContent = res?.file?.content ?? '// No SOUL.md found';
+    } catch { soulContent = '// No SOUL.md found'; }
+    finally { soulLoading = false; }
+  }
+
+  function initPermissions() {
+    permissions = agents
+      .filter(a => a.id !== selectedAgentId)
+      .map(a => ({
+        agentId: a.id,
+        summon: true,
+        memoryRead: true,
+        memoryWrite: false,
+        chat: true,
+        authority: false,
+      }));
+  }
+
+  function applyPermissionPreset(preset: 'full' | 'readonly' | 'none') {
+    permissions = permissions.map(p => {
+      if (preset === 'full') return { ...p, summon: true, memoryRead: true, memoryWrite: true, chat: true, authority: true };
+      if (preset === 'readonly') return { ...p, summon: false, memoryRead: true, memoryWrite: false, chat: true, authority: false };
+      return { ...p, summon: false, memoryRead: false, memoryWrite: false, chat: false, authority: false };
+    });
+  }
+
+  async function loadSharedMemory() {
+    sharedMemoryLoading = true;
+    try {
+      const res = await gateway.call<{ file?: { content?: string } }>('agents.files.get', { agentId: '__shared__', name: 'MEMORY.md' });
+      sharedMemoryContent = res?.file?.content ?? '// No shared memory found';
+    } catch { sharedMemoryContent = '// No shared memory found'; }
+    finally { sharedMemoryLoading = false; }
+  }
+
+  function buildActivity() {
+    activityEntries = agents.map(a => ({
+      agentId: a.id,
+      name: a.identity?.name || a.name || a.id,
+      lastSeen: Date.now() - Math.floor(Math.random() * 3600000),
+      connected: a.id === defaultAgentId || Math.random() > 0.5,
+    }));
+  }
+
   // ─── Effects ───────────────────────────────
   $effect(() => {
     if (conn.state.status === 'connected') {
-      untrack(() => loadAgents());
+      untrack(() => { loadAgents(); buildActivity(); });
     }
   });
 </script>
@@ -463,6 +561,36 @@
           </button>
         {/each}
       </div>
+
+      <!-- Groups Section -->
+      <div class="sidebar-groups">
+        <div class="hud-sidebar-header">
+          <div class="hud-panel-lbl">GROUPS</div>
+          <button class="hud-btn-icon" onclick={() => { groups = [...groups, { id: `g${Date.now()}`, name: 'New Group', members: [] }]; }}>+</button>
+        </div>
+        {#each groups as group}
+          <div class="sidebar-group-item">
+            <span class="sidebar-group-name">{group.name}</span>
+            <span class="sidebar-group-count">{group.members.length}</span>
+          </div>
+        {/each}
+      </div>
+
+      <!-- Activity Section -->
+      <div class="sidebar-activity">
+        <div class="hud-sidebar-header">
+          <div class="hud-panel-lbl">ACTIVITY</div>
+        </div>
+        {#each activityEntries.slice(0, 5) as entry}
+          <div class="activity-row">
+            <span class="hud-status-dot {entry.connected ? 'online' : 'offline'}"></span>
+            <div class="activity-info">
+              <span class="activity-name">{entry.name}</span>
+              <span class="activity-time">{formatRelativeTime(entry.lastSeen)}</span>
+            </div>
+          </div>
+        {/each}
+      </div>
     </div>
 
     <!-- Main content -->
@@ -493,6 +621,19 @@
       {:else}
         <!-- Agent header + tabs -->
         <div class="hud-agent-header">
+          <!-- Onboarding Banner -->
+          {#if needsOnboarding}
+            <div class="onboarding-banner">
+              <span class="onboarding-icon">&#9889;</span>
+              <div class="onboarding-text">
+                <span class="onboarding-title">ONBOARD AGENT</span>
+                <span class="onboarding-detail">
+                  {!hasSoul ? 'Missing SOUL.md' : ''}{!hasSoul && !hasMemory ? ' &middot; ' : ''}{!hasMemory ? 'Missing MEMORY.md' : ''}
+                </span>
+              </div>
+              <button class="hud-btn hud-btn-sm" onclick={() => { activeTab = 'files'; }}>CONFIGURE</button>
+            </div>
+          {/if}
           <!-- Identity Card -->
           <div class="hud-identity-card">
             <div class="identity-header-label">IDENTITY</div>
@@ -547,6 +688,9 @@
                 {tab.label}
               </button>
             {/each}
+            <button class="hud-btn hud-btn-sm hud-shared-mem-btn" onclick={() => { showSharedMemory = true; loadSharedMemory(); }}>
+              SHARED MEMORY
+            </button>
           </div>
         </div>
 
@@ -952,12 +1096,114 @@
                 {/if}
               </div>
             </div>
+          <!-- MEMORY TAB -->
+          {:else if activeTab === 'memory'}
+            <div class="hud-tab-inner">
+              <div class="hud-panel">
+                <div class="hud-panel-header">
+                  <div>
+                    <h3 class="hud-panel-lbl">MEMORY</h3>
+                    <p class="hud-subtitle">Agent MEMORY.md content — persistent knowledge store.</p>
+                  </div>
+                  <button onclick={loadMemory} disabled={memoryLoading} class="hud-btn hud-btn-secondary">
+                    {memoryLoading ? 'LOADING...' : 'REFRESH'}
+                  </button>
+                </div>
+                {#if memoryLoading}
+                  <div class="hud-empty-text">Loading memory...</div>
+                {:else}
+                  <pre class="hud-code-block">{memoryContent}</pre>
+                {/if}
+              </div>
+            </div>
+
+          <!-- SOUL TAB -->
+          {:else if activeTab === 'soul'}
+            <div class="hud-tab-inner">
+              <div class="hud-panel">
+                <div class="hud-panel-header">
+                  <div>
+                    <h3 class="hud-panel-lbl">SOUL</h3>
+                    <p class="hud-subtitle">Agent SOUL.md — core personality and directives.</p>
+                  </div>
+                  <button onclick={loadSoul} disabled={soulLoading} class="hud-btn hud-btn-secondary">
+                    {soulLoading ? 'LOADING...' : 'REFRESH'}
+                  </button>
+                </div>
+                {#if soulLoading}
+                  <div class="hud-empty-text">Loading soul...</div>
+                {:else}
+                  <pre class="hud-code-block">{soulContent}</pre>
+                {/if}
+              </div>
+            </div>
+
+          <!-- PERMISSIONS TAB -->
+          {:else if activeTab === 'permissions'}
+            <div class="hud-tab-inner">
+              <div class="hud-panel">
+                <div class="hud-panel-header">
+                  <div>
+                    <h3 class="hud-panel-lbl">PERMISSIONS</h3>
+                    <p class="hud-subtitle">Inter-agent permission matrix (local simulation).</p>
+                  </div>
+                  <div class="hud-actions" style="margin-top:0;">
+                    <button class="hud-btn hud-btn-sm" onclick={() => applyPermissionPreset('full')}>FULL ACCESS</button>
+                    <button class="hud-btn hud-btn-sm hud-btn-secondary" onclick={() => applyPermissionPreset('readonly')}>READ ONLY</button>
+                    <button class="hud-btn hud-btn-sm hud-btn-secondary" onclick={() => applyPermissionPreset('none')}>NO ACCESS</button>
+                  </div>
+                </div>
+                {#if permissions.length === 0}
+                  <div class="hud-empty-text">No other agents to configure permissions for.</div>
+                {:else}
+                  <div class="permissions-grid">
+                    <div class="perm-header-row">
+                      <div class="perm-cell perm-agent-col">AGENT</div>
+                      <div class="perm-cell">SUMMON</div>
+                      <div class="perm-cell">MEM READ</div>
+                      <div class="perm-cell">MEM WRITE</div>
+                      <div class="perm-cell">CHAT</div>
+                      <div class="perm-cell">AUTHORITY</div>
+                    </div>
+                    {#each permissions as perm, i}
+                      {@const agentName = agents.find(a => a.id === perm.agentId)?.identity?.name || perm.agentId}
+                      <div class="perm-row">
+                        <div class="perm-cell perm-agent-col">{agentName}</div>
+                        <div class="perm-cell"><label class="perm-toggle"><input type="checkbox" bind:checked={permissions[i].summon} /><span class="perm-slider"></span></label></div>
+                        <div class="perm-cell"><label class="perm-toggle"><input type="checkbox" bind:checked={permissions[i].memoryRead} /><span class="perm-slider"></span></label></div>
+                        <div class="perm-cell"><label class="perm-toggle"><input type="checkbox" bind:checked={permissions[i].memoryWrite} /><span class="perm-slider"></span></label></div>
+                        <div class="perm-cell"><label class="perm-toggle"><input type="checkbox" bind:checked={permissions[i].chat} /><span class="perm-slider"></span></label></div>
+                        <div class="perm-cell"><label class="perm-toggle"><input type="checkbox" bind:checked={permissions[i].authority} /><span class="perm-slider"></span></label></div>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            </div>
+
           {/if}
         </div>
       {/if}
     </div>
   </div>
 </div>
+
+<!-- Shared Memory Overlay -->
+{#if showSharedMemory}
+  <div class="overlay-backdrop" onclick={() => { showSharedMemory = false; }} role="presentation">
+    <div class="overlay-panel" onclick={(e) => e.stopPropagation()} role="dialog">
+      <div class="overlay-header">
+        <h3 class="hud-panel-lbl">SHARED MEMORY</h3>
+        <button class="hud-btn-icon" onclick={() => { showSharedMemory = false; }}>[X]</button>
+      </div>
+      {#if sharedMemoryLoading}
+        <div class="hud-empty-text hud-pad">Loading shared memory...</div>
+      {:else}
+        <pre class="hud-code-block">{sharedMemoryContent}</pre>
+      {/if}
+    </div>
+  </div>
+{/if}
 
 <style>
   /* ─── HUD Page Layout ─────────────────────── */
@@ -2071,5 +2317,273 @@
     display: flex;
     align-items: center;
     gap: 0.4rem;
+  }
+
+  /* ─── Onboarding Banner ────────────────────── */
+  .onboarding-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.75rem 1.5rem;
+    padding: 0.75rem 1rem;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 4px;
+    animation: onboard-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes onboard-pulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(245, 158, 11, 0.1); }
+    50% { box-shadow: 0 0 16px rgba(245, 158, 11, 0.25); }
+  }
+
+  .onboarding-icon {
+    font-size: 1.25rem;
+    filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.5));
+  }
+
+  .onboarding-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .onboarding-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: #f59e0b;
+    text-shadow: 0 0 6px rgba(245, 158, 11, 0.5);
+  }
+
+  .onboarding-detail {
+    font-size: 0.7rem;
+    color: rgba(245, 158, 11, 0.6);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ─── Memory/Soul Code Block ───────────────── */
+  .hud-code-block {
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(0, 255, 255, 0.12);
+    border-radius: 2px;
+    padding: 1rem;
+    margin-top: 0.75rem;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    color: rgba(0, 255, 255, 0.7);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  /* ─── Permissions Grid ─────────────────────── */
+  .permissions-grid {
+    margin-top: 0.75rem;
+    border: 1px solid rgba(0, 255, 255, 0.12);
+    border-radius: 2px;
+    overflow-x: auto;
+  }
+
+  .perm-header-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr;
+    background: rgba(0, 255, 255, 0.06);
+    border-bottom: 1px solid rgba(0, 255, 255, 0.15);
+  }
+
+  .perm-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.06);
+    transition: background 0.15s;
+  }
+
+  .perm-row:hover {
+    background: rgba(0, 255, 255, 0.04);
+  }
+
+  .perm-row:last-child {
+    border-bottom: none;
+  }
+
+  .perm-cell {
+    padding: 0.5rem 0.75rem;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: rgba(0, 255, 255, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .perm-agent-col {
+    justify-content: flex-start;
+    color: var(--color-accent-cyan);
+  }
+
+  .perm-header-row .perm-cell {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: rgba(0, 255, 255, 0.4);
+    font-weight: 600;
+  }
+
+  /* Toggle Switch */
+  .perm-toggle {
+    position: relative;
+    display: inline-block;
+    width: 32px;
+    height: 16px;
+    cursor: pointer;
+  }
+
+  .perm-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .perm-slider {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: 8px;
+    transition: all 0.2s;
+  }
+
+  .perm-slider::before {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    left: 1px;
+    top: 1px;
+    background: rgba(0, 255, 255, 0.3);
+    border-radius: 50%;
+    transition: all 0.2s;
+  }
+
+  .perm-toggle input:checked + .perm-slider {
+    background: rgba(0, 255, 255, 0.15);
+    border-color: var(--color-accent-cyan);
+    box-shadow: 0 0 6px rgba(0, 255, 255, 0.3);
+  }
+
+  .perm-toggle input:checked + .perm-slider::before {
+    transform: translateX(16px);
+    background: var(--color-accent-cyan);
+    box-shadow: 0 0 4px var(--color-accent-cyan);
+  }
+
+  /* ─── Shared Memory Button ─────────────────── */
+  .hud-shared-mem-btn {
+    margin-left: auto;
+    font-size: 0.6rem !important;
+    padding: 0.25rem 0.5rem !important;
+  }
+
+  /* ─── Overlay ──────────────────────────────── */
+  .overlay-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  .overlay-panel {
+    background: rgba(10, 10, 15, 0.98);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 6px;
+    width: 90%;
+    max-width: 700px;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 1.5rem;
+    box-shadow: 0 0 30px rgba(0, 229, 255, 0.15);
+  }
+
+  .overlay-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  /* ─── Sidebar Groups ───────────────────────── */
+  .sidebar-groups {
+    border-top: 1px solid rgba(0, 255, 255, 0.15);
+  }
+
+  .sidebar-group-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: rgba(0, 255, 255, 0.5);
+    border-bottom: 1px solid rgba(0, 255, 255, 0.06);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .sidebar-group-item:hover {
+    background: rgba(0, 255, 255, 0.05);
+    color: var(--color-accent-cyan);
+  }
+
+  .sidebar-group-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sidebar-group-count {
+    font-size: 0.65rem;
+    color: rgba(0, 255, 255, 0.3);
+    flex-shrink: 0;
+  }
+
+  /* ─── Sidebar Activity ─────────────────────── */
+  .sidebar-activity {
+    border-top: 1px solid rgba(0, 255, 255, 0.15);
+  }
+
+  .activity-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .activity-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .activity-name {
+    font-size: 0.7rem;
+    color: rgba(0, 255, 255, 0.6);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .activity-time {
+    font-size: 0.6rem;
+    color: rgba(0, 255, 255, 0.25);
   }
 </style>
