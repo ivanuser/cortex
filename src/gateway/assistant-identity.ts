@@ -104,14 +104,18 @@ export function resolveAssistantIdentity(params: {
   const agentIdentity = resolveAgentIdentity(params.cfg, agentId);
   const fileIdentity = workspaceDir ? loadAgentIdentity(workspaceDir) : null;
 
+  // Global ui.assistant config only applies to the default agent.
+  // Non-default agents should use their own identity files/config.
+  const isDefaultAgent = agentId === normalizeAgentId(resolveDefaultAgentId(params.cfg));
+
   const name =
-    coerceIdentityValue(configAssistant?.name, MAX_ASSISTANT_NAME) ??
+    (isDefaultAgent ? coerceIdentityValue(configAssistant?.name, MAX_ASSISTANT_NAME) : null) ??
     coerceIdentityValue(agentIdentity?.name, MAX_ASSISTANT_NAME) ??
     coerceIdentityValue(fileIdentity?.name, MAX_ASSISTANT_NAME) ??
     DEFAULT_ASSISTANT_IDENTITY.name;
 
   const avatarCandidates = [
-    coerceIdentityValue(configAssistant?.avatar, MAX_ASSISTANT_AVATAR),
+    isDefaultAgent ? coerceIdentityValue(configAssistant?.avatar, MAX_ASSISTANT_AVATAR) : null,
     coerceIdentityValue(agentIdentity?.avatar, MAX_ASSISTANT_AVATAR),
     coerceIdentityValue(agentIdentity?.emoji, MAX_ASSISTANT_AVATAR),
     coerceIdentityValue(fileIdentity?.avatar, MAX_ASSISTANT_AVATAR),
