@@ -22,6 +22,9 @@ const NODE_ROLE_METHODS = new Set([
   "node.event",
   "skills.bins",
   "node.pair.request",
+  // Allow nodes to announce their local agents to the gateway
+  "agents.create",
+  "agents.files.set",
 ]);
 
 const METHOD_SCOPE_GROUPS: Record<OperatorScope, readonly string[]> = {
