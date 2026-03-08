@@ -446,10 +446,16 @@
             class="hud-agent-item {selectedAgentId === agent.id ? 'active' : ''}"
           >
             <div class="hud-agent-item-inner">
-              <span class="hud-agent-emoji">{resolveAgentEmoji(agent) || '>'}</span>
+              <div class="sidebar-avatar">
+                {#if agent.identity?.avatar}
+                  <img class="sidebar-avatar-img" src={agent.identity.avatar} alt="" />
+                {:else}
+                  <span class="sidebar-avatar-letter">{(agent.identity?.emoji || agent.identity?.name?.[0] || agent.id[0] || '>').toUpperCase()}</span>
+                {/if}
+              </div>
               <div class="hud-agent-info">
                 <div class="hud-agent-name">{agent.identity?.name || agent.name || agent.id}</div>
-                <div class="hud-agent-id">{agent.id}</div>
+                <div class="hud-agent-id">{resolveModelLabel(agent.model)}</div>
               </div>
             </div>
             {#if agent.id === defaultAgentId}
@@ -488,20 +494,47 @@
       {:else}
         <!-- Agent header + tabs -->
         <div class="hud-agent-header">
-          <!-- Agent identity bar -->
-          <div class="hud-identity-bar">
-            <div class="hud-identity-left">
-              <span class="hud-identity-emoji">{resolveAgentEmoji(selectedAgent) || '>'}</span>
-              <div>
-                <h2 class="hud-h2">{agentContext?.identityName ?? selectedAgent.id}</h2>
-                <p class="hud-subtitle">Agent workspace and routing.</p>
+          <!-- Identity Card -->
+          <div class="hud-identity-card">
+            <div class="identity-header-label">IDENTITY</div>
+            <div class="identity-card-body">
+              <div class="identity-card-avatar-wrap">
+                {#if identity?.avatar || selectedAgent.identity?.avatar}
+                  <img class="identity-card-avatar" src={identity?.avatar || selectedAgent.identity?.avatar} alt="" />
+                {:else}
+                  <div class="identity-card-avatar-placeholder">{(resolveAgentEmoji(selectedAgent) || agentContext?.identityName?.[0] || '>').toUpperCase()}</div>
+                {/if}
+              </div>
+              <div class="identity-card-info">
+                <h2 class="identity-card-name">{agentContext?.identityName ?? selectedAgent.id}</h2>
+                <div class="identity-card-role">AI PRESENCE // {selectedAgent.description || 'AGENT'}</div>
+                <div class="identity-card-model-badge">{agentContext?.model ?? '—'}</div>
+                <div class="identity-card-badges">
+                  <span class="identity-badge identity-badge-online">ONLINE</span>
+                  {#if agentContext?.isDefault}
+                    <span class="identity-badge identity-badge-trusted">DEFAULT</span>
+                  {/if}
+                </div>
               </div>
             </div>
-            <div class="hud-identity-right">
-              <span class="hud-mono">{selectedAgent.id}</span>
-              {#if agentContext?.isDefault}
-                <span class="hud-badge hud-badge-purple">DEFAULT</span>
-              {/if}
+            <div class="identity-card-divider"></div>
+            <div class="identity-card-fields">
+              <div class="identity-field-row">
+                <span class="identity-field-label">USER</span>
+                <span class="identity-field-value">IVAN</span>
+              </div>
+              <div class="identity-field-row">
+                <span class="identity-field-label">AGENT ID</span>
+                <span class="identity-field-value">{selectedAgent.id}</span>
+              </div>
+              <div class="identity-field-row">
+                <span class="identity-field-label">WORKSPACE</span>
+                <span class="identity-field-value">{agentContext?.workspace ?? '—'}</span>
+              </div>
+              <div class="identity-field-row">
+                <span class="identity-field-label">SKILLS</span>
+                <span class="identity-field-value">{agentContext?.skillsLabel ?? '—'}</span>
+              </div>
             </div>
           </div>
 
@@ -1087,9 +1120,37 @@
     gap: 0.5rem;
   }
 
-  .hud-agent-emoji {
+  /* ── Sidebar Avatar ── */
+  .sidebar-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--color-accent-cyan);
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: rgba(0, 229, 255, 0.08);
+  }
+
+  .sidebar-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .sidebar-avatar-letter {
+    font-family: 'Orbitron', sans-serif;
     font-size: 1rem;
+    font-weight: 700;
     color: var(--color-accent-cyan);
+    text-shadow: 0 0 8px var(--color-accent-cyan);
+  }
+
+  .hud-agent-item.active .sidebar-avatar {
+    box-shadow: 0 0 15px rgba(0, 229, 255, 0.5), 0 0 30px rgba(0, 229, 255, 0.2);
   }
 
   .hud-agent-info {
@@ -1209,32 +1270,184 @@
     border-bottom: 1px solid rgba(0, 255, 255, 0.15);
   }
 
-  .hud-identity-bar {
-    padding: 1rem 1.5rem 0.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+  /* ── Identity Card (Detail Header) ── */
+  .hud-identity-card {
+    background: color-mix(in srgb, var(--color-accent-cyan) 5%, #0a0a0f 95%);
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin: 1rem 1.5rem 0.75rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.1);
   }
 
-  .hud-identity-left {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
+  .hud-identity-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--color-accent-cyan), transparent);
+    opacity: 0.8;
   }
 
-  .hud-identity-emoji {
-    font-size: 1.5rem;
+  .identity-header-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.35em;
     color: var(--color-accent-cyan);
+    text-transform: uppercase;
+    opacity: 0.5;
+    text-align: center;
+    margin-bottom: 0.75rem;
   }
 
-  .hud-identity-right {
+  .identity-card-body {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    font-size: 0.7rem;
+    gap: 1.25rem;
+  }
+
+  @media (max-width: 600px) {
+    .identity-card-body {
+      flex-direction: column;
+      text-align: center;
+    }
+  }
+
+  .identity-card-avatar-wrap {
+    flex-shrink: 0;
+  }
+
+  .identity-card-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 3px solid var(--color-accent-cyan);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.5),
+                0 0 40px rgba(0, 229, 255, 0.25);
+    object-fit: cover;
+  }
+
+  .identity-card-avatar-placeholder {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 3px solid var(--color-accent-cyan);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2.5rem;
+    color: var(--color-accent-cyan);
+    background: rgba(0, 229, 255, 0.08);
+  }
+
+  .identity-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .identity-card-name {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-accent-cyan);
+    text-shadow: 0 0 12px var(--color-accent-cyan);
+    margin: 0;
+    letter-spacing: 0.1em;
+  }
+
+  .identity-card-role {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
     color: rgba(0, 255, 255, 0.4);
+    letter-spacing: 0.1em;
+  }
+
+  .identity-card-model-badge {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: rgba(0, 255, 255, 0.6);
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    border-radius: 3px;
+    background: rgba(0, 229, 255, 0.08);
+    width: fit-content;
+  }
+
+  .identity-card-badges {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.15rem;
+  }
+
+  .identity-badge {
+    display: inline-block;
+    padding: 0.2rem 0.8rem;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    border: 1px solid;
+    border-radius: 2px;
+  }
+
+  .identity-badge-online {
+    color: #00e676;
+    border-color: #00e676;
+    text-shadow: 0 0 6px #00e676;
+    box-shadow: 0 0 8px rgba(0, 230, 118, 0.3);
+  }
+
+  .identity-badge-trusted {
+    color: #00e5ff;
+    border-color: #00e5ff;
+    text-shadow: 0 0 6px #00e5ff;
+  }
+
+  .identity-card-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-accent-cyan), transparent);
+    opacity: 0.3;
+    margin: 0.75rem 0;
+  }
+
+  .identity-card-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+
+  @media (max-width: 600px) {
+    .identity-card-fields {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .identity-field-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .identity-field-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 0.1em;
+  }
+
+  .identity-field-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--color-accent-cyan);
   }
 
   .hud-tab-bar {
