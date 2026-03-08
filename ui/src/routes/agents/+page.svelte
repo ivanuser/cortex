@@ -1369,7 +1369,7 @@
   .identity-card-role {
     font-family: 'Share Tech Mono', monospace;
     font-size: 0.72rem;
-    color: rgba(0, 255, 255, 0.4);
+    color: rgba(200, 230, 240, 0.7);
     letter-spacing: 0.1em;
   }
 
@@ -1378,10 +1378,10 @@
     padding: 0.25rem 0.6rem;
     font-family: 'Share Tech Mono', monospace;
     font-size: 0.7rem;
-    color: rgba(0, 255, 255, 0.6);
-    border: 1px solid rgba(0, 229, 255, 0.3);
+    color: rgba(0, 229, 255, 0.85);
+    border: 1px solid rgba(0, 229, 255, 0.4);
     border-radius: 3px;
-    background: rgba(0, 229, 255, 0.08);
+    background: rgba(0, 229, 255, 0.1);
     width: fit-content;
   }
 
@@ -1436,21 +1436,28 @@
   .identity-field-row {
     display: flex;
     justify-content: space-between;
-    padding: 0.4rem 0.5rem;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .identity-field-row:hover {
+    background: rgba(0, 229, 255, 0.05);
   }
 
   .identity-field-label {
     font-family: 'Share Tech Mono', monospace;
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.55);
     letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
 
   .identity-field-value {
     font-family: 'Share Tech Mono', monospace;
     font-size: 0.75rem;
-    color: var(--color-accent-cyan);
+    color: #e0e8f0;
+    text-shadow: 0 0 4px rgba(0, 229, 255, 0.3);
   }
 
   .hud-tab-bar {
