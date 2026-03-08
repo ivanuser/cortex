@@ -447,11 +447,10 @@
           >
             <div class="hud-agent-item-inner">
               <div class="sidebar-avatar">
-                {#if agent.identity?.avatar}
-                  <img class="sidebar-avatar-img" src="/avatar/{agent.id}" alt="" />
-                {:else}
-                  <span class="sidebar-avatar-letter">{(agent.identity?.emoji || agent.identity?.name?.[0] || agent.id[0] || '>').toUpperCase()}</span>
-                {/if}
+                <img class="sidebar-avatar-img" src="/avatar/{agent.id}" alt=""
+                  onerror={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }}
+                />
+                <span class="sidebar-avatar-letter hidden">{(agent.identity?.emoji || agent.identity?.name?.[0] || agent.id[0] || '>').toUpperCase()}</span>
               </div>
               <div class="hud-agent-info">
                 <div class="hud-agent-name">{agent.identity?.name || agent.name || agent.id}</div>
@@ -1147,6 +1146,10 @@
     font-weight: 700;
     color: var(--color-accent-cyan);
     text-shadow: 0 0 8px var(--color-accent-cyan);
+  }
+
+  .sidebar-avatar-letter.hidden, .sidebar-avatar-img.hidden {
+    display: none !important;
   }
 
   .hud-agent-item.active .sidebar-avatar {
