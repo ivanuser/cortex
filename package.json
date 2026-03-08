@@ -1,6 +1,6 @@
 {
   "name": "openclaw-cortex",
-  "version": "3.10.17",
+  "version": "3.10.18",
   "description": "Cortex — AI Assistant Command Center. A security-hardened fork of OpenClaw with Cortex UI.",
   "keywords": [],
   "homepage": "https://github.com/ivanuser/cortex",
