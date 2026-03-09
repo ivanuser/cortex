@@ -237,6 +237,17 @@ export function attachGatewayWsConnectionHandler(params: {
           removeRemoteNodeInfo(nodeId);
           context.nodeUnsubscribeAll(nodeId);
         }
+        // Clean up any agents hosted by this node connection
+        import("../agent-routing.js")
+          .then(({ unregisterNodeAgents: unregFn }) => {
+            const removedAgents = unregFn(connId);
+            if (removedAgents.length > 0) {
+              logWsControl.info(
+                `Unregistered remote agents on disconnect: ${removedAgents.join(", ")}`,
+              );
+            }
+          })
+          .catch(() => {});
       }
       logWs("out", "close", {
         connId,

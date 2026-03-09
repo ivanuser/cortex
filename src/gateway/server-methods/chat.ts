@@ -11,6 +11,7 @@ import { createReplyPrefixOptions } from "../../channels/reply-prefix.js";
 import { resolveSessionFilePath } from "../../config/sessions.js";
 import { resolveSendPolicy } from "../../sessions/send-policy.js";
 import { INTERNAL_MESSAGE_CHANNEL } from "../../utils/message-channel.js";
+import { forwardToAgent, isRemoteAgent } from "../agent-routing.js";
 import {
   abortChatRunById,
   abortChatRunsForSessionKey,
@@ -793,6 +794,25 @@ export const chatHandlers: GatewayRequestHandlers = {
       );
       return;
     }
+
+    // ── Remote Agent Routing ─────────────────────────────────────────
+    // If this session targets a non-default agent hosted on a remote node,
+    // forward the message to that node instead of running locally.
+    const targetAgentId = resolveSessionAgentId({ sessionKey: rawSessionKey, config: cfg });
+    if (targetAgentId && isRemoteAgent(targetAgentId)) {
+      const forwarded = forwardToAgent(targetAgentId, {
+        sessionKey: rawSessionKey,
+        message: rawMessage,
+        thinking: p.thinking,
+        runId: clientRunId,
+      });
+      if (forwarded) {
+        respond(true, { ok: true, runId: clientRunId, routed: "remote", agentId: targetAgentId });
+        return;
+      }
+      // If forwarding failed (node disconnected), fall through to local handling
+    }
+    // ─────────────────────────────────────────────────────────────────
 
     if (stopCommand) {
       const res = abortChatRunsForSessionKeyWithPartials({

@@ -29,6 +29,7 @@ import { loadConfig, writeConfigFile } from "../../config/config.js";
 import { resolveSessionTranscriptsDirForAgent } from "../../config/sessions/paths.js";
 import { DEFAULT_AGENT_ID, normalizeAgentId } from "../../routing/session-key.js";
 import { resolveUserPath } from "../../utils.js";
+import { registerAgentNode } from "../agent-routing.js";
 import {
   ErrorCodes,
   errorShape,
@@ -269,7 +270,7 @@ export const agentsHandlers: GatewayRequestHandlers = {
     const result = listAgentsForGateway(cfg);
     respond(true, result, undefined);
   },
-  "agents.create": async ({ params, respond }) => {
+  "agents.create": async ({ params, respond, client }) => {
     if (!validateAgentsCreateParams(params)) {
       respond(
         false,
@@ -338,6 +339,14 @@ export const agentsHandlers: GatewayRequestHandlers = {
       "",
     ];
     await fs.appendFile(identityPath, lines.join("\n"), "utf-8");
+
+    // If the caller is a node connection, register this agent as remotely-hosted
+    if (client && client.connect?.client?.mode === "node") {
+      registerAgentNode(
+        agentId,
+        client as unknown as import("../server/ws-types.js").GatewayWsClient,
+      );
+    }
 
     respond(true, { ok: true, agentId, name: rawName, workspace: workspaceDir }, undefined);
   },
