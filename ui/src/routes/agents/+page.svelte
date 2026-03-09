@@ -148,7 +148,10 @@
   // Onboarding detection
   let hasMemory = $derived(filesList?.files?.some(f => f.name === 'MEMORY.md' && !f.missing) ?? false);
   let hasSoul = $derived(filesList?.files?.some(f => f.name === 'SOUL.md' && !f.missing) ?? false);
-  let needsOnboarding = $derived(!hasMemory || !hasSoul);
+  let hasIdentity = $derived(filesList?.files?.some(f => f.name === 'IDENTITY.md' && !f.missing) ?? false);
+  // Only show onboarding for truly unconfigured agents (no SOUL + no IDENTITY)
+  // MEMORY.md is created at runtime, not during setup
+  let needsOnboarding = $derived(!hasSoul && !hasIdentity);
 
   // ─── Helpers ───────────────────────────────
   function resolveAgentConfig(agentId: string) {
