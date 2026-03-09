@@ -650,7 +650,9 @@
               <div class="identity-card-info">
                 <h2 class="identity-card-name">{agentContext?.identityName ?? selectedAgent.id}</h2>
                 <div class="identity-card-role">AI PRESENCE // {selectedAgent.description || 'AGENT'}</div>
-                <div class="identity-card-model-badge">{agentContext?.model ?? '—'}</div>
+                {#if agentContext?.model}
+                  <div class="identity-card-model-badge">{agentContext.model}</div>
+                {/if}
                 <div class="identity-card-badges">
                   <span class="identity-badge identity-badge-online">ONLINE</span>
                   {#if agentContext?.isDefault}
