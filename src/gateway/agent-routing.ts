@@ -118,9 +118,9 @@ export function forwardToAgent(
   try {
     client.socket.send(
       JSON.stringify({
-        type: "evt",
+        type: "event",
         event: "agent.chat.request",
-        data: {
+        payload: {
           agentId,
           sessionKey: payload.sessionKey,
           message: payload.message,
