@@ -10,9 +10,23 @@
   import ImageLightbox from './ImageLightbox.svelte';
   import { browser } from '$app/environment';
 
+  import { getSessions } from '$lib/stores/sessions.svelte';
   const config = getConfig();
   const conn = getConnection();
-  let aiName = $derived(conn.state.assistantName || config?.branding?.title || 'Assistant');
+  const sessions = getSessions();
+  
+  // For agent sessions (agent:name:chat), show agent name instead of global assistant name
+  let agentSessionName = $derived.by(() => {
+    const key = sessions.activeKey ?? '';
+    const parts = key.split(':');
+    if (parts[0] === 'agent' && parts.length >= 3 && parts[1]) {
+      // Capitalize first letter of agent name
+      const name = parts[1];
+      return name.charAt(0).toUpperCase() + name.slice(1);
+    }
+    return null;
+  });
+  let aiName = $derived(agentSessionName || conn.state.assistantName || config?.branding?.title || 'Assistant');
 
   // User profile from localStorage
   let userAvatarUrl = $state<string | null>(null);
