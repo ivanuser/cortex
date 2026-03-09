@@ -11,7 +11,7 @@ import { createReplyPrefixOptions } from "../../channels/reply-prefix.js";
 import { resolveSessionFilePath } from "../../config/sessions.js";
 import { resolveSendPolicy } from "../../sessions/send-policy.js";
 import { INTERNAL_MESSAGE_CHANNEL } from "../../utils/message-channel.js";
-import { forwardToAgent, isRemoteAgent } from "../agent-routing.js";
+import { forwardToAgent, isRemoteAgent, listRemoteAgents } from "../agent-routing.js";
 import {
   abortChatRunById,
   abortChatRunsForSessionKey,
@@ -799,6 +799,10 @@ export const chatHandlers: GatewayRequestHandlers = {
     // If this session targets a non-default agent hosted on a remote node,
     // forward the message to that node instead of running locally.
     const targetAgentId = resolveSessionAgentId({ sessionKey: rawSessionKey, config: cfg });
+    const remoteAgents = listRemoteAgents();
+    context.logGateway.info(
+      `[agent-routing] sessionKey=${rawSessionKey} targetAgentId=${targetAgentId} isRemote=${isRemoteAgent(targetAgentId ?? "")} remoteAgents=${JSON.stringify(remoteAgents.map((a) => a.agentId))}`,
+    );
     if (targetAgentId && isRemoteAgent(targetAgentId)) {
       const forwarded = forwardToAgent(targetAgentId, {
         sessionKey: rawSessionKey,
@@ -806,6 +810,9 @@ export const chatHandlers: GatewayRequestHandlers = {
         thinking: p.thinking,
         runId: clientRunId,
       });
+      context.logGateway.info(
+        `[agent-routing] forwarded=${forwarded} agentId=${targetAgentId} runId=${clientRunId}`,
+      );
       if (forwarded) {
         respond(true, { ok: true, runId: clientRunId, routed: "remote", agentId: targetAgentId });
         return;
