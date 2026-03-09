@@ -350,7 +350,7 @@ export const agentsHandlers: GatewayRequestHandlers = {
 
     respond(true, { ok: true, agentId, name: rawName, workspace: workspaceDir }, undefined);
   },
-  "agents.update": async ({ params, respond }) => {
+  "agents.update": async ({ params, respond, client }) => {
     if (!validateAgentsUpdateParams(params)) {
       respond(
         false,
@@ -405,6 +405,14 @@ export const agentsHandlers: GatewayRequestHandlers = {
       await fs.mkdir(workspace, { recursive: true });
       const identityPath = path.join(workspace, DEFAULT_IDENTITY_FILENAME);
       await fs.appendFile(identityPath, `\n- Avatar: ${sanitizeIdentityLine(avatar)}\n`, "utf-8");
+    }
+
+    // If the caller is a node connection, register/update this agent as remotely-hosted
+    if (client && client.connect?.client?.mode === "node") {
+      registerAgentNode(
+        agentId,
+        client as unknown as import("../server/ws-types.js").GatewayWsClient,
+      );
     }
 
     respond(true, { ok: true, agentId }, undefined);
