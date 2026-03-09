@@ -641,4 +641,46 @@ export const agentsHandlers: GatewayRequestHandlers = {
       }
     }
   },
+
+  /**
+   * agents.chat.response — called by sub-gateway nodes to relay agent responses
+   * back to the UI. Broadcasts the response as a chat event.
+   */
+  "agents.chat.response": async ({ params, respond, context }) => {
+    const p = params as Record<string, string | undefined>;
+    const agentId = (p.agentId ?? "").trim();
+    const sessionKey = (p.sessionKey ?? "").trim();
+    const runId = (p.runId ?? "").trim();
+    const status = (p.status ?? "complete").trim();
+    const message = (p.message ?? "").trim();
+
+    if (!agentId || !sessionKey || !runId) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, "agentId, sessionKey, and runId are required"),
+      );
+      return;
+    }
+
+    // Broadcast to all connected UI clients as a chat final event
+    const payload = {
+      runId,
+      sessionKey,
+      seq: 1,
+      state: status === "error" ? ("error" as const) : ("final" as const),
+      ...(status === "error"
+        ? { errorMessage: message }
+        : {
+            message: {
+              role: "assistant",
+              content: [{ type: "text", text: message }],
+              agentId,
+            },
+          }),
+    };
+    context.broadcast("chat", payload);
+
+    respond(true, { ok: true, relayed: true }, undefined);
+  },
 };
