@@ -642,11 +642,10 @@
             <div class="identity-header-label">IDENTITY</div>
             <div class="identity-card-body">
               <div class="identity-card-avatar-wrap">
-                {#if identity?.avatar || selectedAgent.identity?.avatar}
-                  <img class="identity-card-avatar" src="/avatar/{selectedAgent.id}" alt="" />
-                {:else}
-                  <div class="identity-card-avatar-placeholder">{(resolveAgentEmoji(selectedAgent) || agentContext?.identityName?.[0] || '>').toUpperCase()}</div>
-                {/if}
+                <img class="identity-card-avatar" src="/avatar/{selectedAgent.id}" alt=""
+                  onerror={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }}
+                />
+                <div class="identity-card-avatar-placeholder hidden">{(resolveAgentEmoji(selectedAgent) || agentContext?.identityName?.[0] || '>').toUpperCase()}</div>
               </div>
               <div class="identity-card-info">
                 <h2 class="identity-card-name">{agentContext?.identityName ?? selectedAgent.id}</h2>
@@ -1597,6 +1596,10 @@
     font-size: 2.5rem;
     color: var(--color-accent-cyan);
     background: rgba(0, 229, 255, 0.08);
+  }
+
+  .identity-card-avatar-placeholder.hidden, .identity-card-avatar.hidden {
+    display: none !important;
   }
 
   .identity-card-info {
