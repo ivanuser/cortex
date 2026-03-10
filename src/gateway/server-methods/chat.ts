@@ -849,7 +849,9 @@ export const chatHandlers: GatewayRequestHandlers = {
     if (targetAgentId && isRemoteAgent(targetAgentId)) {
       // Persist user message to agent session transcript before forwarding
       try {
-        const agentTranscriptPath = getAgentTranscriptPath(targetAgentId, rawSessionKey, context);
+        const agentTranscriptPath = getAgentTranscriptPath(targetAgentId, rawSessionKey, {
+          config: cfg,
+        });
         if (agentTranscriptPath) {
           ensureTranscriptFile({ transcriptPath: agentTranscriptPath, sessionId: rawSessionKey });
           const sm = SessionManager.open(agentTranscriptPath);

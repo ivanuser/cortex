@@ -694,11 +694,13 @@ export const agentsHandlers: GatewayRequestHandlers = {
     if (status !== "error" && message) {
       try {
         const { resolveAgentWorkspaceDir } = await import("../../agents/agent-scope.js");
+        const { loadConfig } = await import("../../config/config.js");
         const { SessionManager: SM, CURRENT_SESSION_VERSION: VER } =
           await import("@mariozechner/pi-coding-agent");
         const fs = await import("fs");
         const pathMod = await import("path");
-        const workspaceDir = resolveAgentWorkspaceDir(context.config, agentId);
+        const cfg = loadConfig();
+        const workspaceDir = resolveAgentWorkspaceDir(cfg, agentId);
         const sessionsDir = pathMod.join(workspaceDir, "sessions");
         const safeKey = sessionKey.replace(/:/g, "_");
         const transcriptPath = pathMod.join(sessionsDir, `${safeKey}.jsonl`);
