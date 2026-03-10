@@ -690,6 +690,43 @@ export const agentsHandlers: GatewayRequestHandlers = {
     };
     context.broadcast("chat", payload);
 
+    // Persist agent response to session transcript
+    if (status !== "error" && message) {
+      try {
+        const { resolveSessionFilePath: resolvePath } =
+          await import("../../config/sessions/paths.js");
+        const { SessionManager: SM, CURRENT_SESSION_VERSION: VER } =
+          await import("@mariozechner/pi-coding-agent");
+        const transcriptPath = resolvePath(sessionKey, undefined, { agentId });
+        if (transcriptPath) {
+          const fs = await import("fs");
+          const pathMod = await import("path");
+          if (!fs.existsSync(transcriptPath)) {
+            fs.mkdirSync(pathMod.dirname(transcriptPath), { recursive: true });
+            const header = {
+              type: "session",
+              version: VER,
+              id: sessionKey,
+              timestamp: new Date().toISOString(),
+            };
+            fs.writeFileSync(transcriptPath, `${JSON.stringify(header)}\n`);
+          }
+          const sm = SM.open(transcriptPath);
+          sm.appendMessage({
+            role: "assistant",
+            content: [{ type: "text", text: message }],
+          });
+          context.logGateway.info(
+            `[agents.chat.response] persisted agent response to ${pathMod.basename(transcriptPath)}`,
+          );
+        }
+      } catch (err) {
+        context.logGateway.warn(
+          `[agents.chat.response] failed to persist response: ${String(err)}`,
+        );
+      }
+    }
+
     respond(true, { ok: true, relayed: true }, undefined);
   },
 };

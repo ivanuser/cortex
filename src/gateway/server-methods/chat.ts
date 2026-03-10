@@ -804,6 +804,28 @@ export const chatHandlers: GatewayRequestHandlers = {
       `[agent-routing] sessionKey=${rawSessionKey} targetAgentId=${targetAgentId} isRemote=${isRemoteAgent(targetAgentId ?? "")} remoteAgents=${JSON.stringify(remoteAgents.map((a) => a.agentId))}`,
     );
     if (targetAgentId && isRemoteAgent(targetAgentId)) {
+      // Persist user message to agent session transcript before forwarding
+      try {
+        const agentTranscriptPath = resolveTranscriptPath({
+          sessionId: rawSessionKey,
+          storePath: cfg.get("sessions.storePath") ?? undefined,
+          agentId: targetAgentId,
+        });
+        if (agentTranscriptPath) {
+          ensureTranscriptFile({ transcriptPath: agentTranscriptPath, sessionId: rawSessionKey });
+          const sm = SessionManager.open(agentTranscriptPath);
+          sm.appendMessage({
+            role: "user",
+            content: [{ type: "text", text: rawMessage }],
+          });
+          context.logGateway.info(
+            `[agent-routing] persisted user message to ${path.basename(agentTranscriptPath)}`,
+          );
+        }
+      } catch (err) {
+        context.logGateway.warn(`[agent-routing] failed to persist user message: ${String(err)}`);
+      }
+
       const forwarded = forwardToAgent(targetAgentId, {
         sessionKey: rawSessionKey,
         message: rawMessage,
