@@ -693,33 +693,31 @@ export const agentsHandlers: GatewayRequestHandlers = {
     // Persist agent response to session transcript
     if (status !== "error" && message) {
       try {
-        const { resolveSessionFilePath: resolvePath } =
-          await import("../../config/sessions/paths.js");
+        const { resolveAgentWorkspaceDir } = await import("../../agents/agent-scope.js");
         const { SessionManager: SM, CURRENT_SESSION_VERSION: VER } =
           await import("@mariozechner/pi-coding-agent");
-        const transcriptPath = resolvePath(sessionKey, undefined, { agentId });
-        if (transcriptPath) {
-          const fs = await import("fs");
-          const pathMod = await import("path");
-          if (!fs.existsSync(transcriptPath)) {
-            fs.mkdirSync(pathMod.dirname(transcriptPath), { recursive: true });
-            const header = {
-              type: "session",
-              version: VER,
-              id: sessionKey,
-              timestamp: new Date().toISOString(),
-            };
-            fs.writeFileSync(transcriptPath, `${JSON.stringify(header)}\n`);
-          }
-          const sm = SM.open(transcriptPath);
-          sm.appendMessage({
-            role: "assistant",
-            content: [{ type: "text", text: message }],
-          });
-          context.logGateway.info(
-            `[agents.chat.response] persisted agent response to ${pathMod.basename(transcriptPath)}`,
-          );
+        const fs = await import("fs");
+        const pathMod = await import("path");
+        const workspaceDir = resolveAgentWorkspaceDir(context.config, agentId);
+        const sessionsDir = pathMod.join(workspaceDir, "sessions");
+        const safeKey = sessionKey.replace(/:/g, "_");
+        const transcriptPath = pathMod.join(sessionsDir, `${safeKey}.jsonl`);
+        if (!fs.existsSync(transcriptPath)) {
+          fs.mkdirSync(sessionsDir, { recursive: true });
+          const header = {
+            type: "session",
+            version: VER,
+            id: sessionKey,
+            timestamp: new Date().toISOString(),
+          };
+          fs.writeFileSync(transcriptPath, `${JSON.stringify(header)}\n`);
         }
+        const sm = SM.open(transcriptPath);
+        sm.appendMessage({
+          role: "assistant",
+          content: [{ type: "text", text: message }],
+        });
+        context.logGateway.info(`[agents.chat.response] persisted response to ${safeKey}.jsonl`);
       } catch (err) {
         context.logGateway.warn(
           `[agents.chat.response] failed to persist response: ${String(err)}`,

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { CURRENT_SESSION_VERSION, SessionManager } from "@mariozechner/pi-coding-agent";
-import { resolveSessionAgentId } from "../../agents/agent-scope.js";
+import { resolveAgentWorkspaceDir, resolveSessionAgentId } from "../../agents/agent-scope.js";
 import { resolveThinkingDefault } from "../../agents/model-selection.js";
 import { resolveAgentTimeoutMs } from "../../agents/timeout.js";
 import { dispatchInboundMessage } from "../../auto-reply/dispatch.js";
@@ -285,6 +285,28 @@ function resolveTranscriptPath(params: {
       sessionFile ? { sessionFile } : undefined,
       sessionsDir || agentId ? { sessionsDir, agentId } : undefined,
     );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build a transcript path for a remote agent session.
+ * We can't use resolveSessionFilePath because session keys like "agent:shantel:chat"
+ * contain colons which are invalid in filenames. Instead we build the path manually
+ * under the agent's workspace sessions/ directory.
+ */
+function getAgentTranscriptPath(
+  agentId: string,
+  sessionKey: string,
+  context: { config: Parameters<typeof resolveAgentWorkspaceDir>[0] },
+): string | null {
+  try {
+    const workspaceDir = resolveAgentWorkspaceDir(context.config, agentId);
+    const sessionsDir = path.join(workspaceDir, "sessions");
+    // Sanitize session key for filename: replace colons with underscores
+    const safeKey = sessionKey.replace(/:/g, "_");
+    return path.join(sessionsDir, `${safeKey}.jsonl`);
   } catch {
     return null;
   }
@@ -587,8 +609,29 @@ export const chatHandlers: GatewayRequestHandlers = {
     };
     const { cfg, storePath, entry } = loadSessionEntry(sessionKey);
     const sessionId = entry?.sessionId;
-    const rawMessages =
+    let rawMessages =
       sessionId && storePath ? readSessionMessages(sessionId, storePath, entry?.sessionFile) : [];
+
+    // Fallback: for agent sessions, check the agent workspace transcript
+    if (rawMessages.length === 0) {
+      const agentId = resolveSessionAgentId({ sessionKey, config: cfg });
+      if (agentId) {
+        const transcriptPath = getAgentTranscriptPath(agentId, sessionKey, { config: cfg });
+        if (transcriptPath && fs.existsSync(transcriptPath)) {
+          try {
+            const lines = fs.readFileSync(transcriptPath, "utf-8").split(/\r?\n/).filter(Boolean);
+            for (const line of lines) {
+              const entry = JSON.parse(line);
+              if (entry.role === "user" || entry.role === "assistant") {
+                rawMessages.push(entry);
+              }
+            }
+          } catch {
+            // ignore parse errors
+          }
+        }
+      }
+    }
     const hardMax = 1000;
     const defaultLimit = 200;
     const requested = typeof limit === "number" ? limit : defaultLimit;
@@ -806,11 +849,7 @@ export const chatHandlers: GatewayRequestHandlers = {
     if (targetAgentId && isRemoteAgent(targetAgentId)) {
       // Persist user message to agent session transcript before forwarding
       try {
-        const agentTranscriptPath = resolveTranscriptPath({
-          sessionId: rawSessionKey,
-          storePath: cfg.get("sessions.storePath") ?? undefined,
-          agentId: targetAgentId,
-        });
+        const agentTranscriptPath = getAgentTranscriptPath(targetAgentId, rawSessionKey, context);
         if (agentTranscriptPath) {
           ensureTranscriptFile({ transcriptPath: agentTranscriptPath, sessionId: rawSessionKey });
           const sm = SessionManager.open(agentTranscriptPath);
