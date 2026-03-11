@@ -1,14 +1,23 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { goto } from '$app/navigation';
   import { gateway } from '$lib/gateway';
   import { getConnection } from '$lib/stores/connection.svelte';
+  import { getSessions } from '$lib/stores/sessions.svelte';
   import { getToasts } from '$lib/stores/toasts.svelte';
   import { formatRelativeTime } from '$lib/utils/time';
   import MatrixRain from '$lib/components/MatrixRain.svelte';
   import CRTOverlay from '$lib/components/CRTOverlay.svelte';
 
   const conn = getConnection();
+  const sessions = getSessions();
   const toasts = getToasts();
+
+  function chatWithAgent(agentId: string) {
+    const sessionKey = `agent:${agentId}:chat`;
+    sessions.setActiveSession(sessionKey);
+    goto('/');
+  }
 
   // ─── Types ─────────────────────────────────
   interface AgentEntry {
@@ -542,26 +551,29 @@
       </div>
       <div class="hud-sidebar-list">
         {#each agents as agent (agent.id)}
-          <button
-            onclick={() => selectAgent(agent.id)}
-            class="hud-agent-item {selectedAgentId === agent.id ? 'active' : ''}"
-          >
-            <div class="hud-agent-item-inner">
-              <div class="sidebar-avatar">
-                <img class="sidebar-avatar-img" src="/avatar/{agent.id}" alt=""
-                  onerror={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }}
-                />
-                <span class="sidebar-avatar-letter hidden">{(agent.identity?.emoji || agent.identity?.name?.[0] || agent.id[0] || '>').toUpperCase()}</span>
+          <div class="hud-agent-row">
+            <button
+              onclick={() => selectAgent(agent.id)}
+              class="hud-agent-item {selectedAgentId === agent.id ? 'active' : ''}"
+            >
+              <div class="hud-agent-item-inner">
+                <div class="sidebar-avatar">
+                  <img class="sidebar-avatar-img" src="/avatar/{agent.id}" alt=""
+                    onerror={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }}
+                  />
+                  <span class="sidebar-avatar-letter hidden">{(agent.identity?.emoji || agent.identity?.name?.[0] || agent.id[0] || '>').toUpperCase()}</span>
+                </div>
+                <div class="hud-agent-info">
+                  <div class="hud-agent-name">{agent.identity?.name || agent.name || agent.id}</div>
+                  <div class="hud-agent-id">{resolveModelLabel(agent.model)}</div>
+                </div>
               </div>
-              <div class="hud-agent-info">
-                <div class="hud-agent-name">{agent.identity?.name || agent.name || agent.id}</div>
-                <div class="hud-agent-id">{resolveModelLabel(agent.model)}</div>
-              </div>
-            </div>
-            {#if agent.id === defaultAgentId}
-              <span class="hud-badge hud-badge-purple">DEFAULT</span>
-            {/if}
-          </button>
+              {#if agent.id === defaultAgentId}
+                <span class="hud-badge hud-badge-purple">DEFAULT</span>
+              {/if}
+            </button>
+            <button class="sidebar-chat-btn" title="Chat with {agent.identity?.name || agent.id}" onclick={() => chatWithAgent(agent.id)}>💬</button>
+          </div>
         {/each}
       </div>
 
@@ -660,6 +672,11 @@
                   {/if}
                 </div>
               </div>
+            </div>
+            <div class="identity-card-actions">
+              <button class="chat-with-agent-btn" onclick={() => chatWithAgent(selectedAgent.id)}>
+                💬 CHAT
+              </button>
             </div>
             <div class="identity-card-divider"></div>
             <div class="identity-card-fields">
@@ -2593,5 +2610,64 @@
   .activity-time {
     font-size: 0.6rem;
     color: rgba(0, 255, 255, 0.25);
+  }
+  /* ── Chat with Agent button (identity card) ── */
+  .identity-card-actions {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+  }
+  .chat-with-agent-btn {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+    border-radius: 8px;
+    color: var(--accent);
+    font-family: var(--font-display, 'Orbitron'), sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .chat-with-agent-btn:hover {
+    background: color-mix(in srgb, var(--accent) 25%, transparent);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 35%, transparent);
+    border-color: var(--accent);
+  }
+
+  /* ── Sidebar agent row ── */
+  .hud-agent-row {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .hud-agent-row .hud-agent-item {
+    flex: 1;
+    min-width: 0;
+  }
+  .sidebar-chat-btn {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+    border-radius: 6px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.15s;
+  }
+  .hud-agent-row:hover .sidebar-chat-btn {
+    opacity: 1;
+  }
+  .sidebar-chat-btn:hover {
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+    border-color: var(--accent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 30%, transparent);
   }
 </style>

@@ -402,6 +402,7 @@
     </div>
   </div>
 
+  <div class="hud-content">
   <!-- ═══ Date Range Picker ═════════════════════ -->
   <div class="hud-panel">
     <div class="hud-range-row">
@@ -753,140 +754,6 @@
                 <span class="hud-chevron {isSelected ? 'open' : ''}">&#9662;</span>
               </div>
 
-              <!-- ═══ Expanded Session Detail ═══ -->
-              {#if isSelected}
-                <div class="hud-session-detail" onclick={(e) => e.stopPropagation()}>
-                  {#if detailLoading}
-                    <div class="hud-detail-loading">
-                      <span class="hud-spinner"></span>
-                      LOADING SESSION DETAILS...
-                    </div>
-                  {:else}
-                    <!-- Session Summary Cards -->
-                    {#if usage}
-                      <div class="hud-grid-4 tight">
-                        <div class="hud-panel compact inner">
-                          <div class="hud-panel-lbl">INPUT</div>
-                          <div class="hud-stat-sm cyan">{formatTokens(usage.input)}</div>
-                          {#if usage.inputCost}<div class="hud-meta">{formatCost(usage.inputCost, 4)}</div>{/if}
-                        </div>
-                        <div class="hud-panel compact inner">
-                          <div class="hud-panel-lbl">OUTPUT</div>
-                          <div class="hud-stat-sm pink">{formatTokens(usage.output)}</div>
-                          {#if usage.outputCost}<div class="hud-meta">{formatCost(usage.outputCost, 4)}</div>{/if}
-                        </div>
-                        <div class="hud-panel compact inner">
-                          <div class="hud-panel-lbl">DURATION</div>
-                          <div class="hud-stat-sm">{formatDuration(usage.durationMs)}</div>
-                          {#if usage.messageCounts}<div class="hud-meta">{usage.messageCounts.total} messages</div>{/if}
-                        </div>
-                        <div class="hud-panel compact inner">
-                          <div class="hud-panel-lbl">TOOLS</div>
-                          <div class="hud-stat-sm">{usage.toolUsage?.totalCalls ?? 0}</div>
-                          <div class="hud-meta">{usage.toolUsage?.uniqueTools ?? 0} unique</div>
-                        </div>
-                      </div>
-                    {/if}
-
-                    <!-- Metadata badges -->
-                    <div class="hud-badges">
-                      {#if session.agentId}
-                        <span class="hud-tag cyan">agent:{session.agentId}</span>
-                      {/if}
-                      {#if session.modelProvider || session.providerOverride}
-                        <span class="hud-tag purple">
-                          provider:{session.modelProvider ?? session.providerOverride}
-                        </span>
-                      {/if}
-                      {#if session.model}
-                        <span class="hud-tag amber">model:{session.model}</span>
-                      {/if}
-                      <span class="hud-tag mono">{session.key}</span>
-                    </div>
-
-                    <!-- Model usage in this session -->
-                    {#if usage?.modelUsage && usage.modelUsage.length > 0}
-                      <div class="hud-detail-section">
-                        <div class="hud-panel-lbl">MODEL MIX</div>
-                        <div class="hud-badges" style="margin-top:6px;">
-                          {#each usage.modelUsage.slice(0, 6) as mu}
-                            <div class="hud-tag">
-                              <span class="hud-mono">{mu.model ?? 'unknown'}</span>
-                              <span class="hud-meta" style="margin-left:6px;">{formatCost(mu.totals.totalCost)} // {formatTokens(mu.totals.totalTokens)}</span>
-                            </div>
-                          {/each}
-                        </div>
-                      </div>
-                    {/if}
-
-                    <!-- Top tools in this session -->
-                    {#if usage?.toolUsage?.tools && usage.toolUsage.tools.length > 0}
-                      <div class="hud-detail-section">
-                        <div class="hud-panel-lbl">TOP TOOLS</div>
-                        <div class="hud-badges" style="margin-top:6px;">
-                          {#each usage.toolUsage.tools.slice(0, 8) as tool}
-                            <span class="hud-tag green">
-                              {tool.name} x{tool.count}
-                            </span>
-                          {/each}
-                        </div>
-                      </div>
-                    {/if}
-
-                    <!-- Time Series Mini Chart -->
-                    {#if timeSeriesProcessed.length >= 2}
-                      <div class="hud-detail-section">
-                        <div class="hud-panel-lbl">USAGE OVER TIME</div>
-                        <div class="hud-mini-chart">
-                          {#each timeSeriesProcessed as point}
-                            {@const tsMax = Math.max(...timeSeriesProcessed.map(p => p.totalTokens), 1)}
-                            {@const h = Math.max((point.totalTokens / tsMax) * 100, 2)}
-                            <div
-                              class="hud-mini-bar"
-                              style="height: {h}%"
-                              title="{new Date(point.timestamp).toLocaleString()}: {formatTokens(point.totalTokens)} tokens"
-                            ></div>
-                          {/each}
-                        </div>
-                        <div class="hud-meta" style="margin-top:4px;">
-                          {timeSeriesProcessed.length} turns //
-                          {formatTokens(timeSeriesProcessed[timeSeriesProcessed.length - 1]?.cumulativeTokens ?? 0)} total //
-                          {formatCost(timeSeriesProcessed[timeSeriesProcessed.length - 1]?.cumulativeCost ?? 0)}
-                        </div>
-                      </div>
-                    {/if}
-
-                    <!-- Session Logs Preview -->
-                    {#if sessionLogs && sessionLogs.length > 0}
-                      <div class="hud-detail-section">
-                        <div class="hud-panel-lbl">
-                          CONVERSATION ({sessionLogs.length} messages)
-                        </div>
-                        <div class="hud-logs">
-                          {#each sessionLogs.slice(0, 30) as log}
-                            {@const isUser = log.role === 'user'}
-                            {@const isAssistant = log.role === 'assistant'}
-                            <div class="hud-log-line">
-                              <span class="hud-log-role {isUser ? 'cyan' : isAssistant ? 'purple' : 'amber'}">
-                                {isUser ? 'YOU' : isAssistant ? 'AI' : 'TOOL'}
-                              </span>
-                              <span class="hud-log-content">{log.content?.slice(0, 200) ?? ''}</span>
-                              {#if log.tokens}
-                                <span class="hud-meta">{formatTokens(log.tokens)}</span>
-                              {/if}
-                            </div>
-                          {/each}
-                          {#if sessionLogs.length > 30}
-                            <div class="hud-meta" style="text-align:center;padding:4px 0;">
-                              +{sessionLogs.length - 30} more messages
-                            </div>
-                          {/if}
-                        </div>
-                      </div>
-                    {/if}
-                  {/if}
-                </div>
-              {/if}
             </button>
           {/each}
 
@@ -907,24 +774,161 @@
       <p class="hud-meta">Try expanding the date range or check that sessions have been active.</p>
     </div>
   {/if}
+
+  </div><!-- /hud-content -->
 </div>
+
+<!-- ═══ Session Detail Drawer ═══════════════════ -->
+{#if selectedSession}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="drawer-backdrop" onclick={() => selectedSessionKey = null}></div>
+  <div class="drawer-panel">
+    <div class="drawer-header">
+      <div>
+        <div class="drawer-title">{sessionLabel(selectedSession)}</div>
+        <div class="hud-meta" style="margin-top:4px;">{selectedSession.key}</div>
+      </div>
+      <button class="drawer-close" onclick={() => selectedSessionKey = null}>✕</button>
+    </div>
+    <div class="drawer-body">
+      {#if detailLoading}
+        <div class="hud-detail-loading">
+          <span class="hud-spinner"></span>
+          LOADING SESSION DETAILS...
+        </div>
+      {:else}
+        {@const usage = selectedSession.usage}
+        <!-- Summary Cards -->
+        {#if usage}
+          <div class="hud-grid-4 tight">
+            <div class="hud-panel compact inner">
+              <div class="hud-panel-lbl">INPUT</div>
+              <div class="hud-stat-sm cyan">{formatTokens(usage.input)}</div>
+              {#if usage.inputCost}<div class="hud-meta">{formatCost(usage.inputCost, 4)}</div>{/if}
+            </div>
+            <div class="hud-panel compact inner">
+              <div class="hud-panel-lbl">OUTPUT</div>
+              <div class="hud-stat-sm pink">{formatTokens(usage.output)}</div>
+              {#if usage.outputCost}<div class="hud-meta">{formatCost(usage.outputCost, 4)}</div>{/if}
+            </div>
+            <div class="hud-panel compact inner">
+              <div class="hud-panel-lbl">DURATION</div>
+              <div class="hud-stat-sm">{formatDuration(usage.durationMs)}</div>
+              {#if usage.messageCounts}<div class="hud-meta">{usage.messageCounts.total} messages</div>{/if}
+            </div>
+            <div class="hud-panel compact inner">
+              <div class="hud-panel-lbl">TOOLS</div>
+              <div class="hud-stat-sm">{usage.toolUsage?.totalCalls ?? 0}</div>
+              <div class="hud-meta">{usage.toolUsage?.uniqueTools ?? 0} unique</div>
+            </div>
+          </div>
+        {/if}
+
+        <!-- Badges -->
+        <div class="hud-badges" style="margin-top:14px;">
+          {#if selectedSession.agentId}
+            <span class="hud-tag cyan">agent:{selectedSession.agentId}</span>
+          {/if}
+          {#if selectedSession.modelProvider || selectedSession.providerOverride}
+            <span class="hud-tag purple">provider:{selectedSession.modelProvider ?? selectedSession.providerOverride}</span>
+          {/if}
+          {#if selectedSession.model}
+            <span class="hud-tag amber">model:{selectedSession.model}</span>
+          {/if}
+          {#if selectedSession.channel}
+            <span class="hud-tag">{selectedSession.channel}</span>
+          {/if}
+        </div>
+
+        <!-- Model Mix -->
+        {#if usage?.modelUsage && usage.modelUsage.length > 0}
+          <div class="hud-detail-section">
+            <div class="hud-panel-lbl">MODEL MIX</div>
+            <div class="hud-badges" style="margin-top:6px;">
+              {#each usage.modelUsage.slice(0, 6) as mu}
+                <div class="hud-tag">
+                  <span class="hud-mono">{mu.model ?? 'unknown'}</span>
+                  <span class="hud-meta" style="margin-left:6px;">{formatCost(mu.totals.totalCost)} // {formatTokens(mu.totals.totalTokens)}</span>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        <!-- Top Tools -->
+        {#if usage?.toolUsage?.tools && usage.toolUsage.tools.length > 0}
+          <div class="hud-detail-section">
+            <div class="hud-panel-lbl">TOP TOOLS</div>
+            <div class="hud-badges" style="margin-top:6px;">
+              {#each usage.toolUsage.tools.slice(0, 8) as tool}
+                <span class="hud-tag green">{tool.name} x{tool.count}</span>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        <!-- Usage Over Time -->
+        {#if timeSeriesProcessed.length >= 2}
+          <div class="hud-detail-section">
+            <div class="hud-panel-lbl">USAGE OVER TIME</div>
+            <div class="hud-mini-chart">
+              {#each timeSeriesProcessed as point}
+                {@const tsMax = Math.max(...timeSeriesProcessed.map(p => p.totalTokens), 1)}
+                {@const h = Math.max((point.totalTokens / tsMax) * 100, 2)}
+                <div class="hud-mini-bar" style="height: {h}%"
+                  title="{new Date(point.timestamp).toLocaleString()}: {formatTokens(point.totalTokens)} tokens"></div>
+              {/each}
+            </div>
+            <div class="hud-meta" style="margin-top:4px;">
+              {timeSeriesProcessed.length} turns //
+              {formatTokens(timeSeriesProcessed[timeSeriesProcessed.length - 1]?.cumulativeTokens ?? 0)} total //
+              {formatCost(timeSeriesProcessed[timeSeriesProcessed.length - 1]?.cumulativeCost ?? 0)}
+            </div>
+          </div>
+        {/if}
+
+        <!-- Conversation -->
+        {#if sessionLogs && sessionLogs.length > 0}
+          <div class="hud-detail-section">
+            <div class="hud-panel-lbl">CONVERSATION ({sessionLogs.length} messages)</div>
+            <div class="hud-logs">
+              {#each sessionLogs.slice(0, 50) as log}
+                {@const isUser = log.role === 'user'}
+                {@const isAssistant = log.role === 'assistant'}
+                <div class="hud-log-line">
+                  <span class="hud-log-role {isUser ? 'cyan' : isAssistant ? 'purple' : 'amber'}">
+                    {isUser ? 'YOU' : isAssistant ? 'AI' : 'TOOL'}
+                  </span>
+                  <span class="hud-log-content">{log.content?.slice(0, 300) ?? ''}</span>
+                  {#if log.tokens}
+                    <span class="hud-meta">{formatTokens(log.tokens)}</span>
+                  {/if}
+                </div>
+              {/each}
+              {#if sessionLogs.length > 50}
+                <div class="hud-meta" style="text-align:center;padding:4px 0;">+{sessionLogs.length - 50} more messages</div>
+              {/if}
+            </div>
+          </div>
+        {/if}
+      {/if}
+    </div>
+  </div>
+{/if}
 
 <style>
   /* ═══════════════════════════════════════════════
      HUD PAGE — CYBERPUNK USAGE STATS
   ═══════════════════════════════════════════════ */
   .hud-page {
-    position: relative;
-    z-index: 10;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    padding: 18px 22px;
-    gap: 14px;
-    overflow-y: auto;
-    font-family: 'Share Tech Mono', monospace;
-    color: var(--color-accent-cyan);
+    position: relative; z-index: 10; width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    overflow: hidden; font-family: 'Share Tech Mono', monospace; color: var(--color-accent-cyan);
+  }
+  .hud-content {
+    flex: 1; overflow-y: auto; min-height: 0;
+    padding: 14px 22px 22px;
+    display: flex; flex-direction: column; gap: 14px;
   }
 
   /* ─── TOP BAR ─── */
@@ -933,7 +937,7 @@
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
-    padding-bottom: 10px;
+    padding: 18px 22px 10px;
     flex-shrink: 0;
     flex-wrap: wrap;
     gap: 8px;
@@ -1397,6 +1401,10 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+    max-height: 60vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-accent-cyan) 30%, transparent) transparent;
   }
   .hud-session-row {
     width: 100%;
@@ -1462,10 +1470,58 @@
   }
 
   /* ─── SESSION DETAIL ─── */
-  .hud-session-detail {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+  /* ─── DRAWER ─── */
+  .drawer-backdrop {
+    position: fixed; inset: 0; z-index: 90;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    animation: fade-in 0.15s ease-out;
+  }
+  .drawer-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 91;
+    width: min(560px, 85vw);
+    background: #0a0e18;
+    border-left: 1px solid color-mix(in srgb, var(--color-accent-cyan) 30%, transparent);
+    box-shadow: -4px 0 30px rgba(0, 0, 0, 0.6), -1px 0 15px color-mix(in srgb, var(--color-accent-cyan) 15%, transparent);
+    display: flex; flex-direction: column;
+    animation: slide-in-right 0.2s ease-out;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--color-accent-cyan);
+  }
+  .drawer-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-accent-cyan) 20%, transparent);
+    flex-shrink: 0;
+  }
+  .drawer-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem; font-weight: 700; letter-spacing: 0.12em;
+    color: var(--color-accent-cyan);
+    text-shadow: 0 0 12px color-mix(in srgb, var(--color-accent-cyan) 40%, transparent);
+  }
+  .drawer-close {
+    background: transparent; border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 30%, transparent);
+    color: var(--color-accent-cyan); font-size: 1rem; padding: 4px 10px;
+    border-radius: 2px; cursor: pointer; transition: all 0.2s;
+  }
+  .drawer-close:hover {
+    border-color: var(--color-accent-cyan);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent-cyan) 40%, transparent);
+  }
+  .drawer-body {
+    flex: 1; min-height: 0; overflow-y: auto; padding: 20px 24px;
+    display: flex; flex-direction: column; gap: 0;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-accent-cyan) 25%, transparent) transparent;
+  }
+  @keyframes slide-in-right {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   .hud-detail-loading {
     display: flex;
@@ -1476,7 +1532,9 @@
     padding: 12px 0;
   }
   .hud-detail-section {
-    margin-top: 12px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid color-mix(in srgb, var(--color-accent-cyan) 10%, transparent);
   }
 
   /* ─── MINI CHART ─── */
@@ -1500,11 +1558,13 @@
 
   /* ─── LOGS ─── */
   .hud-logs {
-    max-height: 192px;
+    max-height: 280px;
     overflow-y: auto;
-    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 50%, transparent);
-    border-radius: 2px;
-    padding: 6px 8px;
+    border: 1px solid color-mix(in srgb, var(--color-accent-cyan) 25%, transparent);
+    border-radius: 3px;
+    padding: 10px 12px;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-accent-cyan) 20%, transparent) transparent;
     margin-top: 6px;
     background: color-mix(in srgb, var(--color-accent-cyan) 1%, transparent);
   }

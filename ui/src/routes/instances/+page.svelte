@@ -33,6 +33,8 @@
     model?: string;
     thinkingLevel?: string;
     verboseLevel?: string;
+    connId?: string;
+    nodeId?: string;
   };
 
   // ─── State ─────────────────────────────────────
@@ -302,6 +304,18 @@
                   <div><span class="hud-panel-lbl">MODEL ID</span><span class="hud-detail-val">{entry.modelIdentifier ?? '—'}</span></div>
                   <div><span class="hud-panel-lbl">CLIENT VER</span><span class="hud-detail-val">{entry.clientVersion ?? entry.version ?? '—'}</span></div>
                   <div><span class="hud-panel-lbl">CLIENT ID</span><span class="hud-detail-val">{entry.clientId ?? '—'}</span></div>
+                  {#if entry.connId}
+                    <div><span class="hud-panel-lbl">CONN ID</span><span class="hud-detail-val">{entry.connId}</span></div>
+                  {/if}
+                  {#if entry.connectedAt}
+                    <div><span class="hud-panel-lbl">CONNECTED</span><span class="hud-detail-val">{formatRelativeTime(entry.connectedAt)}</span></div>
+                  {/if}
+                  {#if entry.agentId}
+                    <div><span class="hud-panel-lbl">AGENT</span><span class="hud-detail-val hud-detail-val--purple">{entry.agentId}</span></div>
+                  {/if}
+                  {#if entry.nodeId}
+                    <div><span class="hud-panel-lbl">NODE ID</span><span class="hud-detail-val">{entry.nodeId}</span></div>
+                  {/if}
                   {#if entry.sessionKey}
                     <div class="hud-detail-wide">
                       <span class="hud-panel-lbl">SESSION KEY</span>
@@ -364,7 +378,7 @@
   }
 
   .hud-back {
-    color: #0ff;
+    color: var(--color-accent-cyan);
     text-decoration: none;
     font-size: 0.75rem;
     letter-spacing: 0.1em;
@@ -379,12 +393,12 @@
     font-weight: 700;
     letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: #0ff;
+    color: var(--color-accent-cyan);
     text-shadow: 0 0 10px #0ff6, 0 0 30px #0ff3;
   }
 
   .hud-panel {
-    background: #0a0a0aee;
+    background: color-mix(in srgb, var(--bg-primary, #0a0a0f) 93%, transparent);
     border: 1px solid #0ff3;
     border-radius: 4px;
     padding: 0.75rem 1rem;
@@ -399,7 +413,7 @@
     font-size: 0.75rem;
     letter-spacing: 0.15em;
     text-transform: uppercase;
-    color: #0ff9;
+    color: color-mix(in srgb, var(--color-accent-cyan) 90%, transparent);
     display: block;
     margin-bottom: 0.15rem;
   }
@@ -407,7 +421,7 @@
   .hud-btn {
     background: transparent;
     border: 1px solid #0ff4;
-    color: #0ff;
+    color: var(--color-accent-cyan);
     font-family: inherit;
     font-size: 0.7rem;
     letter-spacing: 0.08em;
@@ -418,8 +432,8 @@
     text-transform: uppercase;
   }
   .hud-btn:hover:not(:disabled) {
-    background: #0ff1;
-    border-color: #0ff;
+    background: color-mix(in srgb, var(--color-accent-cyan) 7%, transparent);
+    border-color: var(--color-accent-cyan);
     text-shadow: 0 0 6px #0ff;
   }
   .hud-btn:disabled { opacity: 0.3; cursor: not-allowed; }
@@ -428,7 +442,7 @@
     font-size: 0.75rem;
     padding: 0.2rem 0.5rem;
   }
-  .hud-btn--cyan { border-color: #0ff8; color: #0ff; text-shadow: 0 0 4px #0ff6; }
+  .hud-btn--cyan { border-color: color-mix(in srgb, var(--color-accent-cyan) 53%, transparent); color: var(--color-accent-cyan); text-shadow: 0 0 4px color-mix(in srgb, var(--color-accent-cyan) 40%, transparent); }
   .hud-btn--purple { border-color: #a855f78a; color: #c084fc; text-shadow: 0 0 4px #a855f74d; }
   .hud-btn--green { border-color: #22c55e8a; color: #4ade80; text-shadow: 0 0 4px #22c55e4d; }
 
@@ -505,7 +519,7 @@
   }
   .hud-host-sub {
     font-size: 0.65rem;
-    color: #0ff6;
+    color: color-mix(in srgb, var(--color-accent-cyan) 60%, transparent);
   }
 
   .hud-instance-platform {
@@ -531,7 +545,7 @@
     text-transform: uppercase;
     color: #b0ffc8aa;
   }
-  .hud-chip--cyan { border-color: #0ff4; color: #0ff; }
+  .hud-chip--cyan { border-color: color-mix(in srgb, var(--color-accent-cyan) 27%, transparent); color: var(--color-accent-cyan); }
   .hud-chip--purple { border-color: #a855f74d; color: #c084fc; }
   .hud-chip--green { border-color: #22c55e4d; color: #4ade80; }
   .hud-chip--amber { border-color: #fbbf244d; color: #fbbf24; }

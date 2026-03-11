@@ -541,10 +541,12 @@
 <style>
   /* ─── PAGE LAYOUT ─── */
   .hud-page {
-    height: 100%;
+    flex: 1 1 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     font-family: 'Share Tech Mono', monospace;
     color: var(--color-text-primary);
   }

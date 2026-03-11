@@ -27,6 +27,16 @@
     return null;
   });
   let aiName = $derived(agentSessionName || conn.state.assistantName || config?.branding?.title || 'Assistant');
+  
+  // Resolve avatar URL — use agent-specific avatar for agent sessions, fall back to main
+  let aiAvatarUrl = $derived.by(() => {
+    const key = sessions.activeKey ?? '';
+    const parts = key.split(':');
+    if (parts[0] === 'agent' && parts.length >= 3 && parts[1]) {
+      return `/avatar/${parts[1]}`;
+    }
+    return '/avatar/main';
+  });
 
   // User profile from localStorage
   let userAvatarUrl = $state<string | null>(null);
@@ -183,8 +193,8 @@
   {#if !isUser}
     <div class="flex-shrink-0 mr-2.5 mt-5 hidden md:block">
       <img
-        src="/avatar/main"
-        alt={config.branding.title}
+        src={aiAvatarUrl}
+        alt={aiName}
         class="w-8 h-8 rounded-full object-cover border border-accent-purple/30 shadow-[0_0_8px_rgba(124,77,255,0.2)]"
         onerror={(e) => { (e.target as HTMLImageElement).src = '/logo.png'; }}
       />

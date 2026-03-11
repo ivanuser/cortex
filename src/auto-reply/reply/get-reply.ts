@@ -100,6 +100,9 @@ export async function getReplyFromConfig(
   }
 
   const workspaceDirRaw = resolveAgentWorkspaceDir(cfg, agentId) ?? DEFAULT_AGENT_WORKSPACE_DIR;
+  console.log(
+    `[get-reply] agentId=${agentId} sessionKey=${agentSessionKey} workspaceDir=${workspaceDirRaw}`,
+  );
   const workspace = await ensureAgentWorkspace({
     dir: workspaceDirRaw,
     ensureBootstrapFiles: !agentCfg?.skipBootstrap && !isFastTestEnv,

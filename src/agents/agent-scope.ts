@@ -177,20 +177,33 @@ export function resolveEffectiveModelFallbacks(params: {
 
 export function resolveAgentWorkspaceDir(cfg: OpenClawConfig, agentId: string) {
   const id = normalizeAgentId(agentId);
-  const configured = resolveAgentConfig(cfg, id)?.workspace?.trim();
-  if (configured) {
-    return resolveUserPath(configured);
-  }
+  const agentCfg = resolveAgentConfig(cfg, id);
+  const configured = agentCfg?.workspace?.trim();
   const defaultAgentId = resolveDefaultAgentId(cfg);
+  const entries = listAgentEntries(cfg);
+  console.log(
+    `[resolveAgentWorkspaceDir] id=${id} configured=${configured ?? "NONE"} defaultAgentId=${defaultAgentId} entriesCount=${entries.length} entryIds=${entries.map((e) => e.id).join(",")}`,
+  );
+  if (configured) {
+    const resolved = resolveUserPath(configured);
+    console.log(`[resolveAgentWorkspaceDir] using configured: ${resolved}`);
+    return resolved;
+  }
   if (id === defaultAgentId) {
     const fallback = cfg.agents?.defaults?.workspace?.trim();
     if (fallback) {
-      return resolveUserPath(fallback);
+      const resolved = resolveUserPath(fallback);
+      console.log(`[resolveAgentWorkspaceDir] using defaults.workspace fallback: ${resolved}`);
+      return resolved;
     }
-    return resolveDefaultAgentWorkspaceDir(process.env);
+    const resolved = resolveDefaultAgentWorkspaceDir(process.env);
+    console.log(`[resolveAgentWorkspaceDir] using DEFAULT workspace: ${resolved}`);
+    return resolved;
   }
   const stateDir = resolveStateDir(process.env);
-  return path.join(stateDir, `workspace-${id}`);
+  const resolved = path.join(stateDir, `workspace-${id}`);
+  console.log(`[resolveAgentWorkspaceDir] using stateDir fallback: ${resolved}`);
+  return resolved;
 }
 
 export function resolveAgentDir(cfg: OpenClawConfig, agentId: string) {
