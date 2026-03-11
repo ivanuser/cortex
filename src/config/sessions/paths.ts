@@ -54,7 +54,7 @@ export function resolveSessionFilePathOptions(params: {
   return undefined;
 }
 
-export const SAFE_SESSION_ID_RE = /^[a-z0-9][a-z0-9._-]{0,127}$/i;
+export const SAFE_SESSION_ID_RE = /^[a-z0-9][a-z0-9._:-]{0,127}$/i;
 
 export function validateSessionId(sessionId: string): string {
   const trimmed = sessionId.trim();
@@ -62,6 +62,11 @@ export function validateSessionId(sessionId: string): string {
     throw new Error(`Invalid session ID: ${sessionId}`);
   }
   return trimmed;
+}
+
+/** Sanitize a session ID for use in filenames (colons → underscores) */
+export function sessionIdToFilename(sessionId: string): string {
+  return validateSessionId(sessionId).replace(/:/g, "_");
 }
 
 function resolveSessionsDir(opts?: SessionFilePathOptions): string {
@@ -170,7 +175,7 @@ export function resolveSessionTranscriptPathInDir(
   sessionsDir: string,
   topicId?: string | number,
 ): string {
-  const safeSessionId = validateSessionId(sessionId);
+  const safeSessionId = sessionIdToFilename(sessionId);
   const safeTopicId =
     typeof topicId === "string"
       ? encodeURIComponent(topicId)
