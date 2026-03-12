@@ -1,7 +1,7 @@
 # 🧠 CORTEX — Project Plan
 
-**Version:** v3.10.15
-**Date:** March 2, 2026
+**Version:** v3.10.33
+**Date:** March 12, 2026
 **Author:** Ivan Honer
 **Repository:** https://gitlab.honercloud.com/llm/cortex-fork
 **Status:** Production Ready
@@ -573,26 +573,144 @@ Implemented 4 role levels:
 
 **Outcome:** Synapse evolved from a chat client into an autonomous work companion with local execution, task scheduling, voice output, and full gateway integration
 
+### ✅ Cyberpunk HUD Overhaul (March 3, 2026)
+
+**Goal:** Unified cyberpunk aesthetic across all web UI pages
+
+- **Full-page HUD treatment**: Every admin page restyled with consistent cyberpunk design language
+- **Image rendering fixes**: Handle gateway image format, pass raw images alongside sanitized tool results
+- **Color consistency**: Unified neon accent colors and dark backgrounds across all 16+ pages
+- **Instances page**: Updated styling for node fleet display
+- **Memory page**: Updated styling for vector database browser
+
+**Outcome:** Cohesive cyberpunk visual identity across the entire web UI, not just the main pages
+
+### ✅ Agent Management System — v3.10.17–v3.10.18 (March 4-5, 2026)
+
+**Goal:** Rich agent identity, configuration, and management UI
+
+- **Cyberpunk identity cards**: Visual agent cards on agents page showing name, avatar, model, and status
+- **Avatar resolution**: `/avatar/{agentId}` endpoint for per-agent avatar images with fallback to letter placeholder
+- **Per-agent identity**: `ui.assistant` only applies to default agent — each agent has its own identity
+- **Sidebar avatars**: Always tries image avatar, falls back to letter on error
+- **Agents page panels**: Permissions matrix, memory config, onboarding wizard, agent groups, activity feed
+- **Onboarding banner**: Only shown for truly unconfigured agents
+- **Model badge**: Hidden when no model is set (clean display)
+- **Contrast fixes**: Boosted contrast on identity card fields and badges for readability
+
+**Outcome:** Agents page transformed from a simple list into a full management dashboard with rich identity cards and configuration panels
+
+### ✅ Agent Message Routing — v3.10.21–v3.10.26 (March 6-8, 2026)
+
+**Goal:** Enable direct message routing between agents and the web UI
+
+- **v3.10.21**: Full agent message routing system with gateway rebuild
+- **v3.10.23**: Node connection agent announcements
+- **v3.10.24**: Agent name displayed in chat bubbles for agent sessions
+- **v3.10.25**: Agent routing debug logging + agent name in chat bubbles
+- **v3.10.26**: Standard event format (`type:event, payload`) for agent routing
+- **Agent node registration**: Register agent node on `agents.update` (not just create)
+- **Lint cleanup**: Async import patterns, typed params
+
+**Outcome:** Agents can be messaged directly through the web UI with proper routing, identity display, and event handling
+
+### ✅ Agent Chat Persistence & Session Safety — v3.10.27–v3.10.32 (March 9-11, 2026)
+
+**Goal:** Persist agent chat messages and handle colon-containing session IDs safely
+
+**File whitelist & bootstrap (v3.10.27, v3.10.30):**
+
+- `NETWORK.md` added to `agents.files.set` whitelist — agents can write network config
+- `NETWORK.md` added to bootstrap file loader — loaded automatically on agent startup
+
+**Chat persistence (v3.10.28–v3.10.29):**
+
+- Agent chat messages now persist to session transcripts (previously lost on page reload)
+- Colon-safe file paths for agent session keys (e.g., `agent:main:chat` → safe filename)
+- History loading fix — agent chat sessions properly reload previous messages
+
+**Config & session ID fixes (v3.10.31–v3.10.32):**
+
+- `context.config` → `cfg/loadConfig()` — fixed config access pattern for agent chat persistence
+- `SAFE_SESSION_ID_RE` updated to allow colons (`/^[a-z0-9][a-z0-9._:-]{0,127}$/i`)
+- New `sessionIdToFilename()` helper — converts colon-containing session IDs to filesystem-safe names
+- Workspace resolution debug logging in `agent-scope.ts` — traces configured vs. fallback workspace paths
+
+**Outcome:** Agent chat sessions are now fully persistent with proper history loading, and the session ID system safely handles the colon-separated format used by agent session keys
+
+### ✅ Web UI Overhaul — v3.10.33 (March 12, 2026)
+
+**Goal:** Major UX improvements across usage, agents, and chat pages
+
+**Usage page — Session detail drawer:**
+
+- Slide-out drawer panel for viewing session details (replaces inline expand)
+- Smooth `slide-in-right` animation with backdrop overlay
+- Scroll fix with `max-height: 60vh` for long session transcripts
+- Session label display with smart naming
+
+**Agent avatars in chat:**
+
+- `MessageBubble` component parses session key to extract agent ID
+- Agent sessions show `/avatar/{agentId}` instead of generic assistant avatar
+- Fallback to `/avatar/main` for non-agent sessions
+
+**Smart session naming:**
+
+- `agent:xxx:chat` sessions → `🤖 Xxx` (capitalized agent name with robot emoji)
+- `cron:*` sessions → `⏰ Cron: {name}` (clock emoji with cron job name)
+- Sub-agent sessions → `🤖 Sub-agent {shortId}`
+- Clean display names throughout usage and session lists
+
+**Agents page — Chat integration:**
+
+- "Chat with Agent" button on identity cards
+- `💬` chat button in sidebar agent list
+- `chatWithAgent()` creates `agent:{id}:chat` session and navigates to chat
+
+**Color & styling consistency:**
+
+- Unified color palette across all pages
+- Instances page styling updates
+- Memory page styling updates
+- Consistent cyberpunk theme application
+
+**Outcome:** Polished, cohesive UX with intuitive agent chat access, informative session naming, and a professional drawer-based detail view
+
 ## 5. Current State
 
 ### Production Deployment
 
-- **Gateway Version**: v3.10.15 deployed on openclaw (.242)
+- **Gateway Version**: v3.10.33 deployed on openclaw (.242)
 - **Test environment**: Full stack on devclaw (.223) with Cloudflare tunnel
 - **Desktop**: Synapse v0.11.21 (CI building for Windows + Linux)
 - **Monitoring**: Sentry self-hosted at 192.168.1.170 — error tracking for gateway + Synapse
 
 ### Web UI Status
 
-- **16 admin pages** covering all gateway functionality
+- **16+ admin pages** covering all gateway functionality with unified cyberpunk HUD
 - **Overhauled Overview page**: Hero header, metric cards, activity feed, node fleet, health sidebar
-- **Full chat interface** with rich markdown rendering
+- **Full chat interface** with rich markdown rendering and agent avatars
+- **Agent management dashboard**: Identity cards, permissions matrix, memory config, onboarding, groups, activity
+- **Usage page**: Slide-out drawer for session details with smart session naming
+- **Smart session naming**: `🤖 Agent`, `⏰ Cron: name`, `🤖 Sub-agent` labels throughout the UI
+- **Agent chat integration**: Chat buttons on agents page (identity card + sidebar), direct agent messaging
+- **Agent message routing**: Full routing system with agent name in chat bubbles
 - **Binary file rendering** in file viewer (images displayed inline)
 - **Node detail side drawer**: Fixed-position overlay with platform badges
 - **Audit page**: Scroll fix, time-aware stats, default level "all"
-- **Cyberpunk theme** with 8 presets + custom themes
+- **Cyberpunk theme** with 8 presets + custom themes, consistent colors across all pages
 - **PWA support** with offline capability
 - **Mobile responsive** design
+
+### Gateway Status (v3.10.33)
+
+- **Agent chat persistence**: Agent conversations persist to session transcripts with proper history loading
+- **Colon-safe session IDs**: `SAFE_SESSION_ID_RE` allows colons; `sessionIdToFilename()` for filesystem safety
+- **NETWORK.md support**: In agents.files.set whitelist + bootstrap file loader
+- **Agent message routing**: Standard event format routing between agents and web UI
+- **Workspace resolution logging**: Debug traces for configured vs. fallback workspace paths
+- **Config access fix**: `cfg/loadConfig()` pattern for agent chat (replaced `context.config`)
 
 ### Desktop Status (Synapse v0.11.21)
 
@@ -649,10 +767,12 @@ Implemented 4 role levels:
 - **KittenTTS voice expansion**: Additional voice models and quality tuning
 - **Browser capability**: CDP browser control from desktop app
 
-### 🔄 Gateway Improvements
+### 🔄 Gateway & Web UI Improvements
 
 - **Upstream rebase**: ~2,270 commits behind upstream OpenClaw (v2026.2.25)
 - **Anthropic API timeout investigation**: 600s timeouts on devclaw
+- **Agent chat UX**: Continue refining the agent chat experience (multi-agent conversations, agent-to-agent messaging)
+- **Session management**: Further improvements to session lifecycle for agent sessions
 
 ### 🔄 Monitoring & Observability
 
@@ -827,14 +947,14 @@ Implemented 4 role levels:
 
 ## Project Status Summary
 
-**✅ Completed**: Production-ready web UI with security hardening, full-featured desktop app with local execution and voice/TTS, Sentry error monitoring, smart exec routing, approval bridge, auto-update infrastructure, comprehensive documentation
+**✅ Completed**: Production-ready web UI with security hardening and unified cyberpunk HUD, full-featured desktop app with local execution and voice/TTS, Sentry error monitoring, smart exec routing, approval bridge, auto-update infrastructure, comprehensive documentation, agent management dashboard with identity cards and permissions, agent message routing system, agent chat persistence with colon-safe session IDs, web UI overhaul with usage drawer, agent avatars, and smart session naming
 
-**🔄 In Progress**: Synapse v1.0 final polish (markdown rendering, auto-update testing), KittenTTS voice expansion, Sentry webhook bridge, upstream rebase consideration
+**🔄 In Progress**: Synapse v1.0 final polish (markdown rendering, auto-update testing), KittenTTS voice expansion, Sentry webhook bridge, upstream rebase consideration, agent chat UX refinement
 
 **📋 Next**: All-in-one mode (embedded gateway), browser capability for desktop, distributed security agents, public release
 
-**Timeline**: ~12 days of intensive development (Feb 19 – Mar 2) produced a complete replacement for OpenClaw's UI, an autonomous desktop companion with local execution, voice/TTS, task scheduling, and Sentry monitoring — from zero to production in under two weeks.
+**Timeline**: ~21 days of intensive development (Feb 19 – Mar 12) produced a complete replacement for OpenClaw's UI with full agent management, an autonomous desktop companion with local execution, voice/TTS, task scheduling, and Sentry monitoring. Gateway progressed from v3.10.15 to v3.10.33 in 10 days (Mar 2–12), adding agent routing, chat persistence, and a major UI overhaul.
 
 ---
 
-_Cortex v3.10.15 — March 2, 2026_
+_Cortex v3.10.33 — March 12, 2026_

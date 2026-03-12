@@ -4,6 +4,8 @@
 >
 > Edit via the **Gateway Config** UI page (Form mode or Raw JSON), or directly in the JSON file.
 > Changes require **Apply & Restart** to take effect.
+>
+> _Last updated: March 12, 2025 — covers gateway through v3.10.32._
 
 ---
 
@@ -22,7 +24,7 @@
 | 9   | [Auth](#9-auth)                | API key profiles, failover, cooldowns                                                                           |
 | 10  | [Models](#10-models)           | LLM providers, custom endpoints, model definitions                                                              |
 | 11  | [Node Host](#11-node-host)     | Node hosting and browser proxy                                                                                  |
-| 12  | [Agents](#12-agents)           | Agent list, defaults, identity, heartbeat, sandbox                                                              |
+| 12  | [Agents](#12-agents)           | Agent list, defaults, identity, heartbeat, sandbox, bootstrap files, chat transcripts                           |
 | 13  | [Tools](#13-tools)             | Tool policies, exec, web search/fetch, media understanding                                                      |
 | 14  | [Bindings](#14-bindings)       | Channel-to-agent routing                                                                                        |
 | 15  | [Broadcast](#15-broadcast)     | Multi-agent broadcast configuration                                                                             |
@@ -31,7 +33,7 @@
 | 18  | [Messages](#18-messages)       | Message processing, queuing, reactions, TTS                                                                     |
 | 19  | [Commands](#19-commands)       | Slash commands and chat command access                                                                          |
 | 20  | [Approvals](#20-approvals)     | Exec approval forwarding                                                                                        |
-| 21  | [Session](#21-session)         | Session scope, reset, maintenance                                                                               |
+| 21  | [Session](#21-session)         | Session scope, reset, maintenance, session IDs, agent session keys                                              |
 | 22  | [Cron](#22-cron)               | Scheduled job configuration                                                                                     |
 | 23  | [Hooks](#23-hooks)             | Webhook endpoints and Gmail integration                                                                         |
 | 24  | [Web](#24-web)                 | WebChat/WebSocket client settings                                                                               |
@@ -706,28 +708,73 @@ These defaults apply to all agents unless overridden at the agent level.
 
 ### Agent List
 
+> **⚠️ `agents.list` MUST be an array.** The format is `[{id, workspace, ...}]`. An older object format (`{agentId: {workspace}}`) is **not valid** and causes a gateway crash due to Zod validation failure. As of v0.11.85, a legacy object format is auto-converted to array on config load, but you should always use the array format.
+
 Each entry in `agents.list` defines an individual agent:
 
-| Setting                         | Type          | Default      | Description                                            |
-| ------------------------------- | ------------- | ------------ | ------------------------------------------------------ |
-| `agents.list[].id`              | string        | **required** | Unique agent ID                                        |
-| `agents.list[].default`         | boolean       | —            | Whether this is the default agent                      |
-| `agents.list[].name`            | string        | —            | Display name                                           |
-| `agents.list[].workspace`       | string        | —            | Override workspace directory                           |
-| `agents.list[].agentDir`        | string        | —            | Custom agent data directory                            |
-| `agents.list[].model`           | string/object | —            | Model override (string or `{primary, fallbacks}`)      |
-| `agents.list[].skills`          | string[]      | —            | Skill allowlist (omit = all, empty = none)             |
-| `agents.list[].identity.name`   | string        | —            | Agent's display name                                   |
-| `agents.list[].identity.theme`  | string        | —            | Agent's theme                                          |
-| `agents.list[].identity.emoji`  | string        | —            | Agent's emoji                                          |
-| `agents.list[].identity.avatar` | string        | —            | Avatar path, URL, or data URI                          |
-| `agents.list[].heartbeat`       | object        | —            | Per-agent heartbeat override (same schema as defaults) |
-| `agents.list[].memorySearch`    | object        | —            | Per-agent memory search override                       |
-| `agents.list[].tools`           | object        | —            | Per-agent tool policy override                         |
-| `agents.list[].sandbox`         | object        | —            | Per-agent sandbox override                             |
-| `agents.list[].groupChat`       | object        | —            | Group chat settings (mentionPatterns, historyLimit)    |
-| `agents.list[].subagents`       | object        | —            | Per-agent subagent settings                            |
-| `agents.list[].humanDelay`      | object        | —            | Per-agent human delay settings                         |
+| Setting                      | Type          | Default      | Description                                                         |
+| ---------------------------- | ------------- | ------------ | ------------------------------------------------------------------- |
+| `agents.list[].id`           | string        | **required** | Unique agent ID                                                     |
+| `agents.list[].default`      | boolean       | —            | Whether this is the default agent                                   |
+| `agents.list[].name`         | string        | —            | Display name                                                        |
+| `agents.list[].workspace`    | string        | —            | Override workspace directory                                        |
+| `agents.list[].agentDir`     | string        | —            | Custom agent data directory                                         |
+| `agents.list[].model`        | string/object | —            | Model override (string or `{primary, fallbacks}`)                   |
+| `agents.list[].skills`       | string[]      | —            | Skill allowlist (omit = all, empty = none)                          |
+| `agents.list[].identity`     | object        | —            | Agent identity object — see [Agent Identity](#agent-identity) below |
+| `agents.list[].heartbeat`    | object        | —            | Per-agent heartbeat override (same schema as defaults)              |
+| `agents.list[].memorySearch` | object        | —            | Per-agent memory search override                                    |
+| `agents.list[].tools`        | object        | —            | Per-agent tool policy override                                      |
+| `agents.list[].sandbox`      | object        | —            | Per-agent sandbox override                                          |
+| `agents.list[].groupChat`    | object        | —            | Group chat settings (mentionPatterns, historyLimit)                 |
+| `agents.list[].subagents`    | object        | —            | Per-agent subagent settings                                         |
+| `agents.list[].humanDelay`   | object        | —            | Per-agent human delay settings                                      |
+
+### Agent Identity
+
+Each agent can have an `identity` object that controls how it presents itself in the Control UI, chat bubbles, and channel interactions.
+
+| Setting                         | Type   | Default | Description                                                   |
+| ------------------------------- | ------ | ------- | ------------------------------------------------------------- |
+| `agents.list[].identity.name`   | string | —       | Agent's display name (shown in chat bubbles, identity cards)  |
+| `agents.list[].identity.emoji`  | string | —       | Agent's emoji (used as ack reaction fallback, identity cards) |
+| `agents.list[].identity.avatar` | string | —       | Avatar: workspace-relative path, http(s) URL, or `data:` URI  |
+| `agents.list[].identity.theme`  | string | —       | Agent's theme (used for UI styling, identity cards)           |
+
+> **Avatar resolution:** Avatars are served via the `/avatar/{agentId}` endpoint. The gateway resolves avatars in order: config `identity.avatar` → workspace `IDENTITY.md` file → placeholder letter. Workspace-relative paths (e.g., `"avatars/my-agent.png"`) are resolved against the agent's workspace directory. Path traversal (e.g., `"../oops.png"`) is rejected by validation.
+
+> **Per-agent identity:** The `ui.assistant` config only applies to the **default** agent's display in the Control UI. Non-default agents use their own `identity` block exclusively. Each agent gets its own identity card on the Agents page.
+
+### Bootstrap Files
+
+When an agent session starts, the gateway loads recognized bootstrap files from the agent's workspace and injects them into the system prompt. The recognized filenames are:
+
+| Filename       | Purpose                                                      |
+| -------------- | ------------------------------------------------------------ |
+| `AGENTS.md`    | Workspace instructions                                       |
+| `SOUL.md`      | Agent personality/identity                                   |
+| `TOOLS.md`     | Tool-specific notes                                          |
+| `IDENTITY.md`  | Agent identity (name, avatar, emoji)                         |
+| `USER.md`      | User information                                             |
+| `HEARTBEAT.md` | Heartbeat instructions                                       |
+| `BOOTSTRAP.md` | First-run bootstrap                                          |
+| `NETWORK.md`   | Network topology and infrastructure notes _(added v3.10.30)_ |
+| `MEMORY.md`    | Long-term memory                                             |
+| `memory.md`    | Long-term memory (alternate casing)                          |
+
+Bootstrap loading is controlled by `agents.defaults.skipBootstrap`, `agents.defaults.bootstrapMaxChars`, and `agents.defaults.bootstrapTotalMaxChars`. The `NETWORK.md` file is also accepted in the `agents.files.set` whitelist (v3.10.27).
+
+### Agent Chat Transcripts
+
+Agent chat messages are persisted to JSONL transcript files at:
+
+```
+~/.openclaw/agents/{agentId}/sessions/{safeKey}.jsonl
+```
+
+Where `{safeKey}` is the session key with colons replaced by underscores (e.g., session key `agent:main:chat` → filename `agent_main_chat.jsonl`). See [Session IDs & Agent Session Keys](#session-ids--agent-session-keys) for details.
+
+The `chat.history` method includes a fallback: when the normal session store returns empty for an agent session, it reads the agent workspace transcript file instead.
 
 ```json
 {
@@ -751,13 +798,39 @@ Each entry in `agents.list` defines an individual agent:
       {
         "id": "main",
         "default": true,
-        "identity": { "name": "Assistant", "emoji": "🤖" },
+        "identity": {
+          "name": "Ranaye",
+          "emoji": "🌙",
+          "avatar": "/home/user/avatars/ranaye.png",
+          "theme": "cyberpunk"
+        },
         "model": "anthropic/claude-sonnet-4-20250514"
+      },
+      {
+        "id": "ops",
+        "workspace": "/home/user/ops-agent",
+        "identity": {
+          "name": "Ops Bot",
+          "emoji": "⚙️"
+        }
       }
     ]
   }
 }
 ```
+
+### Agent Workspace Files (RPC: `agents.files.set`)
+
+The `agents.files.set` RPC method writes files to an agent's workspace directory. _(v3.10.11)_ Added `encoding` field for binary file support.
+
+| Parameter  | Type   | Required | Description                                                                        |
+| ---------- | ------ | -------- | ---------------------------------------------------------------------------------- |
+| `agentId`  | string | ✅       | Target agent ID                                                                    |
+| `name`     | string | ✅       | Filename (relative to workspace, supports nested paths like `"uploads/image.png"`) |
+| `content`  | string | ✅       | File content (plain text or base64-encoded binary)                                 |
+| `encoding` | string | —        | `"base64"` for binary files, `"utf-8"` for text (default: `"utf-8"`)               |
+
+The file whitelist includes standard workspace files plus `NETWORK.md` (v3.10.27) and the `avatars/` directory.
 
 ---
 
@@ -1240,6 +1313,20 @@ Each binding entry has:
 }
 ```
 
+### Approval Reporting (RPC: `exec.approval.report`)
+
+_(Added v3.10.15)_ Synapse (desktop app) nodes can report local approval decisions back to the gateway for audit visibility. This is purely informational — it does **not** gate execution on the node side.
+
+| Parameter  | Type    | Required | Description                                |
+| ---------- | ------- | -------- | ------------------------------------------ |
+| `command`  | string  | ✅       | The exec command that was approved/denied  |
+| `approved` | boolean | ✅       | Whether the command was approved           |
+| `mode`     | string  | —        | Approval mode (e.g., `"auto"`, `"manual"`) |
+| `source`   | string  | —        | Source of the decision (e.g., `"synapse"`) |
+| `nodeId`   | string  | —        | Node ID that made the decision             |
+
+Reports are logged to the audit trail and broadcast as `exec.approval.reported` events to connected Control UI clients. See also `exec.approval.list` for querying approval history.
+
 ---
 
 ## 21. Session
@@ -1301,6 +1388,25 @@ Each binding entry has:
 | `session.maintenance.maxEntries`  | number        | —       | Max session entries                             |
 | `session.maintenance.rotateBytes` | string/number | —       | Rotate session files when they exceed this size |
 
+### Session IDs & Agent Session Keys
+
+Session IDs are validated against the regex `^[a-z0-9][a-z0-9._:-]{0,127}$` (case-insensitive). **Colons (`:`) are allowed** in session IDs as of v3.10.32.
+
+**Agent session key format:** Agent sessions use a colon-delimited key with 3+ parts, where the first part must be `"agent"`:
+
+```
+agent:{agentId}:{rest}
+```
+
+Examples: `agent:main:chat`, `agent:ops:discord:direct:12345`, `agent:main:subagent:abc123`.
+
+**Filename sanitization:** Since colons are not valid in filenames on most platforms, the `sessionIdToFilename()` function replaces colons with underscores when storing transcripts on disk. For example:
+
+- Session key `agent:main:chat` → filename `agent_main_chat.jsonl`
+- Session key `agent:ops:discord:direct:12345` → filename `agent_ops_discord_direct_12345.jsonl`
+
+Transcript files are stored at `~/.openclaw/agents/{agentId}/sessions/{safeKey}.jsonl`.
+
 ```json
 {
   "session": {
@@ -1334,6 +1440,21 @@ Each binding entry has:
 | `cron.webhookToken`      | string       | —       | Webhook authentication token (⚠️ sensitive)                            |
 | `cron.sessionRetention`  | string/false | —       | Auto-cleanup of cron sessions (duration string, or `false` to disable) |
 
+### Cron Job Parameters (RPC: `cron.add`)
+
+Individual cron jobs are created via the `cron.add` RPC method or the `/cron` chat command. Each job supports:
+
+| Parameter        | Type    | Default      | Description                                                         |
+| ---------------- | ------- | ------------ | ------------------------------------------------------------------- |
+| `schedule`       | string  | **required** | Cron expression (e.g., `"*/30 * * * *"`) or duration (e.g., `"5m"`) |
+| `prompt`         | string  | **required** | Message/prompt to deliver when the job fires                        |
+| `agentId`        | string  | —            | Target agent ID (null = default agent)                              |
+| `sessionKey`     | string  | —            | Target session key (null = derive from context)                     |
+| `description`    | string  | —            | Human-readable description of the job                               |
+| `enabled`        | boolean | `true`       | Whether the job is active                                           |
+| `deleteAfterRun` | boolean | —            | Delete the job after a single execution                             |
+| `notify`         | boolean | —            | Send a notification when the job fires _(added v3.10.13)_           |
+
 ```json
 {
   "cron": {
@@ -1345,7 +1466,7 @@ Each binding entry has:
 }
 ```
 
-> **Tip:** Cron jobs are managed via the `/cron` chat command or the Control UI. The config only sets global cron behavior.
+> **Tip:** Cron jobs are managed via the `/cron` chat command or the Control UI. The config only sets global cron behavior. The `maxConcurrentRuns` limit is enforced in the timer loop (fixed in openclaw#22413).
 
 ---
 
@@ -1917,6 +2038,17 @@ These settings appear in most channel configurations:
 | `gateway.security.lanAutoApprove`     | boolean | `false` | Auto-approve device pairing from LAN   |
 | `gateway.security.lanAutoApproveRole` | string  | —       | Role assigned to auto-approved devices |
 
+### Audit
+
+Audit logging tracks sensitive RPC method calls for security visibility. The gateway logs audit events and exposes them in the Control UI.
+
+| Setting                  | Type    | Default | Description                                                                                                   |
+| ------------------------ | ------- | ------- | ------------------------------------------------------------------------------------------------------------- |
+| `security.audit.enabled` | boolean | `true`  | Enable audit logging                                                                                          |
+| `security.audit.level`   | string  | `"all"` | Audit level: `"all"`, `"sensitive"`, or `"off"` _(default changed from `"sensitive"` to `"all"` in v3.10.14)_ |
+
+> **Note:** The `security.audit` config is read at runtime by the gateway method dispatcher. When set to `"all"`, every RPC method call is logged. When set to `"sensitive"`, only methods in the sensitive methods list (e.g., `config.set`, `exec.run`, `sessions.delete`, `update.run`) are logged.
+
 ### Control UI
 
 | Setting                                          | Type     | Default | Description                     |
@@ -1979,6 +2111,10 @@ These settings appear in most channel configurations:
 | `gateway.nodes.browser.node`  | string   | —       | Pin browser routing to specific node                |
 | `gateway.nodes.allowCommands` | string[] | —       | Extra allowed node.invoke commands                  |
 | `gateway.nodes.denyCommands`  | string[] | —       | Commands to block on nodes                          |
+
+### Keepalive
+
+_(Added v3.10.10)_ The `tick` RPC method is a lightweight keepalive handler used by the Control UI to maintain the WebSocket connection. It responds with `{ ts: <timestamp> }` and bypasses authentication. No configuration required — it is always available.
 
 ### HTTP Endpoints
 
