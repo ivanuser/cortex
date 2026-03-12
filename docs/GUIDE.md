@@ -2,7 +2,7 @@
 
 > **The comprehensive reference for the Cortex AI Assistant Command Center.**
 >
-> Cortex v3.10.15 · Last updated March 2026
+> Cortex v3.10.33 · Last updated March 2026
 
 <div style="background: var(--card); padding: 16px 20px; border-radius: 8px; margin: 24px 0; border-left: 4px solid var(--cyan);">
   <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
@@ -119,6 +119,7 @@ Cortex follows a **Gateway + Nodes** architecture:
 - Dual WebSocket connection: webchat (chat) + node (capabilities)
 - Full node capabilities: canvas, screen, camera, local command execution
 - System tray integration, native notifications, auto-update
+- Multi-agent group chat with network-wide agent discovery
 - See [Section 26](#26-cortex-synapse-desktop-app) for details
 
 ### Quick Start
@@ -344,10 +345,24 @@ The middle panel is your session manager:
 
 Each **session card** displays:
 
-- Session name (with type indicator emoji)
+- Session name (with smart display name — see below)
 - Last message preview
 - Model badge (e.g., `claude-sonnet-4-6`)
 - Click to open the conversation in the right panel
+
+#### Smart Session Naming
+
+Session cards use intelligent display names based on the session key:
+
+| Session Key Pattern     | Display Name          | Example                     |
+| ----------------------- | --------------------- | --------------------------- |
+| `agent:main:main`       | 🏠 Main Session       | The primary agent session   |
+| `agent:coder:chat`      | 🤖 Coder              | Agent-specific chat session |
+| `agent:main:cron:daily` | ⏰ Cron: daily        | Cron job with label         |
+| `agent:main:subagent:…` | 🤖 Sub-agent a1b2c3d4 | Sub-agent with short ID     |
+| `agent:main:discord:…`  | 💬 Discord Channel    | Channel-specific session    |
+
+This makes it easy to identify sessions at a glance without reading raw session keys.
 
 ### Session Types
 
@@ -364,11 +379,13 @@ The right panel displays the active conversation:
 - **Header**: Session name, message count badge, and current model
 - **Message Display**: Messages from both you and the assistant with:
   - **Timestamps** with relative/absolute time
-  - **Avatars** — colored circles for user and assistant
+  - **Avatars** — agent-specific avatars for agent sessions (resolved via `/avatar/{agentId}`), colored circles for user
   - **Copy button** on hover for any message
   - **Thinking blocks** — collapsible sections showing the assistant's reasoning process (with character count)
   - **Tool calls** — expandable sections showing tool invocations and results
 - **Date Dividers**: "Today", "Yesterday", etc. between messages from different days
+
+> **New in v3.10.25:** Chat messages in agent sessions show the correct agent avatar and name. The UI parses the session key to determine which agent is responding and fetches its avatar from `/avatar/{agentId}`.
 
 ### Input Area
 
@@ -550,7 +567,7 @@ Each connected instance is displayed as a card with:
 | **operator** | Device with operator role              |
 | **admin**    | Device with admin role                 |
 | **viewer**   | Device with viewer role                |
-| **v3.10.15** | Version badge                          |
+| **v3.10.33** | Version badge                          |
 
 - **Scopes**: Number of authorized scopes (e.g., "3 scopes")
 - **Details**: Expandable section with full connection metadata
@@ -657,6 +674,18 @@ The range indicator shows how many sessions fall within the selected period.
 | **SESSIONS**       | Number of sessions in the time range | Session count                            |
 | **CACHE HIT RATE** | Percentage of prompt cache hits      | Visual bar + percentage                  |
 
+### Session Detail Drawer
+
+Click any session row to open a **slide-out drawer panel** from the right side of the page. The drawer provides detailed analytics for the selected session without navigating away:
+
+- **Summary Cards**: Input tokens, output tokens, duration, and tool call count — each in its own compact panel
+- **Badges**: Agent ID, model provider, model name, and channel — displayed as color-coded tags
+- **Model Mix**: Breakdown of models used within the session (if multiple)
+- **Tool Usage**: List of tools called during the session with call counts
+- **Timeline**: Chronological view of session activity
+
+Click the backdrop or the `✕` button to close the drawer.
+
 ### Cost Tracking
 
 Cost is estimated based on the token pricing for each model used. The analytics page aggregates across all sessions and model providers. The cost breakdown includes:
@@ -683,6 +712,7 @@ Cron jobs are scheduled tasks that run on the gateway. Each job can:
 - Trigger a system event at specified intervals
 - Run in the main session or in an isolated session
 - Use a specific model override
+- Notify a webhook on completion (via `notify` field or `delivery` config)
 
 ### Status Indicator
 
@@ -705,6 +735,7 @@ Click **+ Create Job** to open the job creation form:
 | **Session Target** | Where to run                | `main` (main session), `isolated` (new isolated session)  |
 | **Model Override** | Optional model for this job | Any available model                                       |
 | **Delivery**       | Channel routing             | Target channel or "last"                                  |
+| **Notify**         | Webhook notification        | Boolean — send completion webhook                         |
 
 ### Schedule Types
 
@@ -868,7 +899,9 @@ Each actor field has a clipboard icon for copying the full device ID. The log ta
 
 ### Audit Level
 
-The audit system records events at the **"all"** level by default (as of v3.10.14), capturing every auditable action. This ensures complete visibility into gateway activity.
+The audit system records events at the **"all"** level by default, capturing every auditable action. This ensures complete visibility into gateway activity.
+
+> **Changed in v3.10.14:** The default audit level was changed from `"sensitive"` to `"all"`, so all events are captured out of the box. You can still set `gateway.security.auditLevel` to `"sensitive"` or `"off"` in the config if you prefer less logging.
 
 ### Logged Events
 
@@ -953,7 +986,7 @@ cortex devices list --token ctx_abc123...
 
 ## 13. Agents
 
-The **Agents** page manages agent workspaces, identities, tools, and channel bindings. Each agent is an independent AI personality with its own configuration.
+The **Agents** page manages agent workspaces, identities, tools, and channel bindings. Each agent is an independent AI personality with its own configuration and identity.
 
 ![Agents workspace management page showing agent selector sidebar and detail panel with tabs](images/11-agents.png)
 
@@ -962,9 +995,14 @@ The **Agents** page manages agent workspaces, identities, tools, and channel bin
 The left panel shows all configured agents:
 
 - **Agent Count**: "1 configured" (or more)
-- **Agent Entry**: Each agent shows its name, ID, and role badges:
-  - **DEFAULT** badge: The agent that handles unrouted messages
-  - Click to select and view its details
+- **Agent Entry**: Each agent shows:
+  - **Avatar** — fetched from `/avatar/{agentId}`, falls back to a letter placeholder
+  - **Name** — from the identity config (or raw ID)
+  - **Emoji** — identity emoji badge
+  - **Chat Button** (💬) — click to start a chat session with this agent directly
+  - **DEFAULT** badge — marks the agent that handles unrouted messages
+
+Click an agent to select it and view its details.
 
 ### Agent Detail Panel (Right Sub-Panel)
 
@@ -972,15 +1010,15 @@ The detail panel has **six tabs**:
 
 #### Overview Tab
 
-Displays workspace paths and identity metadata:
+Displays workspace paths and identity metadata as a **cyberpunk-styled identity card**:
 
 | Field              | Description                                                               |
 | ------------------ | ------------------------------------------------------------------------- |
 | **WORKSPACE**      | File system path to the agent's workspace (e.g., `~/.openclaw/workspace`) |
 | **PRIMARY MODEL**  | The default LLM model for this agent                                      |
-| **IDENTITY NAME**  | Display name (e.g., "Assistant")                                          |
+| **IDENTITY NAME**  | Display name (e.g., "Ranaye") — from the `identity` config block          |
 | **DEFAULT**        | Whether this is the default agent                                         |
-| **IDENTITY EMOJI** | Optional emoji identifier                                                 |
+| **IDENTITY EMOJI** | Optional emoji identifier (e.g., 🌙)                                      |
 | **SKILLS FILTER**  | Which skills this agent can use ("all skills" or specific list)           |
 
 #### Files Tab
@@ -990,6 +1028,8 @@ A workspace file browser showing the agent's files:
 - `AGENTS.md` — Agent behavior instructions
 - `SOUL.md` — Personality definition
 - `USER.md` — User context
+- `IDENTITY.md` — Agent identity (name, avatar, emoji)
+- `NETWORK.md` — Network topology (nodes, connections)
 - `MEMORY.md` — Long-term memory
 - `memory/` — Daily memory files
 - Other workspace files
@@ -1026,6 +1066,84 @@ Agent-specific scheduled tasks:
 - Schedule and status information
 - Quick management controls
 
+### Agent Identity System
+
+Each agent can have a rich identity configuration that controls how it appears across the UI and Synapse:
+
+```json
+{
+  "agents": {
+    "list": [
+      {
+        "id": "main",
+        "default": true,
+        "identity": {
+          "name": "Ranaye",
+          "emoji": "🌙",
+          "avatar": "/path/to/avatar.png",
+          "theme": "purple"
+        }
+      },
+      {
+        "id": "coder",
+        "identity": {
+          "name": "CodeBot",
+          "emoji": "🤖",
+          "theme": "cyan"
+        },
+        "model": { "primary": "claude-sonnet-4-6" }
+      }
+    ]
+  }
+}
+```
+
+The `identity` block supports:
+
+| Field       | Description                                                        |
+| ----------- | ------------------------------------------------------------------ |
+| `name`      | Display name shown in chat bubbles, session lists, and Synapse     |
+| `emoji`     | Emoji badge shown alongside the name                               |
+| `avatar`    | Path to an avatar image file (served via `/avatar/{agentId}`)      |
+| `avatarUrl` | URL to an external avatar image                                    |
+| `theme`     | Color theme for the agent's identity card (e.g., "purple", "cyan") |
+
+Agent identities are used in:
+
+- **Chat bubbles** — messages show the agent's avatar and name
+- **Session sidebar** — agent sessions display the identity name instead of raw IDs
+- **Agents page** — identity cards with avatar, name, emoji, and theme
+- **Synapse group chat** — agent picker shows names and emoji badges
+
+### Bootstrap Files
+
+When an agent starts, the gateway loads **bootstrap files** from the agent's workspace directory. These files define the agent's behavior, personality, and context:
+
+| File           | Purpose                                                      |
+| -------------- | ------------------------------------------------------------ |
+| `AGENTS.md`    | Agent behavior instructions and workspace conventions        |
+| `SOUL.md`      | Personality, tone, and character definition                  |
+| `USER.md`      | Information about the human the agent is helping             |
+| `IDENTITY.md`  | Agent's name, avatar, and emoji (auto-generated from config) |
+| `NETWORK.md`   | Network topology — nodes, machines, and connections          |
+| `MEMORY.md`    | Long-term curated memory                                     |
+| `HEARTBEAT.md` | Heartbeat task checklist                                     |
+| `TOOLS.md`     | Environment-specific tool notes                              |
+| `BOOTSTRAP.md` | First-run setup instructions (deleted after use)             |
+
+> **New in v3.10.30:** `NETWORK.md` was added to the bootstrap file whitelist. Agents can now see your network topology — machines, IPs, services, and connections — giving them context to help with infrastructure tasks.
+
+### Agent Chat Persistence
+
+Agent chat messages are now persisted as **JSONL transcript files** stored in the agent's sessions directory (`~/.openclaw/agents/{agentId}/sessions/`). This means:
+
+- Chat history with agents survives gateway restarts
+- The `chat.history` RPC method reads from these transcript files as a fallback
+- Transcript filenames use sanitized session keys (colons replaced with underscores) for filesystem compatibility
+- Each line in the JSONL file is a structured message entry
+
+> **New in v3.10.28–v3.10.31:** Agent chat persistence was added and refined — transcript files are created automatically, session keys with colons (like `agent:main:chat`) are safely converted to filenames, and history loading falls back to reading transcripts when needed.
+
 ### Multi-Agent Setup
 
 Cortex supports multiple agents, each with their own:
@@ -1034,28 +1152,7 @@ Cortex supports multiple agents, each with their own:
 - Model preferences
 - Channel bindings
 - Skills and tools
-- Personality and behavior
-
-Configure multiple agents in the gateway config:
-
-```json
-{
-  "agents": {
-    "list": [
-      {
-        "id": "main",
-        "identity": { "name": "Assistant" },
-        "default": true
-      },
-      {
-        "id": "coder",
-        "identity": { "name": "CodeBot", "emoji": "🤖" },
-        "model": "claude-sonnet-4-6"
-      }
-    ]
-  }
-}
-```
+- Identity and personality
 
 ---
 
@@ -1794,7 +1891,13 @@ The Gateway Config UI organizes settings into these sections:
       "model": { "primary": "anthropic/claude-sonnet-4-20250514" },
       "workspace": "/home/user"
     },
-    "list": [{ "id": "main", "default": true, "identity": { "name": "Assistant", "emoji": "🤖" } }]
+    "list": [
+      {
+        "id": "main",
+        "default": true,
+        "identity": { "name": "Assistant", "emoji": "🤖" }
+      }
+    ]
   },
   "channels": {
     "discord": {
@@ -2369,20 +2472,23 @@ If you're stuck:
 
 ### What Synapse Adds
 
-| Capability           | Web UI | Synapse |
-| -------------------- | :----: | :-----: |
-| Chat + streaming     |   ✅   |   ✅    |
-| Admin pages          |   ✅   |   ❌    |
-| Canvas hosting       |   ❌   |   ✅    |
-| Screen capture       |   ❌   |   ✅    |
-| Camera access        |   ❌   |   ✅    |
-| Local command exec   |   ❌   |   ✅    |
-| System tray          |   ❌   |   ✅    |
-| Native notifications |   ❌   |   ✅    |
-| Local file browser   |   ❌   |   ✅    |
-| Voice/TTS            |   ❌   |   ✅    |
-| Auto-update          |   ❌   |   ✅    |
-| Task scheduling      |   ❌   |   ✅    |
+| Capability             | Web UI | Synapse |
+| ---------------------- | :----: | :-----: |
+| Chat + streaming       |   ✅   |   ✅    |
+| Admin pages            |   ✅   |   ❌    |
+| Canvas hosting         |   ❌   |   ✅    |
+| Screen capture         |   ❌   |   ✅    |
+| Camera access          |   ❌   |   ✅    |
+| Local command exec     |   ❌   |   ✅    |
+| System tray            |   ❌   |   ✅    |
+| Native notifications   |   ❌   |   ✅    |
+| Local file browser     |   ❌   |   ✅    |
+| Voice/TTS              |   ❌   |   ✅    |
+| Auto-update            |   ❌   |   ✅    |
+| Task scheduling        |   ❌   |   ✅    |
+| Multi-agent group chat |   ❌   |   ✅    |
+| Activity feed          |   ❌   |   ✅    |
+| CLI auto-update        |   ❌   |   ✅    |
 
 ### Key Features
 
@@ -2393,16 +2499,72 @@ If you're stuck:
 - **Canvas**: Native WebView window for interactive visual content
 - **Multi-Gateway Profiles**: Connect to different gateways with saved profiles
 
+### Multi-Agent Group Chat
+
+Synapse includes a full **multi-agent group chat** system — create groups of agents that have conversations together:
+
+- **Create Groups**: Name a group and pick agents from a combined local + gateway agent list
+- **Sequential Turn-Taking**: Send a message and all agents respond one-by-one, each seeing the prior agents' replies for coherent conversation
+- **Network-Wide Agent Discovery**: The agent picker shows agents from both the local Synapse registry and the remote gateway, merged and deduplicated
+- **Agent Identity in Picker**: Each agent shows its identity name, emoji badge, and accent color instead of raw IDs
+- **Remote Agent Routing**: Local agents are called via the OpenClaw CLI; remote agents are routed through the gateway WebSocket — seamless to the user
+- **Persistence**: Groups and their message history are saved to `~/.openclaw/group-chats.json` and survive app restarts
+- **Group Management**: Delete groups from the list, end sessions, manage participants
+- **Conversation Context**: The last 20 messages are included in each agent's prompt so they stay on topic
+
+### Activity Feed
+
+Synapse logs agent actions and system events to a real-time **Activity Feed** sidebar:
+
+- **Automatic Event Logging**: Chat events, agent connections, RPC calls, and system events are captured
+- **Rust Backend**: `ActivityLog` with JSON file persistence (`activity.json`), FIFO capped at 500 entries
+- **Toggle Sidebar**: Open with `Ctrl+Shift+F`, shows events in reverse chronological order
+- **Gateway Integration**: Events logged from gateway context as they happen
+
+### CLI Auto-Update
+
+On startup, Synapse checks the installed OpenClaw CLI version and **auto-updates** if it's too old:
+
+- Detects the CLI version and compares against the minimum required version
+- Runs `npm update -g openclaw` automatically when needed
+- Re-detects the CLI path after update completes
+- On Windows, discovers `npm` by searching Program Files and common install paths
+
 ### Installation
 
 Download the latest release from the [GitLab releases page](https://gitlab.honercloud.com/llm/cortex-synapse/-/releases) or check [update.json](https://gitlab.honercloud.com/llm/cortex-synapse/-/raw/main/update.json) for the latest version.
 
 - **Windows**: `.msi` (WiX) or `.exe` (NSIS) installer
-- **Linux**: `.deb`, `.rpm`, or `.AppImage`
+- **Linux**: `.deb` or `.rpm` package
+
+> **Note:** AppImage builds are not currently produced in CI due to linuxdeploy/FUSE issues in the CI environment. `.deb` and `.rpm` are the recommended Linux formats.
 
 ### Auto-Update
 
 Synapse checks for updates automatically. When a new version is available, a banner appears with a one-click install button. Updates are signed with minisign for security.
+
+### Multi-Agent System
+
+Synapse includes a full multi-agent management system:
+
+- **Agent Registry**: SQLite-backed database with full agent metadata (name, avatar, accent color, model, personality, status)
+- **Identity Cards**: Cyberpunk-styled cards with avatars, emoji badges, and accent colors
+- **Agent Onboarding**: 6-step guided wizard for creating and configuring new agents
+- **Summon Protocol**: Agents can summon other agents — UI auto-switches to the chat panel on summon
+- **Agent Status**: Online/offline tracking with heartbeat keep-alive
+- **Gateway Sync**: Agent identities (including avatars) announced and synced to gateway on connect
+- **Shared Memory**: Cross-agent memory system (personal, shared, collaborative memory types)
+- **Permissions**: SQLite RBAC permission system with toggle matrix and agent groups
+
+### Synapse Keyboard Shortcuts
+
+| Shortcut       | Action                       |
+| -------------- | ---------------------------- |
+| `Ctrl+N`       | New chat session             |
+| `Ctrl+Shift+C` | Copy last message            |
+| `Ctrl+K`       | Command palette              |
+| `Ctrl+/`       | Focus chat input / reference |
+| `Ctrl+Shift+F` | Toggle activity feed sidebar |
 
 > **📖 Full details:** See **[DESKTOP-APP-PLAN.md](DESKTOP-APP-PLAN.md)** for the complete Synapse architecture, feature list, and development roadmap.
 
@@ -2443,20 +2605,76 @@ Cortex respects the following environment variables:
 │   ├── AGENTS.md
 │   ├── SOUL.md
 │   ├── USER.md
+│   ├── IDENTITY.md
+│   ├── NETWORK.md
 │   ├── MEMORY.md
 │   ├── HEARTBEAT.md
+│   ├── TOOLS.md
 │   ├── memory/
 │   │   └── YYYY-MM-DD.md
 │   └── skills/
 ├── agents/
 │   └── main/
-│       └── sessions/     # Session transcripts
+│       └── sessions/     # Session transcripts (JSONL files)
 ├── memory/
 │   └── main.sqlite       # Memory search database
+├── group-chats.json      # Synapse group chat persistence
 ├── whatsapp-auth/        # WhatsApp session data
 └── node-host.json        # Node configuration (if running as node)
 ```
 
 ---
 
-_This documentation covers Cortex v3.10.x (current: v3.10.15). For the latest updates, check the [GitHub repository](https://github.com/ivanuser/cortex)._
+## Appendix D: What's New in v3.10.16–v3.10.33
+
+This section summarizes all changes since v3.10.15 (March 2, 2026).
+
+### Gateway
+
+| Version  | Change                                                                                   |
+| -------- | ---------------------------------------------------------------------------------------- |
+| v3.10.17 | Agent identity cards with avatar resolution; per-agent identity (not just default agent) |
+| v3.10.18 | Agents page: permissions, memory, onboarding, groups, activity                           |
+| v3.10.21 | Agent message routing + full gateway rebuild                                             |
+| v3.10.24 | Show agent name in chat bubbles for agent sessions                                       |
+| v3.10.26 | Standard event format (`type:event`, `payload`) for agent routing                        |
+| v3.10.27 | Allow `NETWORK.md` in `agents.files.set` whitelist                                       |
+| v3.10.28 | Persist agent chat messages to session transcripts (JSONL)                               |
+| v3.10.29 | Fix agent chat persistence: colon-safe paths, history loading                            |
+| v3.10.30 | Add `NETWORK.md` to bootstrap file loader                                                |
+| v3.10.31 | Fix `context.config` → `cfg/loadConfig()` for agent chat persistence                     |
+| v3.10.32 | Allow colons in session IDs (`SAFE_SESSION_ID_RE` updated, `sessionIdToFilename`)        |
+| v3.10.33 | Docs update: PLAN.md, DESKTOP-APP-PLAN.md, CONFIG-REFERENCE.md synced to current         |
+
+### Web UI
+
+| Change                  | Description                                                                            |
+| ----------------------- | -------------------------------------------------------------------------------------- |
+| Usage drawer            | Click a session row to see detailed analytics in a slide-out drawer panel              |
+| Agent avatars           | Chat messages show agent-specific avatars based on the session key's agent ID          |
+| Smart session naming    | `agent:xxx:chat` → 🤖 Xxx, cron sessions show ⏰ labels, sub-agents show short IDs     |
+| Agent page chat buttons | 💬 button on each agent in the sidebar to start a chat session directly                |
+| Identity cards          | Cyberpunk-styled identity cards on the agents page with avatar, name, emoji, and theme |
+| Color consistency       | Full color pass across all pages for visual consistency                                |
+
+### Synapse Desktop App (v0.11.26 → v0.12.3)
+
+| Version Range | Change                                                                            |
+| ------------- | --------------------------------------------------------------------------------- |
+| v0.11.88–89   | Activity feed with automatic event logging; CLI auto-update on startup            |
+| v0.11.90–93   | Agent session naming; summon auto-switches to chat; CLI version threshold updates |
+| v0.11.94      | Multi-agent group chat backend with sequential turn-taking                        |
+| v0.11.95–96   | Windows CLI batch argument fix (node.exe bypass); remote agents in group chat     |
+| v0.11.97      | Network-wide agent discovery (gateway + local merged in picker)                   |
+| v0.11.98      | Group chat JSON persistence; delete groups from list                              |
+| v0.12.0       | Agent identity names + emoji badges in group picker                               |
+| v0.12.1       | Remote agent routing through gateway WebSocket                                    |
+| v0.12.2       | Session key fix: `agent:` prefix for correct workspace resolution                 |
+
+### Breaking Changes
+
+- **Default audit level changed to "all"** (v3.10.14): If you previously relied on the `"sensitive"` default, audit logs will now capture more events. Set `gateway.security.auditLevel` to `"sensitive"` explicitly if you want the old behavior.
+
+---
+
+_This documentation covers Cortex v3.10.x (current: v3.10.33). For the latest updates, check the [GitHub repository](https://github.com/ivanuser/cortex)._
