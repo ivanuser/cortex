@@ -28,6 +28,8 @@ const NODE_ROLE_METHODS = new Set([
   // Allow nodes to relay agent chat responses
   "agents.update",
   "agents.chat.response",
+  // Allow nodes to send chat messages (for group chat routing)
+  "chat.send",
 ]);
 
 const METHOD_SCOPE_GROUPS: Record<OperatorScope, readonly string[]> = {
