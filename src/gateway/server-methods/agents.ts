@@ -27,9 +27,12 @@ import {
 } from "../../commands/agents.config.js";
 import { loadConfig, writeConfigFile } from "../../config/config.js";
 import { resolveSessionTranscriptsDirForAgent } from "../../config/sessions/paths.js";
+import { sameFileIdentity } from "../../infra/file-identity.js";
+import { SafeOpenError, readLocalFileSafely, writeFileWithinRoot } from "../../infra/fs-safe.js";
+import { assertNoPathAliasEscape } from "../../infra/path-alias-guards.js";
+import { isNotFoundPathError } from "../../infra/path-guards.js";
 import { DEFAULT_AGENT_ID, normalizeAgentId } from "../../routing/session-key.js";
 import { resolveUserPath } from "../../utils.js";
-import { registerAgentNode } from "../agent-routing.js";
 import {
   ErrorCodes,
   errorShape,
@@ -53,7 +56,6 @@ const BOOTSTRAP_FILE_NAMES = [
   DEFAULT_USER_FILENAME,
   DEFAULT_HEARTBEAT_FILENAME,
   DEFAULT_BOOTSTRAP_FILENAME,
-  "NETWORK.md",
 ] as const;
 const BOOTSTRAP_FILE_NAMES_POST_ONBOARDING = BOOTSTRAP_FILE_NAMES.filter(
   (name) => name !== DEFAULT_BOOTSTRAP_FILENAME,
@@ -86,10 +88,7 @@ function resolveAgentWorkspaceFileOrRespondError(
   const name = (
     typeof rawName === "string" || typeof rawName === "number" ? String(rawName) : ""
   ).trim();
-  // Allow whitelisted config files + any path under uploads/ or avatars/
-  const isAllowedSubdir =
-    (name.startsWith("uploads/") || name.startsWith("avatars/")) && !name.includes("..");
-  if (!ALLOWED_FILE_NAMES.has(name) && !isAllowedSubdir) {
+  if (!ALLOWED_FILE_NAMES.has(name)) {
     respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, `unsupported file "${name}"`));
     return null;
   }
@@ -102,10 +101,161 @@ type FileMeta = {
   updatedAtMs: number;
 };
 
-async function statFile(filePath: string): Promise<FileMeta | null> {
+type ResolvedAgentWorkspaceFilePath =
+  | {
+      kind: "ready";
+      requestPath: string;
+      ioPath: string;
+      workspaceReal: string;
+    }
+  | {
+      kind: "missing";
+      requestPath: string;
+      ioPath: string;
+      workspaceReal: string;
+    }
+  | {
+      kind: "invalid";
+      requestPath: string;
+      reason: string;
+    };
+
+type ResolvedWorkspaceFilePath = Exclude<ResolvedAgentWorkspaceFilePath, { kind: "invalid" }>;
+
+function resolveNotFoundWorkspaceFilePathResult(params: {
+  error: unknown;
+  allowMissing: boolean;
+  requestPath: string;
+  ioPath: string;
+  workspaceReal: string;
+}): Extract<ResolvedAgentWorkspaceFilePath, { kind: "missing" | "invalid" }> | undefined {
+  if (!isNotFoundPathError(params.error)) {
+    return undefined;
+  }
+  if (params.allowMissing) {
+    return {
+      kind: "missing",
+      requestPath: params.requestPath,
+      ioPath: params.ioPath,
+      workspaceReal: params.workspaceReal,
+    };
+  }
+  return { kind: "invalid", requestPath: params.requestPath, reason: "file not found" };
+}
+
+function resolveWorkspaceFilePathResultOrThrow(params: {
+  error: unknown;
+  allowMissing: boolean;
+  requestPath: string;
+  ioPath: string;
+  workspaceReal: string;
+}): Extract<ResolvedAgentWorkspaceFilePath, { kind: "missing" | "invalid" }> {
+  const notFoundResult = resolveNotFoundWorkspaceFilePathResult(params);
+  if (notFoundResult) {
+    return notFoundResult;
+  }
+  throw params.error;
+}
+
+async function resolveWorkspaceRealPath(workspaceDir: string): Promise<string> {
   try {
-    const stat = await fs.stat(filePath);
-    if (!stat.isFile()) {
+    return await fs.realpath(workspaceDir);
+  } catch {
+    return path.resolve(workspaceDir);
+  }
+}
+
+async function resolveAgentWorkspaceFilePath(params: {
+  workspaceDir: string;
+  name: string;
+  allowMissing: boolean;
+}): Promise<ResolvedAgentWorkspaceFilePath> {
+  const requestPath = path.join(params.workspaceDir, params.name);
+  const workspaceReal = await resolveWorkspaceRealPath(params.workspaceDir);
+  const candidatePath = path.resolve(workspaceReal, params.name);
+
+  try {
+    await assertNoPathAliasEscape({
+      absolutePath: candidatePath,
+      rootPath: workspaceReal,
+      boundaryLabel: "workspace root",
+    });
+  } catch (error) {
+    return {
+      kind: "invalid",
+      requestPath,
+      reason: error instanceof Error ? error.message : "path escapes workspace root",
+    };
+  }
+
+  const notFoundContext = {
+    allowMissing: params.allowMissing,
+    requestPath,
+    workspaceReal,
+  } as const;
+
+  let candidateLstat: Awaited<ReturnType<typeof fs.lstat>>;
+  try {
+    candidateLstat = await fs.lstat(candidatePath);
+  } catch (err) {
+    return resolveWorkspaceFilePathResultOrThrow({
+      error: err,
+      ...notFoundContext,
+      ioPath: candidatePath,
+    });
+  }
+
+  if (candidateLstat.isSymbolicLink()) {
+    let targetReal: string;
+    try {
+      targetReal = await fs.realpath(candidatePath);
+    } catch (err) {
+      return resolveWorkspaceFilePathResultOrThrow({
+        error: err,
+        ...notFoundContext,
+        ioPath: candidatePath,
+      });
+    }
+    let targetStat: Awaited<ReturnType<typeof fs.stat>>;
+    try {
+      targetStat = await fs.stat(targetReal);
+    } catch (err) {
+      return resolveWorkspaceFilePathResultOrThrow({
+        error: err,
+        ...notFoundContext,
+        ioPath: targetReal,
+      });
+    }
+    if (!targetStat.isFile()) {
+      return { kind: "invalid", requestPath, reason: "path is not a regular file" };
+    }
+    if (targetStat.nlink > 1) {
+      return { kind: "invalid", requestPath, reason: "hardlinked file path not allowed" };
+    }
+    return { kind: "ready", requestPath, ioPath: targetReal, workspaceReal };
+  }
+
+  if (!candidateLstat.isFile()) {
+    return { kind: "invalid", requestPath, reason: "path is not a regular file" };
+  }
+  if (candidateLstat.nlink > 1) {
+    return { kind: "invalid", requestPath, reason: "hardlinked file path not allowed" };
+  }
+
+  const targetReal = await fs.realpath(candidatePath).catch(() => candidatePath);
+  return { kind: "ready", requestPath, ioPath: targetReal, workspaceReal };
+}
+
+async function statFileSafely(filePath: string): Promise<FileMeta | null> {
+  try {
+    const [stat, lstat] = await Promise.all([fs.stat(filePath), fs.lstat(filePath)]);
+    if (lstat.isSymbolicLink() || !stat.isFile()) {
+      return null;
+    }
+    if (stat.nlink > 1) {
+      return null;
+    }
+    if (!sameFileIdentity(stat, lstat)) {
       return null;
     }
     return {
@@ -130,8 +280,18 @@ async function listAgentFiles(workspaceDir: string, options?: { hideBootstrap?: 
     ? BOOTSTRAP_FILE_NAMES_POST_ONBOARDING
     : BOOTSTRAP_FILE_NAMES;
   for (const name of bootstrapFileNames) {
-    const filePath = path.join(workspaceDir, name);
-    const meta = await statFile(filePath);
+    const resolved = await resolveAgentWorkspaceFilePath({
+      workspaceDir,
+      name,
+      allowMissing: true,
+    });
+    const filePath = resolved.requestPath;
+    const meta =
+      resolved.kind === "ready"
+        ? await statFileSafely(resolved.ioPath)
+        : resolved.kind === "missing"
+          ? null
+          : null;
     if (meta) {
       files.push({
         name,
@@ -145,76 +305,44 @@ async function listAgentFiles(workspaceDir: string, options?: { hideBootstrap?: 
     }
   }
 
-  const primaryMemoryPath = path.join(workspaceDir, DEFAULT_MEMORY_FILENAME);
-  const primaryMeta = await statFile(primaryMemoryPath);
+  const primaryResolved = await resolveAgentWorkspaceFilePath({
+    workspaceDir,
+    name: DEFAULT_MEMORY_FILENAME,
+    allowMissing: true,
+  });
+  const primaryMeta =
+    primaryResolved.kind === "ready" ? await statFileSafely(primaryResolved.ioPath) : null;
   if (primaryMeta) {
     files.push({
       name: DEFAULT_MEMORY_FILENAME,
-      path: primaryMemoryPath,
+      path: primaryResolved.requestPath,
       missing: false,
       size: primaryMeta.size,
       updatedAtMs: primaryMeta.updatedAtMs,
     });
   } else {
-    const altMemoryPath = path.join(workspaceDir, DEFAULT_MEMORY_ALT_FILENAME);
-    const altMeta = await statFile(altMemoryPath);
+    const altMemoryResolved = await resolveAgentWorkspaceFilePath({
+      workspaceDir,
+      name: DEFAULT_MEMORY_ALT_FILENAME,
+      allowMissing: true,
+    });
+    const altMeta =
+      altMemoryResolved.kind === "ready" ? await statFileSafely(altMemoryResolved.ioPath) : null;
     if (altMeta) {
       files.push({
         name: DEFAULT_MEMORY_ALT_FILENAME,
-        path: altMemoryPath,
+        path: altMemoryResolved.requestPath,
         missing: false,
         size: altMeta.size,
         updatedAtMs: altMeta.updatedAtMs,
       });
     } else {
-      files.push({ name: DEFAULT_MEMORY_FILENAME, path: primaryMemoryPath, missing: true });
+      files.push({
+        name: DEFAULT_MEMORY_FILENAME,
+        path: primaryResolved.requestPath,
+        missing: true,
+      });
     }
-  }
-
-  // Also list files in uploads/ directory
-  const uploadsDir = path.join(workspaceDir, "uploads");
-  try {
-    const entries = await fs.readdir(uploadsDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isFile()) {
-        const filePath = path.join(uploadsDir, entry.name);
-        const meta = await statFile(filePath);
-        if (meta) {
-          files.push({
-            name: `uploads/${entry.name}`,
-            path: filePath,
-            missing: false,
-            size: meta.size,
-            updatedAtMs: meta.updatedAtMs,
-          });
-        }
-      }
-    }
-  } catch {
-    // uploads/ directory doesn't exist yet — that's fine
-  }
-
-  // Also list files in avatars/ directory
-  const avatarsDir = path.join(workspaceDir, "avatars");
-  try {
-    const entries = await fs.readdir(avatarsDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isFile()) {
-        const filePath = path.join(avatarsDir, entry.name);
-        const meta = await statFile(filePath);
-        if (meta) {
-          files.push({
-            name: `avatars/${entry.name}`,
-            path: filePath,
-            missing: false,
-            size: meta.size,
-            updatedAtMs: meta.updatedAtMs,
-          });
-        }
-      }
-    }
-  } catch {
-    // avatars/ directory doesn't exist yet — that's fine
   }
 
   return files;
@@ -237,6 +365,29 @@ function resolveOptionalStringParam(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function respondInvalidMethodParams(
+  respond: RespondFn,
+  method: string,
+  errors: Parameters<typeof formatValidationErrors>[0],
+): void {
+  respond(
+    false,
+    undefined,
+    errorShape(
+      ErrorCodes.INVALID_REQUEST,
+      `invalid ${method} params: ${formatValidationErrors(errors)}`,
+    ),
+  );
+}
+
+function isConfiguredAgent(cfg: ReturnType<typeof loadConfig>, agentId: string): boolean {
+  return findAgentEntryIndex(listAgentEntries(cfg), agentId) >= 0;
+}
+
+function respondAgentNotFound(respond: RespondFn, agentId: string): void {
+  respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, `agent "${agentId}" not found`));
+}
+
 async function moveToTrashBestEffort(pathname: string): Promise<void> {
   if (!pathname) {
     return;
@@ -251,6 +402,57 @@ async function moveToTrashBestEffort(pathname: string): Promise<void> {
   } catch {
     // Best-effort: path may already be gone or trash unavailable.
   }
+}
+
+function respondWorkspaceFileInvalid(respond: RespondFn, name: string, reason: string): void {
+  respond(
+    false,
+    undefined,
+    errorShape(ErrorCodes.INVALID_REQUEST, `unsafe workspace file "${name}" (${reason})`),
+  );
+}
+
+async function resolveWorkspaceFilePathOrRespond(params: {
+  respond: RespondFn;
+  workspaceDir: string;
+  name: string;
+}): Promise<ResolvedWorkspaceFilePath | undefined> {
+  const resolvedPath = await resolveAgentWorkspaceFilePath({
+    workspaceDir: params.workspaceDir,
+    name: params.name,
+    allowMissing: true,
+  });
+  if (resolvedPath.kind === "invalid") {
+    respondWorkspaceFileInvalid(params.respond, params.name, resolvedPath.reason);
+    return undefined;
+  }
+  return resolvedPath;
+}
+
+function respondWorkspaceFileUnsafe(respond: RespondFn, name: string): void {
+  respond(
+    false,
+    undefined,
+    errorShape(ErrorCodes.INVALID_REQUEST, `unsafe workspace file "${name}"`),
+  );
+}
+
+function respondWorkspaceFileMissing(params: {
+  respond: RespondFn;
+  agentId: string;
+  workspaceDir: string;
+  name: string;
+  filePath: string;
+}): void {
+  params.respond(
+    true,
+    {
+      agentId: params.agentId,
+      workspace: params.workspaceDir,
+      file: { name: params.name, path: params.filePath, missing: true },
+    },
+    undefined,
+  );
 }
 
 export const agentsHandlers: GatewayRequestHandlers = {
@@ -271,7 +473,7 @@ export const agentsHandlers: GatewayRequestHandlers = {
     const result = listAgentsForGateway(cfg);
     respond(true, result, undefined);
   },
-  "agents.create": async ({ params, respond, client }) => {
+  "agents.create": async ({ params, respond }) => {
     if (!validateAgentsCreateParams(params)) {
       respond(
         false,
@@ -341,39 +543,18 @@ export const agentsHandlers: GatewayRequestHandlers = {
     ];
     await fs.appendFile(identityPath, lines.join("\n"), "utf-8");
 
-    // If the caller is a node connection, register this agent as remotely-hosted
-    if (client && client.connect?.client?.mode === "node") {
-      registerAgentNode(
-        agentId,
-        client as unknown as import("../server/ws-types.js").GatewayWsClient,
-      );
-    }
-
     respond(true, { ok: true, agentId, name: rawName, workspace: workspaceDir }, undefined);
   },
-  "agents.update": async ({ params, respond, client }) => {
+  "agents.update": async ({ params, respond }) => {
     if (!validateAgentsUpdateParams(params)) {
-      respond(
-        false,
-        undefined,
-        errorShape(
-          ErrorCodes.INVALID_REQUEST,
-          `invalid agents.update params: ${formatValidationErrors(
-            validateAgentsUpdateParams.errors,
-          )}`,
-        ),
-      );
+      respondInvalidMethodParams(respond, "agents.update", validateAgentsUpdateParams.errors);
       return;
     }
 
     const cfg = loadConfig();
     const agentId = normalizeAgentId(String(params.agentId ?? ""));
-    if (findAgentEntryIndex(listAgentEntries(cfg), agentId) < 0) {
-      respond(
-        false,
-        undefined,
-        errorShape(ErrorCodes.INVALID_REQUEST, `agent "${agentId}" not found`),
-      );
+    if (!isConfiguredAgent(cfg, agentId)) {
+      respondAgentNotFound(respond, agentId);
       return;
     }
 
@@ -408,28 +589,11 @@ export const agentsHandlers: GatewayRequestHandlers = {
       await fs.appendFile(identityPath, `\n- Avatar: ${sanitizeIdentityLine(avatar)}\n`, "utf-8");
     }
 
-    // If the caller is a node connection, register/update this agent as remotely-hosted
-    if (client && client.connect?.client?.mode === "node") {
-      registerAgentNode(
-        agentId,
-        client as unknown as import("../server/ws-types.js").GatewayWsClient,
-      );
-    }
-
     respond(true, { ok: true, agentId }, undefined);
   },
   "agents.delete": async ({ params, respond }) => {
     if (!validateAgentsDeleteParams(params)) {
-      respond(
-        false,
-        undefined,
-        errorShape(
-          ErrorCodes.INVALID_REQUEST,
-          `invalid agents.delete params: ${formatValidationErrors(
-            validateAgentsDeleteParams.errors,
-          )}`,
-        ),
-      );
+      respondInvalidMethodParams(respond, "agents.delete", validateAgentsDeleteParams.errors);
       return;
     }
 
@@ -443,12 +607,8 @@ export const agentsHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    if (findAgentEntryIndex(listAgentEntries(cfg), agentId) < 0) {
-      respond(
-        false,
-        undefined,
-        errorShape(ErrorCodes.INVALID_REQUEST, `agent "${agentId}" not found`),
-      );
+    if (!isConfiguredAgent(cfg, agentId)) {
+      respondAgentNotFound(respond, agentId);
       return;
     }
 
@@ -502,16 +662,7 @@ export const agentsHandlers: GatewayRequestHandlers = {
   },
   "agents.files.get": async ({ params, respond }) => {
     if (!validateAgentsFilesGetParams(params)) {
-      respond(
-        false,
-        undefined,
-        errorShape(
-          ErrorCodes.INVALID_REQUEST,
-          `invalid agents.files.get params: ${formatValidationErrors(
-            validateAgentsFilesGetParams.errors,
-          )}`,
-        ),
-      );
+      respondInvalidMethodParams(respond, "agents.files.get", validateAgentsFilesGetParams.errors);
       return;
     }
     const resolved = resolveAgentWorkspaceFileOrRespondError(params, respond);
@@ -520,39 +671,29 @@ export const agentsHandlers: GatewayRequestHandlers = {
     }
     const { agentId, workspaceDir, name } = resolved;
     const filePath = path.join(workspaceDir, name);
-    const meta = await statFile(filePath);
-    if (!meta) {
-      respond(
-        true,
-        {
-          agentId,
-          workspace: workspaceDir,
-          file: { name, path: filePath, missing: true },
-        },
-        undefined,
-      );
+    const resolvedPath = await resolveWorkspaceFilePathOrRespond({
+      respond,
+      workspaceDir,
+      name,
+    });
+    if (!resolvedPath) {
       return;
     }
-    // Detect binary files by extension and return base64 for them
-    const ext = path.extname(name).toLowerCase();
-    const BINARY_EXTS = new Set([
-      ".png",
-      ".jpg",
-      ".jpeg",
-      ".gif",
-      ".webp",
-      ".svg",
-      ".ico",
-      ".bmp",
-      ".zip",
-      ".gz",
-      ".tar",
-      ".pdf",
-    ]);
-    const isBinary = BINARY_EXTS.has(ext);
-    const content = isBinary
-      ? (await fs.readFile(filePath)).toString("base64")
-      : await fs.readFile(filePath, "utf-8");
+    if (resolvedPath.kind === "missing") {
+      respondWorkspaceFileMissing({ respond, agentId, workspaceDir, name, filePath });
+      return;
+    }
+    let safeRead: Awaited<ReturnType<typeof readLocalFileSafely>>;
+    try {
+      safeRead = await readLocalFileSafely({ filePath: resolvedPath.ioPath });
+    } catch (err) {
+      if (err instanceof SafeOpenError && err.code === "not-found") {
+        respondWorkspaceFileMissing({ respond, agentId, workspaceDir, name, filePath });
+        return;
+      }
+      respondWorkspaceFileUnsafe(respond, name);
+      return;
+    }
     respond(
       true,
       {
@@ -562,10 +703,18 @@ export const agentsHandlers: GatewayRequestHandlers = {
           name,
           path: filePath,
           missing: false,
-          size: meta.size,
-          updatedAtMs: meta.updatedAtMs,
-          content,
-          ...(isBinary ? { encoding: "base64" } : {}),
+          size: safeRead.stat.size,
+          updatedAtMs: Math.floor(safeRead.stat.mtimeMs),
+          content: (() => {
+          const ext = path.extname(name).toLowerCase();
+          const BINARY_EXTS = new Set([".png",".jpg",".jpeg",".gif",".webp",".svg",".ico",".bmp",".zip",".gz",".tar",".pdf"]);
+          return BINARY_EXTS.has(ext) ? safeRead.buffer.toString("base64") : safeRead.buffer.toString("utf-8");
+        })(),
+          ...(() => {
+            const ext = path.extname(name).toLowerCase();
+            const BINARY_EXTS = new Set([".png",".jpg",".jpeg",".gif",".webp",".svg",".ico",".bmp",".zip",".gz",".tar",".pdf"]);
+            return BINARY_EXTS.has(ext) ? { encoding: "base64" as const } : {};
+          })(),
         },
       },
       undefined,
@@ -573,16 +722,7 @@ export const agentsHandlers: GatewayRequestHandlers = {
   },
   "agents.files.set": async ({ params, respond }) => {
     if (!validateAgentsFilesSetParams(params)) {
-      respond(
-        false,
-        undefined,
-        errorShape(
-          ErrorCodes.INVALID_REQUEST,
-          `invalid agents.files.set params: ${formatValidationErrors(
-            validateAgentsFilesSetParams.errors,
-          )}`,
-        ),
-      );
+      respondInvalidMethodParams(respond, "agents.files.set", validateAgentsFilesSetParams.errors);
       return;
     }
     const resolved = resolveAgentWorkspaceFileOrRespondError(params, respond);
@@ -590,20 +730,45 @@ export const agentsHandlers: GatewayRequestHandlers = {
       return;
     }
     const { agentId, workspaceDir, name } = resolved;
-    // Ensure parent directories exist (supports nested paths like "uploads/image.png")
+    await fs.mkdir(workspaceDir, { recursive: true });
     const filePath = path.join(workspaceDir, name);
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    // Support binary files via base64 encoding
-    const isBase64 = params.encoding === "base64";
-    if (isBase64) {
-      const base64Data = String(params.content ?? "");
-      const buffer = Buffer.from(base64Data, "base64");
-      await fs.writeFile(filePath, buffer);
-    } else {
-      const content = String(params.content ?? "");
-      await fs.writeFile(filePath, content, "utf-8");
+    const resolvedPath = await resolveWorkspaceFilePathOrRespond({
+      respond,
+      workspaceDir,
+      name,
+    });
+    if (!resolvedPath) {
+      return;
     }
-    const meta = await statFile(filePath);
+    const isBase64 = (params as any).encoding === "base64";
+    const content = String(params.content ?? "");
+    const relativeWritePath = path.relative(resolvedPath.workspaceReal, resolvedPath.ioPath);
+    if (
+      !relativeWritePath ||
+      relativeWritePath.startsWith("..") ||
+      path.isAbsolute(relativeWritePath)
+    ) {
+      respondWorkspaceFileUnsafe(respond, name);
+      return;
+    }
+    try {
+      if (isBase64) {
+        const buffer = Buffer.from(content, "base64");
+        await fs.mkdir(path.dirname(resolvedPath.ioPath), { recursive: true });
+        await fs.writeFile(resolvedPath.ioPath, buffer);
+      } else {
+        await writeFileWithinRoot({
+          rootDir: resolvedPath.workspaceReal,
+          relativePath: relativeWritePath,
+          data: content,
+          encoding: "utf8",
+        });
+      }
+    } catch {
+      respondWorkspaceFileUnsafe(respond, name);
+      return;
+    }
+    const meta = await statFileSafely(resolvedPath.ioPath);
     respond(
       true,
       {
@@ -616,117 +781,10 @@ export const agentsHandlers: GatewayRequestHandlers = {
           missing: false,
           size: meta?.size,
           updatedAtMs: meta?.updatedAtMs,
-          // Don't echo back binary content
-          content: isBase64 ? undefined : String(params.content ?? ""),
+          content,
         },
       },
       undefined,
     );
-  },
-  "agents.files.delete": async ({ params, respond }) => {
-    const resolved = resolveAgentWorkspaceFileOrRespondError(params, respond);
-    if (!resolved) {
-      return;
-    }
-    const { agentId, workspaceDir, name } = resolved;
-    const filePath = path.join(workspaceDir, name);
-    try {
-      await fs.unlink(filePath);
-      respond(true, { ok: true, agentId, workspace: workspaceDir, name }, undefined);
-    } catch (err: unknown) {
-      const code = (err as NodeJS.ErrnoException)?.code;
-      if (code === "ENOENT") {
-        respond(
-          true,
-          { ok: true, agentId, workspace: workspaceDir, name, alreadyMissing: true },
-          undefined,
-        );
-      } else {
-        respond(
-          false,
-          undefined,
-          errorShape(ErrorCodes.INTERNAL, `failed to delete: ${(err as Error).message}`),
-        );
-      }
-    }
-  },
-
-  /**
-   * agents.chat.response — called by sub-gateway nodes to relay agent responses
-   * back to the UI. Broadcasts the response as a chat event.
-   */
-  "agents.chat.response": async ({ params, respond, context }) => {
-    const p = params as Record<string, string | undefined>;
-    const agentId = (p.agentId ?? "").trim();
-    const sessionKey = (p.sessionKey ?? "").trim();
-    const runId = (p.runId ?? "").trim();
-    const status = (p.status ?? "complete").trim();
-    const message = (p.message ?? "").trim();
-
-    if (!agentId || !sessionKey || !runId) {
-      respond(
-        false,
-        undefined,
-        errorShape(ErrorCodes.INVALID_REQUEST, "agentId, sessionKey, and runId are required"),
-      );
-      return;
-    }
-
-    // Broadcast to all connected UI clients as a chat final event
-    const payload = {
-      runId,
-      sessionKey,
-      seq: 1,
-      state: status === "error" ? ("error" as const) : ("final" as const),
-      ...(status === "error"
-        ? { errorMessage: message }
-        : {
-            message: {
-              role: "assistant",
-              content: [{ type: "text", text: message }],
-              agentId,
-            },
-          }),
-    };
-    context.broadcast("chat", payload);
-
-    // Persist agent response to session transcript
-    if (status !== "error" && message) {
-      try {
-        const { resolveAgentWorkspaceDir } = await import("../../agents/agent-scope.js");
-        const { loadConfig } = await import("../../config/config.js");
-        const { SessionManager: SM, CURRENT_SESSION_VERSION: VER } =
-          await import("@mariozechner/pi-coding-agent");
-        const fs = await import("fs");
-        const pathMod = await import("path");
-        const cfg = loadConfig();
-        const workspaceDir = resolveAgentWorkspaceDir(cfg, agentId);
-        const sessionsDir = pathMod.join(workspaceDir, "sessions");
-        const safeKey = sessionKey.replace(/:/g, "_");
-        const transcriptPath = pathMod.join(sessionsDir, `${safeKey}.jsonl`);
-        if (!fs.existsSync(transcriptPath)) {
-          fs.mkdirSync(sessionsDir, { recursive: true });
-          const header = {
-            type: "session",
-            version: VER,
-            id: sessionKey,
-            timestamp: new Date().toISOString(),
-          };
-          fs.writeFileSync(transcriptPath, `${JSON.stringify(header)}\n`);
-        }
-        const sm = SM.open(transcriptPath);
-        sm.appendMessage({
-          role: "assistant",
-          content: [{ type: "text", text: message }],
-        });
-        context.logGateway.info(`[agents.chat.response] persisted response to ${safeKey}.jsonl`);
-      } catch (err) {
-        context.logGateway.warn(
-          `[agents.chat.response] failed to persist response: ${String(err)}`,
-        );
-      }
-    }
-
-    respond(true, { ok: true, relayed: true }, undefined);
   },
 };

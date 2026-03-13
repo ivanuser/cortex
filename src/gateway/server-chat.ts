@@ -4,6 +4,7 @@ import { isSilentReplyText, SILENT_REPLY_TOKEN } from "../auto-reply/tokens.js";
 import { loadConfig } from "../config/config.js";
 import { type AgentEventPayload, getAgentRunContext } from "../infra/agent-events.js";
 import { resolveHeartbeatVisibility } from "../infra/heartbeat-visibility.js";
+import { stripInlineDirectiveTagsForDisplay } from "../utils/directive-tags.js";
 import { loadSessionEntry } from "./session-utils.js";
 import { formatForLog } from "./ws-log.js";
 
@@ -72,6 +73,62 @@ function normalizeHeartbeatChatFinalText(params: {
     return { suppress: true, text: "" };
   }
   return { suppress: false, text: stripped.text };
+}
+
+function isSilentReplyLeadFragment(text: string): boolean {
+  const normalized = text.trim().toUpperCase();
+  if (!normalized) {
+    return false;
+  }
+  if (!/^[A-Z_]+$/.test(normalized)) {
+    return false;
+  }
+  if (normalized === SILENT_REPLY_TOKEN) {
+    return false;
+  }
+  return SILENT_REPLY_TOKEN.startsWith(normalized);
+}
+
+function appendUniqueSuffix(base: string, suffix: string): string {
+  if (!suffix) {
+    return base;
+  }
+  if (!base) {
+    return suffix;
+  }
+  if (base.endsWith(suffix)) {
+    return base;
+  }
+  const maxOverlap = Math.min(base.length, suffix.length);
+  for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
+    if (base.slice(-overlap) === suffix.slice(0, overlap)) {
+      return base + suffix.slice(overlap);
+    }
+  }
+  return base + suffix;
+}
+
+function resolveMergedAssistantText(params: {
+  previousText: string;
+  nextText: string;
+  nextDelta: string;
+}) {
+  const { previousText, nextText, nextDelta } = params;
+  if (nextText && previousText) {
+    if (nextText.startsWith(previousText)) {
+      return nextText;
+    }
+    if (previousText.startsWith(nextText) && !nextDelta) {
+      return previousText;
+    }
+  }
+  if (nextDelta) {
+    return appendUniqueSuffix(previousText, nextDelta);
+  }
+  if (nextText) {
+    return nextText;
+  }
+  return previousText;
 }
 
 export type ChatRunEntry = {
@@ -145,6 +202,8 @@ export type ChatRunState = {
   registry: ChatRunRegistry;
   buffers: Map<string, string>;
   deltaSentAt: Map<string, number>;
+  /** Length of text at the time of the last broadcast, used to avoid duplicate flushes. */
+  deltaLastBroadcastLen: Map<string, number>;
   abortedRuns: Map<string, number>;
   /** Accumulated image content blocks from tool results, keyed by clientRunId */
   runImages: Map<string, ChatImageBlock[]>;
@@ -155,6 +214,7 @@ export function createChatRunState(): ChatRunState {
   const registry = createChatRunRegistry();
   const buffers = new Map<string, string>();
   const deltaSentAt = new Map<string, number>();
+  const deltaLastBroadcastLen = new Map<string, number>();
   const abortedRuns = new Map<string, number>();
   const runImages = new Map<string, ChatImageBlock[]>();
 
@@ -162,6 +222,7 @@ export function createChatRunState(): ChatRunState {
     registry.clear();
     buffers.clear();
     deltaSentAt.clear();
+    deltaLastBroadcastLen.clear();
     abortedRuns.clear();
     runImages.clear();
   };
@@ -170,6 +231,7 @@ export function createChatRunState(): ChatRunState {
     registry,
     buffers,
     deltaSentAt,
+    deltaLastBroadcastLen,
     abortedRuns,
     runImages,
     clear,
@@ -289,11 +351,27 @@ export function createAgentEventHandler({
     sourceRunId: string,
     seq: number,
     text: string,
+    delta?: unknown,
   ) => {
-    if (isSilentReplyText(text, SILENT_REPLY_TOKEN)) {
+    const cleanedText = stripInlineDirectiveTagsForDisplay(text).text;
+    const cleanedDelta =
+      typeof delta === "string" ? stripInlineDirectiveTagsForDisplay(delta).text : "";
+    const previousText = chatRunState.buffers.get(clientRunId) ?? "";
+    const mergedText = resolveMergedAssistantText({
+      previousText,
+      nextText: cleanedText,
+      nextDelta: cleanedDelta,
+    });
+    if (!mergedText) {
       return;
     }
-    chatRunState.buffers.set(clientRunId, text);
+    chatRunState.buffers.set(clientRunId, mergedText);
+    if (isSilentReplyText(mergedText, SILENT_REPLY_TOKEN)) {
+      return;
+    }
+    if (isSilentReplyLeadFragment(mergedText)) {
+      return;
+    }
     if (shouldHideHeartbeatChatOutput(clientRunId, sourceRunId)) {
       return;
     }
@@ -303,7 +381,60 @@ export function createAgentEventHandler({
       return;
     }
     chatRunState.deltaSentAt.set(clientRunId, now);
+    chatRunState.deltaLastBroadcastLen.set(clientRunId, mergedText.length);
     const payload = {
+      runId: clientRunId,
+      sessionKey,
+      seq,
+      state: "delta" as const,
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: mergedText }],
+        timestamp: now,
+      },
+    };
+    broadcast("chat", payload, { dropIfSlow: true });
+    nodeSendToSession(sessionKey, "chat", payload);
+  };
+
+  const flushBufferedChatDeltaIfNeeded = (
+    sessionKey: string,
+    clientRunId: string,
+    sourceRunId: string,
+    seq: number,
+  ) => {
+    const bufferedText = stripInlineDirectiveTagsForDisplay(
+      chatRunState.buffers.get(clientRunId) ?? "",
+    ).text.trim();
+    const normalizedHeartbeatText = normalizeHeartbeatChatFinalText({
+      runId: clientRunId,
+      sourceRunId,
+      text: bufferedText,
+    });
+    const text = normalizedHeartbeatText.text.trim();
+    const shouldSuppressSilent =
+      normalizedHeartbeatText.suppress || isSilentReplyText(text, SILENT_REPLY_TOKEN);
+    const shouldSuppressSilentLeadFragment = isSilentReplyLeadFragment(text);
+    const shouldSuppressHeartbeatStreaming = shouldHideHeartbeatChatOutput(
+      clientRunId,
+      sourceRunId,
+    );
+    if (
+      !text ||
+      shouldSuppressSilent ||
+      shouldSuppressSilentLeadFragment ||
+      shouldSuppressHeartbeatStreaming
+    ) {
+      return;
+    }
+
+    const lastBroadcastLen = chatRunState.deltaLastBroadcastLen.get(clientRunId) ?? 0;
+    if (text.length <= lastBroadcastLen) {
+      return;
+    }
+
+    const now = Date.now();
+    const flushPayload = {
       runId: clientRunId,
       sessionKey,
       seq,
@@ -314,8 +445,10 @@ export function createAgentEventHandler({
         timestamp: now,
       },
     };
-    broadcast("chat", payload, { dropIfSlow: true });
-    nodeSendToSession(sessionKey, "chat", payload);
+    broadcast("chat", flushPayload, { dropIfSlow: true });
+    nodeSendToSession(sessionKey, "chat", flushPayload);
+    chatRunState.deltaLastBroadcastLen.set(clientRunId, text.length);
+    chatRunState.deltaSentAt.set(clientRunId, now);
   };
 
   const emitChatFinal = (
@@ -325,8 +458,11 @@ export function createAgentEventHandler({
     seq: number,
     jobState: "done" | "error",
     error?: unknown,
+    stopReason?: string,
   ) => {
-    const bufferedText = chatRunState.buffers.get(clientRunId)?.trim() ?? "";
+    const bufferedText = stripInlineDirectiveTagsForDisplay(
+      chatRunState.buffers.get(clientRunId) ?? "",
+    ).text.trim();
     const normalizedHeartbeatText = normalizeHeartbeatChatFinalText({
       runId: clientRunId,
       sourceRunId,
@@ -335,6 +471,12 @@ export function createAgentEventHandler({
     const text = normalizedHeartbeatText.text.trim();
     const shouldSuppressSilent =
       normalizedHeartbeatText.suppress || isSilentReplyText(text, SILENT_REPLY_TOKEN);
+    // Flush any throttled delta so streaming clients receive the complete text
+    // before the final event. The 150 ms throttle in emitChatDelta may have
+    // suppressed the most recent chunk, leaving the client with stale text.
+    // Only flush if the buffer has grown since the last broadcast to avoid duplicates.
+    flushBufferedChatDeltaIfNeeded(sessionKey, clientRunId, sourceRunId, seq);
+    chatRunState.deltaLastBroadcastLen.delete(clientRunId);
     chatRunState.buffers.delete(clientRunId);
     chatRunState.deltaSentAt.delete(clientRunId);
     // Collect any images accumulated from tool results during this run.
@@ -358,6 +500,7 @@ export function createAgentEventHandler({
         sessionKey,
         seq,
         state: "final" as const,
+        ...(stopReason && { stopReason }),
         message:
           contentBlocks.length > 0
             ? {
@@ -408,6 +551,7 @@ export function createAgentEventHandler({
     const chatLink = chatRunState.registry.peek(evt.runId);
     const eventSessionKey =
       typeof evt.sessionKey === "string" && evt.sessionKey.trim() ? evt.sessionKey : undefined;
+    const isControlUiVisible = getAgentRunContext(evt.runId)?.isControlUiVisible ?? true;
     const sessionKey =
       chatLink?.sessionKey ?? eventSessionKey ?? resolveSessionKeyForRun(evt.runId);
     const clientRunId = chatLink?.clientRunId ?? evt.runId;
@@ -483,6 +627,12 @@ export function createAgentEventHandler({
     }
     agentRunSeq.set(evt.runId, evt.seq);
     if (isToolEvent) {
+      const toolPhase = typeof evt.data?.phase === "string" ? evt.data.phase : "";
+      // Flush pending assistant text before tool-start events so clients can
+      // render complete pre-tool text above tool cards (not truncated by delta throttle).
+      if (toolPhase === "start" && isControlUiVisible && sessionKey && !isAborted) {
+        flushBufferedChatDeltaIfNeeded(sessionKey, clientRunId, evt.runId, evt.seq);
+      }
       // Always broadcast tool events to registered WS recipients with
       // tool-events capability, regardless of verboseLevel. The verbose
       // setting only controls whether tool details are sent as channel
@@ -498,15 +648,17 @@ export function createAgentEventHandler({
     const lifecyclePhase =
       evt.stream === "lifecycle" && typeof evt.data?.phase === "string" ? evt.data.phase : null;
 
-    if (sessionKey) {
+    if (isControlUiVisible && sessionKey) {
       // Send tool events to node/channel subscribers only when verbose is enabled;
       // WS clients already received the event above via broadcastToConnIds.
       if (!isToolEvent || toolVerbose !== "off") {
         nodeSendToSession(sessionKey, "agent", isToolEvent ? toolPayload : agentPayload);
       }
       if (!isAborted && evt.stream === "assistant" && typeof evt.data?.text === "string") {
-        emitChatDelta(sessionKey, clientRunId, evt.runId, evt.seq, evt.data.text);
+        emitChatDelta(sessionKey, clientRunId, evt.runId, evt.seq, evt.data.text, evt.data.delta);
       } else if (!isAborted && (lifecyclePhase === "end" || lifecyclePhase === "error")) {
+        const evtStopReason =
+          typeof evt.data?.stopReason === "string" ? evt.data.stopReason : undefined;
         if (chatLink) {
           const finished = chatRunState.registry.shift(evt.runId);
           if (!finished) {
@@ -520,6 +672,7 @@ export function createAgentEventHandler({
             evt.seq,
             lifecyclePhase === "error" ? "error" : "done",
             evt.data?.error,
+            evtStopReason,
           );
         } else {
           emitChatFinal(
@@ -529,6 +682,7 @@ export function createAgentEventHandler({
             evt.seq,
             lifecyclePhase === "error" ? "error" : "done",
             evt.data?.error,
+            evtStopReason,
           );
         }
       } else if (isAborted && (lifecyclePhase === "end" || lifecyclePhase === "error")) {

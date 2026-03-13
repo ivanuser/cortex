@@ -1,5 +1,6 @@
 import {
   approveDevicePairing,
+  getPairedDevice,
   listDevicePairing,
   removePairedDevice,
   type DeviceAuthToken,
@@ -10,6 +11,8 @@ import {
   updatePairedDeviceMetadata,
 } from "../../infra/device-pairing.js";
 import { isValidRole } from "../../security/roles.js";
+import { normalizeDeviceAuthScopes } from "../../shared/device-auth.js";
+import { roleScopesAllow } from "../../shared/operator-scope-compat.js";
 import {
   ErrorCodes,
   errorShape,
@@ -31,6 +34,25 @@ function redactPairedDevice(
     ...rest,
     tokens: summarizeDeviceTokens(tokens),
   };
+}
+
+function resolveMissingRequestedScope(params: {
+  role: string;
+  requestedScopes: readonly string[];
+  callerScopes: readonly string[];
+}): string | null {
+  for (const scope of params.requestedScopes) {
+    if (
+      !roleScopesAllow({
+        role: params.role,
+        requestedScopes: [scope],
+        allowedScopes: params.callerScopes,
+      })
+    ) {
+      return scope;
+    }
+  }
+  return null;
 }
 
 export const deviceHandlers: GatewayRequestHandlers = {
@@ -148,7 +170,7 @@ export const deviceHandlers: GatewayRequestHandlers = {
     context.logGateway.info(`device pairing removed device=${removed.deviceId}`);
     respond(true, removed, undefined);
   },
-  "device.token.rotate": async ({ params, respond, context }) => {
+  "device.token.rotate": async ({ params, respond, context, client }) => {
     if (!validateDeviceTokenRotateParams(params)) {
       respond(
         false,
@@ -167,6 +189,28 @@ export const deviceHandlers: GatewayRequestHandlers = {
       role: string;
       scopes?: string[];
     };
+    const pairedDevice = await getPairedDevice(deviceId);
+    if (!pairedDevice) {
+      respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "unknown deviceId/role"));
+      return;
+    }
+    const callerScopes = Array.isArray(client?.connect?.scopes) ? client.connect.scopes : [];
+    const requestedScopes = normalizeDeviceAuthScopes(
+      scopes ?? pairedDevice.tokens?.[role.trim()]?.scopes ?? pairedDevice.scopes,
+    );
+    const missingScope = resolveMissingRequestedScope({
+      role,
+      requestedScopes,
+      callerScopes,
+    });
+    if (missingScope) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, `missing scope: ${missingScope}`),
+      );
+      return;
+    }
     const entry = await rotateDeviceToken({ deviceId, role, scopes });
     if (!entry) {
       respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "unknown deviceId/role"));

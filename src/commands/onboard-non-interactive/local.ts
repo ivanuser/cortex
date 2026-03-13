@@ -4,7 +4,6 @@ import { resolveGatewayPort, writeConfigFile } from "../../config/config.js";
 import { logConfigUpdated } from "../../config/logging.js";
 import type { RuntimeEnv } from "../../runtime.js";
 import { DEFAULT_GATEWAY_DAEMON_RUNTIME } from "../daemon-runtime.js";
-import { healthCommand } from "../health.js";
 import { applyOnboardingLocalWorkspaceConfig } from "../onboard-config.js";
 import {
   applyWizardMetadata,
@@ -15,12 +14,13 @@ import {
 } from "../onboard-helpers.js";
 import type { OnboardOptions } from "../onboard-types.js";
 import { inferAuthChoiceFromFlags } from "./local/auth-choice-inference.js";
-import { applyNonInteractiveAuthChoice } from "./local/auth-choice.js";
-import { installGatewayDaemonNonInteractive } from "./local/daemon-install.js";
 import { applyNonInteractiveGatewayConfig } from "./local/gateway-config.js";
 import { logNonInteractiveOnboardingJson } from "./local/output.js";
 import { applyNonInteractiveSkillsConfig } from "./local/skills-config.js";
 import { resolveNonInteractiveWorkspaceDir } from "./local/workspace.js";
+
+const INSTALL_DAEMON_HEALTH_DEADLINE_MS = 45_000;
+const ATTACH_EXISTING_GATEWAY_HEALTH_DEADLINE_MS = 15_000;
 
 export async function runNonInteractiveOnboardingLocal(params: {
   opts: OnboardOptions;
@@ -51,17 +51,20 @@ export async function runNonInteractiveOnboardingLocal(params: {
     return;
   }
   const authChoice = opts.authChoice ?? inferredAuthChoice.choice ?? "skip";
-  const nextConfigAfterAuth = await applyNonInteractiveAuthChoice({
-    nextConfig,
-    authChoice,
-    opts,
-    runtime,
-    baseConfig,
-  });
-  if (!nextConfigAfterAuth) {
-    return;
+  if (authChoice !== "skip") {
+    const { applyNonInteractiveAuthChoice } = await import("./local/auth-choice.js");
+    const nextConfigAfterAuth = await applyNonInteractiveAuthChoice({
+      nextConfig,
+      authChoice,
+      opts,
+      runtime,
+      baseConfig,
+    });
+    if (!nextConfigAfterAuth) {
+      return;
+    }
+    nextConfig = nextConfigAfterAuth;
   }
-  nextConfig = nextConfigAfterAuth;
 
   const gatewayBasePort = resolveGatewayPort(baseConfig);
   const gatewayResult = applyNonInteractiveGatewayConfig({
@@ -85,27 +88,54 @@ export async function runNonInteractiveOnboardingLocal(params: {
     skipBootstrap: Boolean(nextConfig.agents?.defaults?.skipBootstrap),
   });
 
-  await installGatewayDaemonNonInteractive({
-    nextConfig,
-    opts,
-    runtime,
-    port: gatewayResult.port,
-    gatewayToken: gatewayResult.gatewayToken,
-  });
+  if (opts.installDaemon) {
+    const { installGatewayDaemonNonInteractive } = await import("./local/daemon-install.js");
+    await installGatewayDaemonNonInteractive({
+      nextConfig,
+      opts,
+      runtime,
+      port: gatewayResult.port,
+    });
+  }
 
   const daemonRuntimeRaw = opts.daemonRuntime ?? DEFAULT_GATEWAY_DAEMON_RUNTIME;
   if (!opts.skipHealth) {
+    const { healthCommand } = await import("../health.js");
     const links = resolveControlUiLinks({
       bind: gatewayResult.bind as "auto" | "lan" | "loopback" | "custom" | "tailnet",
       port: gatewayResult.port,
       customBindHost: nextConfig.gateway?.customBindHost,
       basePath: undefined,
     });
-    await waitForGatewayReachable({
+    const probe = await waitForGatewayReachable({
       url: links.wsUrl,
       token: gatewayResult.gatewayToken,
-      deadlineMs: 15_000,
+      deadlineMs: opts.installDaemon
+        ? INSTALL_DAEMON_HEALTH_DEADLINE_MS
+        : ATTACH_EXISTING_GATEWAY_HEALTH_DEADLINE_MS,
     });
+    if (!probe.ok) {
+      const message = [
+        `Gateway did not become reachable at ${links.wsUrl}.`,
+        probe.detail ? `Last probe: ${probe.detail}` : undefined,
+        !opts.installDaemon
+          ? [
+              "Non-interactive local onboarding only waits for an already-running gateway unless you pass --install-daemon.",
+              `Fix: start \`${formatCliCommand("openclaw gateway run")}\`, re-run with \`--install-daemon\`, or use \`--skip-health\`.`,
+              process.platform === "win32"
+                ? "Native Windows managed gateway install tries Scheduled Tasks first and falls back to a per-user Startup-folder login item when task creation is denied."
+                : undefined,
+            ]
+              .filter(Boolean)
+              .join("\n")
+          : undefined,
+      ]
+        .filter(Boolean)
+        .join("\n");
+      runtime.error(message);
+      runtime.exit(1);
+      return;
+    }
     await healthCommand({ json: false, timeoutMs: 10_000 }, runtime);
   }
 

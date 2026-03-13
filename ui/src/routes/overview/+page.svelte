@@ -191,7 +191,7 @@
   let activeSessions = $derived(sessions.list.filter(s => (s as any).kind !== 'isolated'));
 
   // AI Identity derived
-  let aiName = $derived((helloData?.branding as any)?.assistantName || (helloData?.server as any)?.name || 'AI PRESENCE');
+  let aiName = $derived((helloData?.branding as any)?.assistantName || (helloData?.server as any)?.name || 'CORTEX AI');
   let aiModel = $derived((helloData?.server as any)?.model || (modelsList[0] as any)?.id || 'unknown');
   let aiPlatform = $derived((helloData?.server as any)?.platform || '');
   let aiHostname = $derived((helloData?.server as any)?.hostname || '');
@@ -448,7 +448,7 @@
           </div>
         </div>
         <div class="hud-id-name">{aiName}</div>
-        <div class="hud-id-sub">AI PRESENCE // AGENT</div>
+        <div class="hud-id-sub">AI PRESENCE // CORTEX NODE</div>
         <div class="hud-id-tags">
           <span class="hud-tag hud-tag-a">{aiModel}</span>
           <span class="hud-tag {conn.state.status === 'connected' ? 'hud-tag-g' : 'hud-tag-r'}">{conn.state.status === 'connected' ? 'online' : 'offline'}</span>

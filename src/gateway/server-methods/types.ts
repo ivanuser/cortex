@@ -18,8 +18,9 @@ export type GatewayClient = {
   connect: ConnectParams;
   connId?: string;
   clientIp?: string;
-  /** Security role from device pairing or API token (admin/operator/viewer/chat-only). */
-  securityRole?: string;
+  canvasHostUrl?: string;
+  canvasCapability?: string;
+  canvasCapabilityExpiresAtMs?: number;
 };
 
 export type RespondFn = (
@@ -49,6 +50,7 @@ export type GatewayRequestContext = {
   nodeUnsubscribe: (nodeId: string, sessionKey: string) => void;
   nodeUnsubscribeAll: (nodeId: string) => void;
   hasConnectedMobileNode: () => boolean;
+  hasExecApprovalClients?: () => boolean;
   nodeRegistry: NodeRegistry;
   agentRunSeq: Map<string, number>;
   chatAbortControllers: Map<string, ChatAbortControllerEntry>;

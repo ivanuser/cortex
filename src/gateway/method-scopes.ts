@@ -13,6 +13,8 @@ export type OperatorScope =
 
 export const CLI_DEFAULT_OPERATOR_SCOPES: OperatorScope[] = [
   ADMIN_SCOPE,
+  READ_SCOPE,
+  WRITE_SCOPE,
   APPROVALS_SCOPE,
   PAIRING_SCOPE,
 ];
@@ -20,6 +22,10 @@ export const CLI_DEFAULT_OPERATOR_SCOPES: OperatorScope[] = [
 const NODE_ROLE_METHODS = new Set([
   "node.invoke.result",
   "node.event",
+  "node.pending.drain",
+  "node.canvas.capability.refresh",
+  "node.pending.pull",
+  "node.pending.ack",
   "skills.bins",
   "node.pair.request",
   // Allow nodes to announce their local agents to the gateway
@@ -61,6 +67,7 @@ const METHOD_SCOPE_GROUPS: Record<OperatorScope, readonly string[]> = {
   ],
   [READ_SCOPE]: [
     "health",
+    "doctor.memory.status",
     "logs.tail",
     "channels.status",
     "status",
@@ -69,11 +76,13 @@ const METHOD_SCOPE_GROUPS: Record<OperatorScope, readonly string[]> = {
     "tts.status",
     "tts.providers",
     "models.list",
+    "tools.catalog",
     "agents.list",
     "agent.identity.get",
     "skills.status",
     "voicewake.get",
     "sessions.list",
+    "sessions.get",
     "sessions.preview",
     "sessions.resolve",
     "sessions.usage",
@@ -82,12 +91,14 @@ const METHOD_SCOPE_GROUPS: Record<OperatorScope, readonly string[]> = {
     "cron.list",
     "cron.status",
     "cron.runs",
+    "gateway.identity.get",
     "system-presence",
     "last-heartbeat",
     "node.list",
     "node.describe",
     "chat.history",
     "config.get",
+    "config.schema.lookup",
     "talk.config",
     "agents.files.list",
     "agents.files.get",
@@ -109,6 +120,7 @@ const METHOD_SCOPE_GROUPS: Record<OperatorScope, readonly string[]> = {
     "chat.abort",
     "browser.request",
     "push.test",
+    "node.pending.enqueue",
   ],
   [ADMIN_SCOPE]: [
     "channels.logout",
@@ -117,6 +129,8 @@ const METHOD_SCOPE_GROUPS: Record<OperatorScope, readonly string[]> = {
     "agents.delete",
     "skills.install",
     "skills.update",
+    "secrets.reload",
+    "secrets.resolve",
     "cron.add",
     "cron.update",
     "cron.remove",

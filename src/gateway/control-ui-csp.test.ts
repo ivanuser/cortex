@@ -10,4 +10,10 @@ describe("buildControlUiCspHeader", () => {
     expect(csp).toContain("font-src 'self' https://fonts.gstatic.com");
     expect(csp).toContain("connect-src 'self' ws: wss: https:");
   });
+
+  it("allows Google Fonts for style and font loading", () => {
+    const csp = buildControlUiCspHeader();
+    expect(csp).toContain("https://fonts.googleapis.com");
+    expect(csp).toContain("font-src 'self' https://fonts.gstatic.com");
+  });
 });

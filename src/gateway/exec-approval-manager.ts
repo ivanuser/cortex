@@ -1,19 +1,13 @@
 import { randomUUID } from "node:crypto";
-import type { ExecApprovalDecision } from "../infra/exec-approvals.js";
+import type {
+  ExecApprovalDecision,
+  ExecApprovalRequestPayload as InfraExecApprovalRequestPayload,
+} from "../infra/exec-approvals.js";
 
 // Grace period to keep resolved entries for late awaitDecision calls
 const RESOLVED_ENTRY_GRACE_MS = 15_000;
 
-export type ExecApprovalRequestPayload = {
-  command: string;
-  cwd?: string | null;
-  host?: string | null;
-  security?: string | null;
-  ask?: string | null;
-  agentId?: string | null;
-  resolvedPath?: string | null;
-  sessionKey?: string | null;
-};
+export type ExecApprovalRequestPayload = InfraExecApprovalRequestPayload;
 
 export type ExecApprovalRecord = {
   id: string;
@@ -37,10 +31,13 @@ type PendingEntry = {
   promise: Promise<ExecApprovalDecision | null>;
 };
 
+export type ExecApprovalIdLookupResult =
+  | { kind: "exact" | "prefix"; id: string }
+  | { kind: "ambiguous"; ids: string[] }
+  | { kind: "none" };
+
 export class ExecApprovalManager {
   private pending = new Map<string, PendingEntry>();
-  private resolvedHistory: ExecApprovalRecord[] = [];
-  private static readonly MAX_HISTORY = 100;
 
   create(
     request: ExecApprovalRequestPayload,
@@ -88,20 +85,7 @@ export class ExecApprovalManager {
       promise,
     };
     entry.timer = setTimeout(() => {
-      // Update snapshot fields before resolving (mirror resolve()'s bookkeeping)
-      record.resolvedAtMs = Date.now();
-      record.decision = undefined;
-      record.resolvedBy = null;
-      resolvePromise(null);
-      // Track in history as expired/timed-out
-      this.addToHistory(record);
-      // Keep entry briefly for in-flight awaitDecision calls
-      setTimeout(() => {
-        // Compare against captured entry instance, not re-fetched from map
-        if (this.pending.get(record.id) === entry) {
-          this.pending.delete(record.id);
-        }
-      }, RESOLVED_ENTRY_GRACE_MS);
+      this.expire(record.id);
     }, timeoutMs);
     this.pending.set(record.id, entry);
     return promise;
@@ -133,10 +117,29 @@ export class ExecApprovalManager {
     // Resolve the promise first, then delete after a grace period.
     // This allows in-flight awaitDecision calls to find the resolved entry.
     pending.resolve(decision);
-    // Track in history
-    this.addToHistory(pending.record);
     setTimeout(() => {
       // Only delete if the entry hasn't been replaced
+      if (this.pending.get(recordId) === pending) {
+        this.pending.delete(recordId);
+      }
+    }, RESOLVED_ENTRY_GRACE_MS);
+    return true;
+  }
+
+  expire(recordId: string, resolvedBy?: string | null): boolean {
+    const pending = this.pending.get(recordId);
+    if (!pending) {
+      return false;
+    }
+    if (pending.record.resolvedAtMs !== undefined) {
+      return false;
+    }
+    clearTimeout(pending.timer);
+    pending.record.resolvedAtMs = Date.now();
+    pending.record.decision = undefined;
+    pending.record.resolvedBy = resolvedBy ?? null;
+    pending.resolve(null);
+    setTimeout(() => {
       if (this.pending.get(recordId) === pending) {
         this.pending.delete(recordId);
       }
@@ -149,6 +152,21 @@ export class ExecApprovalManager {
     return entry?.record ?? null;
   }
 
+  consumeAllowOnce(recordId: string): boolean {
+    const entry = this.pending.get(recordId);
+    if (!entry) {
+      return false;
+    }
+    const record = entry.record;
+    if (record.decision !== "allow-once") {
+      return false;
+    }
+    // One-time approvals must be consumed atomically so the same runId
+    // cannot be replayed during the resolved-entry grace window.
+    record.decision = undefined;
+    return true;
+  }
+
   /**
    * Wait for decision on an already-registered approval.
    * Returns the decision promise if the ID is pending, null otherwise.
@@ -158,31 +176,36 @@ export class ExecApprovalManager {
     return entry?.promise ?? null;
   }
 
-  /**
-   * List currently pending (unresolved) approval requests.
-   */
-  listPending(): ExecApprovalRecord[] {
-    const now = Date.now();
-    const results: ExecApprovalRecord[] = [];
-    for (const entry of this.pending.values()) {
-      if (entry.record.resolvedAtMs === undefined && entry.record.expiresAtMs > now) {
-        results.push(entry.record);
+  lookupPendingId(input: string): ExecApprovalIdLookupResult {
+    const normalized = input.trim();
+    if (!normalized) {
+      return { kind: "none" };
+    }
+
+    const exact = this.pending.get(normalized);
+    if (exact) {
+      return exact.record.resolvedAtMs === undefined
+        ? { kind: "exact", id: normalized }
+        : { kind: "none" };
+    }
+
+    const lowerPrefix = normalized.toLowerCase();
+    const matches: string[] = [];
+    for (const [id, entry] of this.pending.entries()) {
+      if (entry.record.resolvedAtMs !== undefined) {
+        continue;
+      }
+      if (id.toLowerCase().startsWith(lowerPrefix)) {
+        matches.push(id);
       }
     }
-    return results.toSorted((a, b) => b.createdAtMs - a.createdAtMs);
-  }
 
-  /**
-   * Get resolved approval history (most recent first).
-   */
-  getHistory(limit = 50): ExecApprovalRecord[] {
-    return this.resolvedHistory.slice(0, limit);
-  }
-
-  private addToHistory(record: ExecApprovalRecord): void {
-    this.resolvedHistory.unshift(record);
-    if (this.resolvedHistory.length > ExecApprovalManager.MAX_HISTORY) {
-      this.resolvedHistory.length = ExecApprovalManager.MAX_HISTORY;
+    if (matches.length === 1) {
+      return { kind: "prefix", id: matches[0] };
     }
+    if (matches.length > 1) {
+      return { kind: "ambiguous", ids: matches };
+    }
+    return { kind: "none" };
   }
 }

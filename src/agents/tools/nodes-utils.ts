@@ -1,15 +1,64 @@
 import { parseNodeList, parsePairingList } from "../../shared/node-list-parse.js";
 import type { NodeListNode } from "../../shared/node-list-types.js";
-import { resolveNodeIdFromCandidates } from "../../shared/node-match.js";
+import { resolveNodeFromNodeList, resolveNodeIdFromNodeList } from "../../shared/node-resolve.js";
 import { callGatewayTool, type GatewayCallOptions } from "./gateway.js";
 
 export type { NodeListNode };
+
+type DefaultNodeFallback = "none" | "first";
+
+type DefaultNodeSelectionOptions = {
+  capability?: string;
+  fallback?: DefaultNodeFallback;
+  preferLocalMac?: boolean;
+};
+
+function messageFromError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as { message?: unknown }).message === "string"
+  ) {
+    return (error as { message: string }).message;
+  }
+  if (typeof error === "object" && error !== null) {
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return "";
+    }
+  }
+  return "";
+}
+
+function shouldFallbackToPairList(error: unknown): boolean {
+  const message = messageFromError(error).toLowerCase();
+  if (!message.includes("node.list")) {
+    return false;
+  }
+  return (
+    message.includes("unknown method") ||
+    message.includes("method not found") ||
+    message.includes("not implemented") ||
+    message.includes("unsupported")
+  );
+}
 
 async function loadNodes(opts: GatewayCallOptions): Promise<NodeListNode[]> {
   try {
     const res = await callGatewayTool("node.list", opts, {});
     return parseNodeList(res);
-  } catch {
+  } catch (error) {
+    if (!shouldFallbackToPairList(error)) {
+      throw error;
+    }
     const res = await callGatewayTool("node.pair.list", opts, {});
     const { paired } = parsePairingList(res);
     return paired.map((n) => ({
@@ -21,55 +70,67 @@ async function loadNodes(opts: GatewayCallOptions): Promise<NodeListNode[]> {
   }
 }
 
-/** Normalize platform strings for matching. Supports common aliases. */
-function normalizePlatform(platform?: string): string {
-  const p = (platform ?? "").trim().toLowerCase();
-  if (p === "win" || p === "win32" || p === "win64") {
-    return "windows";
-  }
-  if (p === "mac" || p === "macos" || p === "osx" || p === "darwin") {
-    return "macos";
-  }
-  if (p === "lin") {
-    return "linux";
-  }
-  return p;
+function isLocalMacNode(node: NodeListNode): boolean {
+  return (
+    node.platform?.toLowerCase().startsWith("mac") === true &&
+    typeof node.nodeId === "string" &&
+    node.nodeId.startsWith("mac-")
+  );
 }
 
-function pickDefaultNode(
+function compareDefaultNodeOrder(a: NodeListNode, b: NodeListNode): number {
+  const aConnectedAt = Number.isFinite(a.connectedAtMs) ? (a.connectedAtMs ?? 0) : -1;
+  const bConnectedAt = Number.isFinite(b.connectedAtMs) ? (b.connectedAtMs ?? 0) : -1;
+  if (aConnectedAt !== bConnectedAt) {
+    return bConnectedAt - aConnectedAt;
+  }
+  return a.nodeId.localeCompare(b.nodeId);
+}
+
+export function selectDefaultNodeFromList(
   nodes: NodeListNode[],
-  requiredCap?: string,
-  platform?: string,
+  options: DefaultNodeSelectionOptions = {},
 ): NodeListNode | null {
-  // Filter by required capability if specified
-  const withCap = requiredCap
-    ? nodes.filter((n) => (Array.isArray(n.caps) ? n.caps.includes(requiredCap) : true))
+  const capability = options.capability?.trim();
+  const withCapability = capability
+    ? nodes.filter((n) => (Array.isArray(n.caps) ? n.caps.includes(capability) : true))
     : nodes;
-  if (withCap.length === 0) {
+  if (withCapability.length === 0) {
     return null;
   }
 
-  // Filter by platform if specified
-  const normalizedPlatform = platform ? normalizePlatform(platform) : undefined;
-  const withPlatform = normalizedPlatform
-    ? withCap.filter((n) => normalizePlatform(n.platform) === normalizedPlatform)
-    : withCap;
-  if (withPlatform.length === 0) {
-    return null;
-  }
-
-  const connected = withPlatform.filter((n) => n.connected);
-  const candidates = connected.length > 0 ? connected : withPlatform;
+  const connected = withCapability.filter((n) => n.connected);
+  const candidates = connected.length > 0 ? connected : withCapability;
   if (candidates.length === 1) {
     return candidates[0];
   }
 
-  // If only one connected node, use it regardless of other factors
-  if (connected.length === 1) {
-    return connected[0];
+  const preferLocalMac = options.preferLocalMac ?? true;
+  if (preferLocalMac) {
+    const local = candidates.filter(isLocalMacNode);
+    if (local.length === 1) {
+      return local[0];
+    }
   }
 
-  return null;
+  const fallback = options.fallback ?? "none";
+  if (fallback === "none") {
+    return null;
+  }
+
+  const ordered = [...candidates].toSorted(compareDefaultNodeOrder);
+  // Multiple candidates — pick the first connected canvas-capable node.
+  // For A2UI and other canvas operations, any node works since multi-node
+  // setups broadcast surfaces across devices.
+  return ordered[0] ?? null;
+}
+
+function pickDefaultNode(nodes: NodeListNode[]): NodeListNode | null {
+  return selectDefaultNodeFromList(nodes, {
+    capability: "canvas",
+    fallback: "first",
+    preferLocalMac: true,
+  });
 }
 
 export async function listNodes(opts: GatewayCallOptions): Promise<NodeListNode[]> {
@@ -80,51 +141,29 @@ export function resolveNodeIdFromList(
   nodes: NodeListNode[],
   query?: string,
   allowDefault = false,
-  requiredCap?: string,
-  platform?: string,
 ): string {
-  const q = String(query ?? "").trim();
-  if (!q) {
-    if (allowDefault) {
-      const picked = pickDefaultNode(nodes, requiredCap, platform);
-      if (picked) {
-        return picked.nodeId;
-      }
-    }
-    // Filter by platform if specified to give better error messages
-    const normalizedPlatform = platform ? normalizePlatform(platform) : undefined;
-    const connected = nodes.filter((n) => n.connected);
-    const filtered = normalizedPlatform
-      ? connected.filter((n) => normalizePlatform(n.platform) === normalizedPlatform)
-      : connected;
-    if (filtered.length === 0 && normalizedPlatform) {
-      const available = connected
-        .map((n) => `  • ${n.displayName || n.nodeId} (${n.platform || "unknown"})`)
-        .join("\n");
-      throw new Error(
-        `No ${platform} node connected.${available ? ` Available nodes:\n${available}` : ""}`,
-      );
-    }
-    if (filtered.length > 1) {
-      const names = filtered
-        .map((n) => `  • ${n.displayName || n.nodeId} (${n.nodeId.slice(0, 8)}...)`)
-        .join("\n");
-      throw new Error(`Multiple nodes connected — specify which one:\n${names}`);
-    }
-    throw new Error("node required — no connected nodes found");
-  }
-  return resolveNodeIdFromCandidates(nodes, q);
+  return resolveNodeIdFromNodeList(nodes, query, {
+    allowDefault,
+    pickDefaultNode: pickDefaultNode,
+  });
 }
-
-export { normalizePlatform };
 
 export async function resolveNodeId(
   opts: GatewayCallOptions,
   query?: string,
   allowDefault = false,
-  requiredCap?: string,
-  platform?: string,
 ) {
+  return (await resolveNode(opts, query, allowDefault)).nodeId;
+}
+
+export async function resolveNode(
+  opts: GatewayCallOptions,
+  query?: string,
+  allowDefault = false,
+): Promise<NodeListNode> {
   const nodes = await loadNodes(opts);
-  return resolveNodeIdFromList(nodes, query, allowDefault, requiredCap, platform);
+  return resolveNodeFromNodeList(nodes, query, {
+    allowDefault,
+    pickDefaultNode: pickDefaultNode,
+  });
 }
