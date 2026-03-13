@@ -143,7 +143,7 @@
     const workspace = filesList?.workspace || agentConfig?.workspace || selectedAgent.workspace || '/home/ihoner';
     const model = resolveModelLabel(agentConfig?.model ?? selectedAgent.model);
     const identityName = identity?.name || selectedAgent.identity?.name || selectedAgent.name || selectedAgent.id;
-    const identityEmoji = identity?.emoji || selectedAgent.identity?.emoji || '-';
+    const identityEmoji = identity?.emoji || selectedAgent.identity?.emoji || '';
     const skillFilter = agentConfig?.skills ?? selectedAgent.skills;
     const skillsLabel = Array.isArray(skillFilter) ? `${skillFilter.length} selected` : 'all skills';
     const isDefault = selectedAgent.id === defaultAgentId;
@@ -570,6 +570,8 @@
               </div>
               {#if agent.id === defaultAgentId}
                 <span class="hud-badge hud-badge-purple">DEFAULT</span>
+              {:else}
+                <span class="hud-badge hud-badge-dim">SUB-AGENT</span>
               {/if}
             </button>
             <button class="sidebar-chat-btn" title="Chat with {agent.identity?.name || agent.id}" onclick={() => chatWithAgent(agent.id)}>💬</button>
@@ -669,6 +671,8 @@
                   <span class="identity-badge identity-badge-online">ONLINE</span>
                   {#if agentContext?.isDefault}
                     <span class="identity-badge identity-badge-trusted">DEFAULT</span>
+                  {:else}
+                    <span class="identity-badge identity-badge-sub">SUB-AGENT</span>
                   {/if}
                 </div>
               </div>
@@ -742,10 +746,12 @@
                     <div class="hud-field-label">DEFAULT</div>
                     <div class="hud-field-value">{agentContext?.isDefault ? 'YES' : 'NO'}</div>
                   </div>
+                  {#if agentContext?.identityEmoji}
                   <div>
                     <div class="hud-field-label">IDENTITY EMOJI</div>
                     <div class="hud-field-value" style="font-size:1.2rem;">{agentContext?.identityEmoji}</div>
                   </div>
+                  {/if}
                   <div>
                     <div class="hud-field-label">SKILLS FILTER</div>
                     <div class="hud-field-value">{agentContext?.skillsLabel}</div>
@@ -1465,6 +1471,12 @@
     border: 1px solid rgba(168, 85, 247, 0.3);
   }
 
+  .hud-badge-dim {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
   .hud-badge-cyan {
     background: rgba(0, 255, 255, 0.15);
     color: var(--color-accent-cyan);
@@ -1683,6 +1695,11 @@
     color: #00e5ff;
     border-color: #00e5ff;
     text-shadow: 0 0 6px #00e5ff;
+  }
+
+  .identity-badge-sub {
+    color: rgba(255, 255, 255, 0.45);
+    border-color: rgba(255, 255, 255, 0.15);
   }
 
   .identity-card-divider {

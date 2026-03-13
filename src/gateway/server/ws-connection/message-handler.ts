@@ -1207,6 +1207,7 @@ export function attachGatewayWsMessageHandler(params: {
             commit: process.env.GIT_COMMIT,
             host: os.hostname(),
             connId,
+            model: configSnapshot.agents?.defaults?.model?.primary ?? null,
           },
           branding: {
             assistantName: assistantIdentity.name,
