@@ -89,6 +89,12 @@ export function evaluateMissingDeviceIdentity(params: {
     // Remote connections are still rejected to preserve the MitM protection
     // that the security fix (#20684) intended.
     if (!params.controlUiAuthPolicy.allowInsecureAuthConfigured || !params.isLocalClient) {
+      // Cortex: token-authenticated control UI connections don't need device identity.
+      // WebKitGTK (Synapse desktop) can't generate device identity even over wss://
+      // because SubtleCrypto may not be available. Token auth proves authorization.
+      if (params.sharedAuthOk) {
+        return { kind: "allow" };
+      }
       return { kind: "reject-control-ui-insecure-auth" };
     }
     // Cortex: localhost + allowInsecureAuth = allow immediately.
