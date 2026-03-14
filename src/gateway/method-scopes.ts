@@ -28,7 +28,8 @@ const NODE_ROLE_METHODS = new Set([
   "node.pending.ack",
   "skills.bins",
   "node.pair.request",
-  // Allow nodes to announce their local agents to the gateway
+  // Allow nodes to list and announce their local agents to the gateway
+  "agents.list",
   "agents.create",
   "agents.files.set",
   // Allow nodes to relay agent chat responses

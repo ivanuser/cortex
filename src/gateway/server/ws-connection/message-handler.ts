@@ -945,8 +945,7 @@ export function attachGatewayWsMessageHandler(params: {
           canvasHostUrl && canvasCapability
             ? (buildCanvasScopedHostUrl(canvasHostUrl, canvasCapability) ?? canvasHostUrl)
             : canvasHostUrl;
-        // Resolve assistant identity for branding
-        const configSnapshot = loadConfig();
+        // Resolve assistant identity for branding (reuse outer configSnapshot)
         const assistantIdentity = resolveAssistantIdentity({
           cfg: configSnapshot,
           agentId: connectParams.agentId,
