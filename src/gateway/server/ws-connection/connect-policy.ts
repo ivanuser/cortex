@@ -91,6 +91,11 @@ export function evaluateMissingDeviceIdentity(params: {
     if (!params.controlUiAuthPolicy.allowInsecureAuthConfigured || !params.isLocalClient) {
       return { kind: "reject-control-ui-insecure-auth" };
     }
+    // Cortex: localhost + allowInsecureAuth = allow immediately.
+    // Embedded gateways (Synapse desktop app) connect via ws://127.0.0.1
+    // where SubtleCrypto is unavailable and no token is sent by the webchat.
+    // This is safe because it's a local-only connection.
+    return { kind: "allow" };
   }
   if (roleCanSkipDeviceIdentity(params.role, params.sharedAuthOk)) {
     return { kind: "allow" };
