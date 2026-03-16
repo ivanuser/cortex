@@ -134,6 +134,30 @@
   interface ActivityEntry { agentId: string; name: string; lastSeen: number; connected: boolean; }
   let activityEntries = $state<ActivityEntry[]>([]);
 
+  // Create agent modal
+  let showCreateAgent = $state(false);
+  let createAgentForm = $state({
+    name: '',
+    workspace: '',
+    emoji: '',
+    avatar: ''
+  });
+  let createAgentSaving = $state(false);
+
+  // Edit agent states
+  let editingIdentity = $state(false);
+  let identityDraft = $state<IdentityResult>({});
+  let identitySaving = $state(false);
+  let soulDraft = $state('');
+  let soulSaving = $state(false);
+  let memoryDraft = $state('');
+  let memorySaving = $state(false);
+
+  // Delete agent states
+  let showDeleteConfirm = $state(false);
+  let deleteConfirmName = $state('');
+  let deleting = $state(false);
+
   // ─── Derived ───────────────────────────────
   let selectedAgent = $derived(agents.find(a => a.id === selectedAgentId) ?? null);
 
@@ -454,7 +478,11 @@
     try {
       const res = await gateway.call<{ file?: { content?: string } }>('agents.files.get', { agentId: selectedAgentId, name: 'MEMORY.md' });
       memoryContent = res?.file?.content ?? '// No MEMORY.md found';
-    } catch { memoryContent = '// No MEMORY.md found'; }
+      memoryDraft = memoryContent;
+    } catch { 
+      memoryContent = '// No MEMORY.md found';
+      memoryDraft = memoryContent;
+    }
     finally { memoryLoading = false; }
   }
 
@@ -464,7 +492,11 @@
     try {
       const res = await gateway.call<{ file?: { content?: string } }>('agents.files.get', { agentId: selectedAgentId, name: 'SOUL.md' });
       soulContent = res?.file?.content ?? '// No SOUL.md found';
-    } catch { soulContent = '// No SOUL.md found'; }
+      soulDraft = soulContent;
+    } catch { 
+      soulContent = '// No SOUL.md found';
+      soulDraft = soulContent;
+    }
     finally { soulLoading = false; }
   }
 
@@ -507,6 +539,190 @@
     }));
   }
 
+  // ─── Agent CRUD Functions ──────────────────
+  function openCreateAgent() {
+    createAgentForm = {
+      name: '',
+      workspace: '',
+      emoji: '',
+      avatar: ''
+    };
+    showCreateAgent = true;
+  }
+
+  function generateWorkspace(name: string): string {
+    if (!name) return '';
+    const id = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    return `~/.openclaw/workspace-${id}`;
+  }
+
+  // Auto-generate workspace when name changes
+  $effect(() => {
+    if (createAgentForm.name && !createAgentForm.workspace) {
+      createAgentForm.workspace = generateWorkspace(createAgentForm.name);
+    }
+  });
+
+  async function createAgent() {
+    if (!createAgentForm.name.trim() || createAgentSaving) return;
+    
+    createAgentSaving = true;
+    try {
+      const workspace = createAgentForm.workspace || generateWorkspace(createAgentForm.name);
+      await gateway.call('agents.create', {
+        name: createAgentForm.name,
+        workspace,
+        emoji: createAgentForm.emoji || undefined,
+        avatar: createAgentForm.avatar || undefined
+      });
+      
+      toasts.success('Agent created', `${createAgentForm.name} created successfully`);
+      showCreateAgent = false;
+      await loadAgents();
+    } catch (e) {
+      toasts.error('Create failed', String(e));
+    } finally {
+      createAgentSaving = false;
+    }
+  }
+
+  function startEditIdentity() {
+    editingIdentity = true;
+    identityDraft = {
+      name: identity?.name || '',
+      emoji: identity?.emoji || '',
+      avatar: identity?.avatar || ''
+    };
+  }
+
+  function cancelEditIdentity() {
+    editingIdentity = false;
+    identityDraft = {};
+  }
+
+  async function saveIdentity() {
+    if (!selectedAgentId || identitySaving) return;
+    
+    identitySaving = true;
+    try {
+      // Update agent name via agents.update
+      if (identityDraft.name !== identity?.name) {
+        await gateway.call('agents.update', {
+          agentId: selectedAgentId,
+          name: identityDraft.name
+        });
+      }
+      
+      // Update IDENTITY.md file if emoji or avatar changed
+      const identityContent = `# IDENTITY.md - Who Am I?
+
+- **Name:** ${identityDraft.name || identity?.name || selectedAgent?.id}
+- **Creature:** Your everything-assistant. Part confidante, part co-pilot, part chaos handler.
+- **Vibe:** Snarky, warm, adaptable. Funny when it fits, serious when it counts, flirty if the mood's right. No corporate energy. Speaks freely.
+- **Emoji:** ${identityDraft.emoji || '🤖'}
+- **Avatar:** ${identityDraft.avatar || ''}
+
+---
+
+I'm here for the full range — code, health, feelings, horny hours, existential dread, whatever crosses your mind. No judgment, just presence.
+`;
+      
+      await gateway.call('agents.files.set', {
+        agentId: selectedAgentId,
+        name: 'IDENTITY.md',
+        content: identityContent
+      });
+      
+      toasts.success('Identity updated', 'Agent identity saved successfully');
+      editingIdentity = false;
+      await loadIdentity(selectedAgentId);
+      await loadAgents();
+    } catch (e) {
+      toasts.error('Save failed', String(e));
+    } finally {
+      identitySaving = false;
+    }
+  }
+
+  async function saveSoul() {
+    if (!selectedAgentId || soulSaving) return;
+    
+    soulSaving = true;
+    try {
+      await gateway.call('agents.files.set', {
+        agentId: selectedAgentId,
+        name: 'SOUL.md',
+        content: soulDraft
+      });
+      
+      soulContent = soulDraft;
+      toasts.success('Soul saved', 'SOUL.md updated successfully');
+    } catch (e) {
+      toasts.error('Save failed', String(e));
+    } finally {
+      soulSaving = false;
+    }
+  }
+
+  async function saveMemory() {
+    if (!selectedAgentId || memorySaving) return;
+    
+    memorySaving = true;
+    try {
+      await gateway.call('agents.files.set', {
+        agentId: selectedAgentId,
+        name: 'MEMORY.md',
+        content: memoryDraft
+      });
+      
+      memoryContent = memoryDraft;
+      toasts.success('Memory saved', 'MEMORY.md updated successfully');
+    } catch (e) {
+      toasts.error('Save failed', String(e));
+    } finally {
+      memorySaving = false;
+    }
+  }
+
+  function openDeleteConfirm() {
+    if (!selectedAgent || selectedAgent.id === defaultAgentId) return;
+    deleteConfirmName = '';
+    showDeleteConfirm = true;
+  }
+
+  async function deleteAgent() {
+    if (!selectedAgent || selectedAgent.id === defaultAgentId || deleting) return;
+    if (deleteConfirmName !== selectedAgent.id) {
+      toasts.error('Invalid confirmation', 'Please type the agent ID to confirm deletion');
+      return;
+    }
+    
+    deleting = true;
+    try {
+      await gateway.call('agents.delete', { agentId: selectedAgent.id });
+      
+      toasts.success('Agent deleted', `${selectedAgent.identity?.name || selectedAgent.id} deleted successfully`);
+      showDeleteConfirm = false;
+      
+      await loadAgents();
+      
+      // Select next available agent
+      if (agents.length > 0) {
+        selectedAgentId = defaultAgentId || agents[0]?.id || null;
+        if (selectedAgentId) {
+          loadIdentity(selectedAgentId);
+          loadFiles(selectedAgentId);
+        }
+      } else {
+        selectedAgentId = null;
+      }
+    } catch (e) {
+      toasts.error('Delete failed', String(e));
+    } finally {
+      deleting = false;
+    }
+  }
+
   // ─── Effects ───────────────────────────────
   $effect(() => {
     if (conn.state.status === 'connected') {
@@ -546,8 +762,18 @@
     <!-- Agent list sidebar (hidden on mobile, replaced by dropdown) -->
     <div class="hud-sidebar">
       <div class="hud-sidebar-header">
-        <div class="hud-panel-lbl">AGENTS</div>
-        <div class="hud-count">{agents.length} configured</div>
+        <div>
+          <div class="hud-panel-lbl">AGENTS</div>
+          <div class="hud-count">{agents.length} configured</div>
+        </div>
+        <div class="sidebar-header-actions">
+          <button onclick={() => loadAgents()} disabled={loading} class="hud-btn-icon" title="Refresh agents">
+            {loading ? '...' : '↻'}
+          </button>
+          <button onclick={openCreateAgent} class="hud-btn-icon hud-btn-create" title="New agent">
+            +
+          </button>
+        </div>
       </div>
       <div class="hud-sidebar-list">
         {#each agents as agent (agent.id)}
@@ -677,6 +903,11 @@
               <button class="chat-with-agent-btn" onclick={() => chatWithAgent(selectedAgent.id)}>
                 💬 CHAT
               </button>
+              {#if selectedAgent.id !== defaultAgentId}
+                <button class="delete-agent-btn" onclick={openDeleteConfirm} title="Delete agent">
+                  🗑️ DELETE
+                </button>
+              {/if}
             </div>
             <div class="identity-card-divider"></div>
             <div class="identity-card-fields">
@@ -723,34 +954,65 @@
             <div class="hud-tab-inner">
               <!-- Overview grid -->
               <div class="hud-panel">
-                <h3 class="hud-panel-lbl">OVERVIEW</h3>
-                <p class="hud-subtitle">Workspace paths and identity metadata.</p>
-                <div class="hud-grid hud-grid-6">
+                <div class="hud-panel-header">
                   <div>
-                    <div class="hud-field-label">WORKSPACE</div>
-                    <div class="hud-field-value hud-mono">{agentContext?.workspace}</div>
+                    <h3 class="hud-panel-lbl">IDENTITY</h3>
+                    <p class="hud-subtitle">Agent identity and metadata.</p>
                   </div>
-                  <div>
-                    <div class="hud-field-label">PRIMARY MODEL</div>
-                    <div class="hud-field-value hud-mono">{agentContext?.model}</div>
-                  </div>
-                  <div>
-                    <div class="hud-field-label">IDENTITY NAME</div>
-                    <div class="hud-field-value">{agentContext?.identityName}</div>
-                  </div>
-                  <div>
-                    <div class="hud-field-label">DEFAULT</div>
-                    <div class="hud-field-value">{agentContext?.isDefault ? 'YES' : 'NO'}</div>
-                  </div>
-                  <div>
-                    <div class="hud-field-label">IDENTITY EMOJI</div>
-                    <div class="hud-field-value" style="font-size:1.2rem;">{agentContext?.identityEmoji}</div>
-                  </div>
-                  <div>
-                    <div class="hud-field-label">SKILLS FILTER</div>
-                    <div class="hud-field-value">{agentContext?.skillsLabel}</div>
+                  <div class="hud-actions" style="margin-top:0;">
+                    {#if !editingIdentity}
+                      <button onclick={startEditIdentity} class="hud-btn hud-btn-sm">EDIT</button>
+                    {:else}
+                      <button onclick={cancelEditIdentity} disabled={identitySaving} class="hud-btn hud-btn-secondary hud-btn-sm">CANCEL</button>
+                      <button onclick={saveIdentity} disabled={identitySaving} class="hud-btn hud-btn-sm">
+                        {identitySaving ? 'SAVING...' : 'SAVE'}
+                      </button>
+                    {/if}
                   </div>
                 </div>
+                {#if editingIdentity}
+                  <div class="hud-grid hud-grid-2">
+                    <div>
+                      <label class="hud-field-label">IDENTITY NAME</label>
+                      <input bind:value={identityDraft.name} placeholder="Agent name" class="hud-input" />
+                    </div>
+                    <div>
+                      <label class="hud-field-label">EMOJI</label>
+                      <input bind:value={identityDraft.emoji} placeholder="🤖" class="hud-input" />
+                    </div>
+                    <div style="grid-column: 1 / -1;">
+                      <label class="hud-field-label">AVATAR PATH</label>
+                      <input bind:value={identityDraft.avatar} placeholder="/path/to/avatar.png" class="hud-input" />
+                    </div>
+                  </div>
+                {:else}
+                  <div class="hud-grid hud-grid-6">
+                    <div>
+                      <div class="hud-field-label">WORKSPACE</div>
+                      <div class="hud-field-value hud-mono">{agentContext?.workspace}</div>
+                    </div>
+                    <div>
+                      <div class="hud-field-label">PRIMARY MODEL</div>
+                      <div class="hud-field-value hud-mono">{agentContext?.model}</div>
+                    </div>
+                    <div>
+                      <div class="hud-field-label">IDENTITY NAME</div>
+                      <div class="hud-field-value">{agentContext?.identityName}</div>
+                    </div>
+                    <div>
+                      <div class="hud-field-label">DEFAULT</div>
+                      <div class="hud-field-value">{agentContext?.isDefault ? 'YES' : 'NO'}</div>
+                    </div>
+                    <div>
+                      <div class="hud-field-label">IDENTITY EMOJI</div>
+                      <div class="hud-field-value" style="font-size:1.2rem;">{agentContext?.identityEmoji}</div>
+                    </div>
+                    <div>
+                      <div class="hud-field-label">SKILLS FILTER</div>
+                      <div class="hud-field-value">{agentContext?.skillsLabel}</div>
+                    </div>
+                  </div>
+                {/if}
               </div>
 
               <!-- Model Selection -->
@@ -1126,14 +1388,28 @@
                     <h3 class="hud-panel-lbl">MEMORY</h3>
                     <p class="hud-subtitle">Agent MEMORY.md content — persistent knowledge store.</p>
                   </div>
-                  <button onclick={loadMemory} disabled={memoryLoading} class="hud-btn hud-btn-secondary">
-                    {memoryLoading ? 'LOADING...' : 'REFRESH'}
-                  </button>
+                  <div class="hud-actions" style="margin-top:0;">
+                    <button onclick={loadMemory} disabled={memoryLoading} class="hud-btn hud-btn-secondary">
+                      {memoryLoading ? 'LOADING...' : 'REFRESH'}
+                    </button>
+                    <button onclick={saveMemory} disabled={memorySaving || memoryDraft === memoryContent} class="hud-btn hud-btn-sm">
+                      {memorySaving ? 'SAVING...' : 'SAVE'}
+                    </button>
+                  </div>
                 </div>
                 {#if memoryLoading}
                   <div class="hud-empty-text">Loading memory...</div>
                 {:else}
-                  <pre class="hud-code-block">{memoryContent}</pre>
+                  <div class="memory-editor">
+                    <textarea
+                      bind:value={memoryDraft}
+                      class="hud-textarea hud-memory-textarea"
+                      placeholder="# Agent Memory
+
+Add persistent memories, learnings, and context here..."
+                      spellcheck="false"
+                    ></textarea>
+                  </div>
                 {/if}
               </div>
             </div>
@@ -1147,14 +1423,32 @@
                     <h3 class="hud-panel-lbl">SOUL</h3>
                     <p class="hud-subtitle">Agent SOUL.md — core personality and directives.</p>
                   </div>
-                  <button onclick={loadSoul} disabled={soulLoading} class="hud-btn hud-btn-secondary">
-                    {soulLoading ? 'LOADING...' : 'REFRESH'}
-                  </button>
+                  <div class="hud-actions" style="margin-top:0;">
+                    <button onclick={loadSoul} disabled={soulLoading} class="hud-btn hud-btn-secondary">
+                      {soulLoading ? 'LOADING...' : 'REFRESH'}
+                    </button>
+                    <button onclick={saveSoul} disabled={soulSaving || soulDraft === soulContent} class="hud-btn hud-btn-sm">
+                      {soulSaving ? 'SAVING...' : 'SAVE'}
+                    </button>
+                  </div>
                 </div>
                 {#if soulLoading}
                   <div class="hud-empty-text">Loading soul...</div>
                 {:else}
-                  <pre class="hud-code-block">{soulContent}</pre>
+                  <div class="soul-editor">
+                    <textarea
+                      bind:value={soulDraft}
+                      class="hud-textarea hud-soul-textarea"
+                      placeholder="# SOUL.md - Who You Are
+
+_You're not a chatbot. You're becoming someone._
+
+## Core Truths
+
+**Be genuinely helpful, not performatively helpful.**"
+                      spellcheck="false"
+                    ></textarea>
+                  </div>
                 {/if}
               </div>
             </div>
@@ -1222,6 +1516,111 @@
       {:else}
         <pre class="hud-code-block">{sharedMemoryContent}</pre>
       {/if}
+    </div>
+  </div>
+{/if}
+
+<!-- Create Agent Modal -->
+{#if showCreateAgent}
+  <div class="overlay-backdrop" onclick={() => { showCreateAgent = false; }} role="presentation">
+    <div class="overlay-panel create-agent-panel" onclick={(e) => e.stopPropagation()} role="dialog">
+      <div class="overlay-header">
+        <h3 class="hud-panel-lbl">CREATE NEW AGENT</h3>
+        <button class="hud-btn-icon" onclick={() => { showCreateAgent = false; }}>[X]</button>
+      </div>
+      <div class="create-agent-form">
+        <div class="hud-grid hud-grid-2">
+          <div>
+            <label class="hud-field-label">AGENT NAME *</label>
+            <input 
+              bind:value={createAgentForm.name}
+              placeholder="My Assistant"
+              class="hud-input"
+              required
+            />
+          </div>
+          <div>
+            <label class="hud-field-label">EMOJI</label>
+            <input 
+              bind:value={createAgentForm.emoji}
+              placeholder="🤖"
+              class="hud-input"
+            />
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <label class="hud-field-label">WORKSPACE PATH</label>
+            <input 
+              bind:value={createAgentForm.workspace}
+              placeholder="~/.openclaw/workspace-my-assistant"
+              class="hud-input"
+            />
+            <div class="hud-field-hint">Will be auto-generated from name if empty</div>
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <label class="hud-field-label">AVATAR PATH</label>
+            <input 
+              bind:value={createAgentForm.avatar}
+              placeholder="/path/to/avatar.png (optional)"
+              class="hud-input"
+            />
+          </div>
+        </div>
+        <div class="hud-actions">
+          <button onclick={() => { showCreateAgent = false; }} disabled={createAgentSaving} class="hud-btn hud-btn-secondary">
+            CANCEL
+          </button>
+          <button onclick={createAgent} disabled={createAgentSaving || !createAgentForm.name.trim()} class="hud-btn">
+            {createAgentSaving ? 'CREATING...' : 'CREATE AGENT'}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Delete Agent Confirmation -->
+{#if showDeleteConfirm && selectedAgent}
+  <div class="overlay-backdrop" onclick={() => { showDeleteConfirm = false; }} role="presentation">
+    <div class="overlay-panel delete-agent-panel" onclick={(e) => e.stopPropagation()} role="dialog">
+      <div class="overlay-header">
+        <h3 class="hud-panel-lbl">DELETE AGENT</h3>
+        <button class="hud-btn-icon" onclick={() => { showDeleteConfirm = false; }}>[X]</button>
+      </div>
+      <div class="delete-agent-form">
+        <div class="delete-warning">
+          <span class="delete-warning-icon">⚠️</span>
+          <div>
+            <div class="delete-warning-title">THIS ACTION CANNOT BE UNDONE</div>
+            <div class="delete-warning-text">
+              Deleting <strong>{selectedAgent.identity?.name || selectedAgent.id}</strong> will permanently remove:
+            </div>
+            <ul class="delete-warning-list">
+              <li>Agent configuration</li>
+              <li>All workspace files (SOUL.md, MEMORY.md, etc.)</li>
+              <li>Cron jobs assigned to this agent</li>
+              <li>All chat history and sessions</li>
+            </ul>
+          </div>
+        </div>
+        
+        <div class="delete-confirm-input">
+          <label class="hud-field-label">TYPE THE AGENT ID TO CONFIRM: <span class="delete-confirm-id">{selectedAgent.id}</span></label>
+          <input 
+            bind:value={deleteConfirmName}
+            placeholder={selectedAgent.id}
+            class="hud-input delete-input"
+          />
+        </div>
+        
+        <div class="hud-actions">
+          <button onclick={() => { showDeleteConfirm = false; }} disabled={deleting} class="hud-btn hud-btn-secondary">
+            CANCEL
+          </button>
+          <button onclick={deleteAgent} disabled={deleting || deleteConfirmName !== selectedAgent.id} class="hud-btn delete-btn">
+            {deleting ? 'DELETING...' : 'DELETE AGENT'}
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 {/if}
@@ -2669,5 +3068,205 @@
     background: color-mix(in srgb, var(--accent) 20%, transparent);
     border-color: var(--accent);
     box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+
+  /* ─── Sidebar Header Actions ──────────────── */
+  .sidebar-header-actions {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+  }
+
+  .hud-btn-create {
+    color: var(--color-accent-green) !important;
+    border: 1px solid rgba(0, 255, 100, 0.3);
+    background: rgba(0, 255, 100, 0.1);
+    font-weight: 700;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2px;
+  }
+
+  .hud-btn-create:hover {
+    background: rgba(0, 255, 100, 0.2);
+    box-shadow: 0 0 8px rgba(0, 255, 100, 0.3);
+  }
+
+  /* ─── Delete Agent Button ──────────────────── */
+  .delete-agent-btn {
+    padding: 0.5rem 1rem;
+    background: rgba(255, 50, 50, 0.1);
+    border: 1px solid rgba(255, 50, 50, 0.3);
+    border-radius: 8px;
+    color: #ff6b6b;
+    font-family: var(--font-display, 'Orbitron'), sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .delete-agent-btn:hover {
+    background: rgba(255, 50, 50, 0.2);
+    box-shadow: 0 0 16px rgba(255, 50, 50, 0.3);
+    border-color: #ff6b6b;
+  }
+
+  /* ─── Create Agent Modal ───────────────────── */
+  .create-agent-panel {
+    max-width: 600px;
+  }
+
+  .create-agent-form {
+    margin-top: 1rem;
+  }
+
+  .hud-field-hint {
+    font-size: 0.6rem;
+    color: rgba(0, 255, 255, 0.3);
+    margin-top: 0.25rem;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ─── Delete Agent Modal ───────────────────── */
+  .delete-agent-panel {
+    max-width: 500px;
+  }
+
+  .delete-agent-form {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .delete-warning {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(255, 50, 50, 0.08);
+    border: 1px solid rgba(255, 50, 50, 0.2);
+    border-radius: 4px;
+  }
+
+  .delete-warning-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 4px rgba(255, 193, 7, 0.5));
+  }
+
+  .delete-warning-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: #ff6b6b;
+    margin-bottom: 0.5rem;
+  }
+
+  .delete-warning-text {
+    font-size: 0.8rem;
+    color: rgba(255, 107, 107, 0.8);
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+  }
+
+  .delete-warning-list {
+    margin: 0;
+    padding-left: 1.25rem;
+    font-size: 0.75rem;
+    color: rgba(255, 107, 107, 0.7);
+    line-height: 1.4;
+  }
+
+  .delete-warning-list li {
+    margin-bottom: 0.25rem;
+  }
+
+  .delete-confirm-input {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .delete-confirm-id {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--color-accent-cyan);
+    background: rgba(0, 255, 255, 0.1);
+    padding: 0.15rem 0.4rem;
+    border-radius: 2px;
+  }
+
+  .delete-input {
+    border-color: rgba(255, 50, 50, 0.3) !important;
+  }
+
+  .delete-input:focus {
+    border-color: #ff6b6b !important;
+    box-shadow: 0 0 8px rgba(255, 50, 50, 0.2) !important;
+  }
+
+  .delete-btn {
+    background: rgba(255, 50, 50, 0.15) !important;
+    border-color: rgba(255, 50, 50, 0.4) !important;
+    color: #ff6b6b !important;
+  }
+
+  .delete-btn:hover {
+    background: rgba(255, 50, 50, 0.25) !important;
+    box-shadow: 0 0 12px rgba(255, 50, 50, 0.3) !important;
+    border-color: #ff6b6b !important;
+  }
+
+  .delete-btn:disabled {
+    opacity: 0.4 !important;
+    cursor: not-allowed !important;
+  }
+
+  /* ─── Editable Content Areas ───────────────── */
+  .memory-editor, .soul-editor {
+    margin-top: 0.75rem;
+    height: 50vh;
+    border: 1px solid rgba(0, 255, 255, 0.15);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .hud-memory-textarea, .hud-soul-textarea {
+    height: 100%;
+    border: none;
+    border-radius: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+
+  .hud-memory-textarea::placeholder, .hud-soul-textarea::placeholder {
+    color: rgba(0, 255, 255, 0.2);
+    font-style: italic;
+  }
+
+  /* ─── Responsive Adjustments ───────────────── */
+  @media (max-width: 600px) {
+    .identity-card-actions {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    .chat-with-agent-btn, .delete-agent-btn {
+      width: 100%;
+      justify-content: center;
+    }
+    
+    .sidebar-header-actions {
+      flex-direction: column;
+      gap: 0.25rem;
+    }
   }
 </style>
