@@ -21,7 +21,8 @@
   let token = $state(storedCtxToken);
   let isConnecting = $state(false);
   let error = $state('');
-  let showAdvanced = $state(Boolean(storedCtxToken));
+  // Always show token field — most gateway deployments require auth
+  let showAdvanced = $state(true);
   let pairingPending = $state(false);
 
   // Show dialog automatically if no saved credentials

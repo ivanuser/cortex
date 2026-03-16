@@ -1,4 +1,4 @@
-import { isNodeRoleMethod } from "./method-scopes.js";
+import { isNodeRoleMethod, resolveRequiredOperatorScopeForMethod } from "./method-scopes.js";
 
 export const GATEWAY_ROLES = ["operator", "node"] as const;
 
@@ -20,7 +20,19 @@ export function roleCanSkipDeviceIdentity(role: GatewayRole, sharedAuthOk: boole
 
 export function isRoleAuthorizedForMethod(role: GatewayRole, method: string): boolean {
   if (isNodeRoleMethod(method)) {
-    return role === "node";
+    // Cortex: methods in both NODE_ROLE_METHODS and operator scope maps (e.g. agents.list)
+    // should be accessible to both roles. Check if the method also has an operator scope
+    // before rejecting operators.
+    if (role === "node") {
+      return true;
+    }
+    // Fall through to operator check — if the method has an operator scope mapping,
+    // it will be authorized via authorizeOperatorScopesForMethod() in the caller.
+    const hasOperatorScope = resolveRequiredOperatorScopeForMethod(method) !== undefined;
+    if (hasOperatorScope) {
+      return true;
+    }
+    return false;
   }
   return role === "operator";
 }

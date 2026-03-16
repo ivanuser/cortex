@@ -402,8 +402,13 @@ export function attachGatewayWsMessageHandler(params: {
         connectParams.role = role;
         connectParams.scopes = scopes;
 
-        const isControlUi = connectParams.client.id === GATEWAY_CLIENT_IDS.CONTROL_UI;
+        // Cortex: treat webchat connections (including Synapse desktop app) as control UI
+        // for auth/scope purposes. Synapse sends client.id "cortex-synapse" with mode "webchat",
+        // which IS a control UI — it presents the same interface. Without this, the config flags
+        // (allowInsecureAuth, dangerouslyDisableDeviceAuth) don't apply to Synapse connections,
+        // and scopes get cleared because the scope-preservation logic only checks isControlUi.
         const isWebchat = isWebchatConnect(connectParams);
+        const isControlUi = connectParams.client.id === GATEWAY_CLIENT_IDS.CONTROL_UI || isWebchat;
         if (enforceOriginCheckForAnyClient || isControlUi || isWebchat) {
           const hostHeaderOriginFallbackEnabled =
             configSnapshot.gateway?.controlUi?.dangerouslyAllowHostHeaderOriginFallback === true;
@@ -534,6 +539,13 @@ export function attachGatewayWsMessageHandler(params: {
             clearUnboundScopes();
           }
           if (decision.kind === "allow") {
+            // Cortex: when a control UI / webchat connection is allowed without device identity
+            // and has no scopes (e.g. Synapse desktop app doesn't send scopes in connect frame),
+            // assign default operator scopes so RPC methods actually work.
+            if (isControlUi && scopes.length === 0) {
+              scopes = ["operator.admin", "operator.approvals", "operator.pairing"];
+              connectParams.scopes = scopes;
+            }
             return true;
           }
 

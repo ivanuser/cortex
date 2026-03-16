@@ -36,6 +36,24 @@
   let mobileNavOpen = $state(false);
   let showShortcutHelp = $state(false);
 
+  // Handle ?reset query param to clear ALL stale credentials
+  $effect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('reset')) {
+        conn.clearCredentials();
+        // Also clear device auth tokens and ctx tokens that override user input
+        localStorage.removeItem('openclaw.device.auth.v1');
+        localStorage.removeItem('cortex:authToken');
+        localStorage.removeItem('openclaw.control.settings.v1');
+        localStorage.removeItem('openclaw.control.token.v1');
+        // Remove ?reset from URL without reload
+        const clean = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, '', clean);
+      }
+    }
+  });
+
   // Load runtime config, then initialize connection
   $effect(() => {
     loadConfig().then(() => {

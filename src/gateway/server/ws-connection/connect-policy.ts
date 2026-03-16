@@ -82,6 +82,14 @@ export function evaluateMissingDeviceIdentity(params: {
   if (params.isControlUi && params.trustedProxyAuthOk) {
     return { kind: "allow" };
   }
+  // dangerouslyDisableDeviceAuth = true → bypass all device identity checks for control UI.
+  // This must return allow BEFORE the !allowBypass block, because that block contains
+  // the reject path. Without this, allowBypass=true skips the block entirely and falls
+  // through to roleCanSkipDeviceIdentity() which requires sharedAuthOk (token auth) —
+  // but embedded gateway webchat never sends a token to itself.
+  if (params.isControlUi && params.controlUiAuthPolicy.allowBypass) {
+    return { kind: "allow" };
+  }
   if (params.isControlUi && !params.controlUiAuthPolicy.allowBypass) {
     // Allow localhost Control UI connections when allowInsecureAuth is configured.
     // Localhost has no network interception risk, and browser SubtleCrypto
