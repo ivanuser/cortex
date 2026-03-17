@@ -70,6 +70,33 @@
   let fileEncoding = $state<string | null>(null);
   let fileLoading = $state(false);
   let fileSaving = $state(false);
+  let fileUploadInput: HTMLInputElement;
+
+  async function handleFileUpload(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !selectedAgentId) return;
+    try {
+      const buffer = await file.arrayBuffer();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+      // Determine target path — images go to avatars/, others to root
+      const isImage = /\.(png|jpg|jpeg|gif|webp|svg|ico|bmp)$/i.test(file.name);
+      const targetName = isImage ? `avatars/${file.name}` : file.name;
+      await gateway.call('agents.files.set', {
+        agentId: selectedAgentId,
+        name: targetName,
+        content: base64,
+        encoding: 'base64',
+      });
+      toasts.success('Uploaded', `${targetName} uploaded successfully`);
+      loadFiles(selectedAgentId);
+      // Reload identity if avatar was uploaded
+      if (isImage) loadIdentity(selectedAgentId);
+    } catch (err) {
+      toasts.error('Upload failed', String(err));
+    }
+    input.value = ''; // Reset input
+  }
 
   const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.bmp']);
   const MIME_MAP: Record<string, string> = {
@@ -1056,11 +1083,15 @@ I'm here for the full range — code, health, feelings, horny hours, existential
               <div class="hud-file-sidebar">
                 <div class="hud-file-sidebar-header">
                   <span class="hud-panel-lbl">CORE FILES</span>
-                  <button onclick={() => selectedAgentId && loadFiles(selectedAgentId)} disabled={filesLoading}
-                    class="hud-btn-icon">
-                    {filesLoading ? '...' : '>>'}
-                  </button>
+                  <div style="display:flex;gap:0.3rem;">
+                    <button onclick={() => fileUploadInput?.click()} class="hud-btn-icon" title="Upload file">↑</button>
+                    <button onclick={() => selectedAgentId && loadFiles(selectedAgentId)} disabled={filesLoading}
+                      class="hud-btn-icon">
+                      {filesLoading ? '...' : '>>'}
+                    </button>
+                  </div>
                 </div>
+                <input type="file" bind:this={fileUploadInput} onchange={handleFileUpload} style="display:none;" />
                 {#if filesList?.workspace}
                   <div class="hud-file-workspace">{filesList.workspace}</div>
                 {/if}
