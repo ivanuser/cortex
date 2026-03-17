@@ -141,7 +141,16 @@ gateway.on('chat', (payload) => {
       activeRunId = event.runId;
       if (event.message?.content) {
         const extracted = extractContent(event.message.content);
-        if (extracted.text) {streamingContent += extracted.text;}
+        if (extracted.text) {
+          // Handle both incremental and cumulative deltas:
+          // If the new text starts with what we already have, it's cumulative (replace)
+          // Otherwise it's incremental (append)
+          if (streamingContent && extracted.text.startsWith(streamingContent)) {
+            streamingContent = extracted.text;
+          } else {
+            streamingContent += extracted.text;
+          }
+        }
         if (extracted.thinkingContent) {streamingThinkingContent = extracted.thinkingContent;}
         if (extracted.toolCalls.length) {streamingToolCalls = [...streamingToolCalls, ...extracted.toolCalls];}
       }

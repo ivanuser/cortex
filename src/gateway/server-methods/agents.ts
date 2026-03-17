@@ -63,7 +63,14 @@ const BOOTSTRAP_FILE_NAMES_POST_ONBOARDING = BOOTSTRAP_FILE_NAMES.filter(
 
 const MEMORY_FILE_NAMES = [DEFAULT_MEMORY_FILENAME, DEFAULT_MEMORY_ALT_FILENAME] as const;
 
-const ALLOWED_FILE_NAMES = new Set<string>([...BOOTSTRAP_FILE_NAMES, ...MEMORY_FILE_NAMES]);
+const AVATAR_FILE_NAMES = [
+  "avatars/avatar.png",
+  "avatars/avatar.jpg",
+  "avatars/avatar.jpeg",
+  "avatars/avatar.webp",
+] as const;
+
+const ALLOWED_FILE_NAMES = new Set<string>([...BOOTSTRAP_FILE_NAMES, ...MEMORY_FILE_NAMES, ...AVATAR_FILE_NAMES]);
 
 function resolveAgentWorkspaceFileOrRespondError(
   params: Record<string, unknown>,
@@ -88,7 +95,9 @@ function resolveAgentWorkspaceFileOrRespondError(
   const name = (
     typeof rawName === "string" || typeof rawName === "number" ? String(rawName) : ""
   ).trim();
-  if (!ALLOWED_FILE_NAMES.has(name)) {
+  // Allow listed core files + any file under avatars/ with image extension
+  const isAvatarFile = name.startsWith("avatars/") && /\.(png|jpg|jpeg|webp|gif|svg)$/i.test(name);
+  if (!ALLOWED_FILE_NAMES.has(name) && !isAvatarFile) {
     respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, `unsupported file "${name}"`));
     return null;
   }

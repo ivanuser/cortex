@@ -86,9 +86,10 @@
         binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
       }
       const base64 = btoa(binary);
-      // Determine target path — images go to avatars/, others to root
+      // Determine target path — images go to avatars/avatar.{ext} for gateway compatibility
       const isImage = /\.(png|jpg|jpeg|gif|webp|svg|ico|bmp)$/i.test(file.name);
-      const targetName = isImage ? `avatars/${file.name}` : file.name;
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const targetName = isImage ? `avatars/avatar.${ext}` : file.name;
       await gateway.call('agents.files.set', {
         agentId: selectedAgentId,
         name: targetName,
