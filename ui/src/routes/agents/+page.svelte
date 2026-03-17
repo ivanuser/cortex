@@ -78,7 +78,14 @@
     if (!file || !selectedAgentId) return;
     try {
       const buffer = await file.arrayBuffer();
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+      // Convert to base64 in chunks to avoid call stack overflow on large files
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+      }
+      const base64 = btoa(binary);
       // Determine target path — images go to avatars/, others to root
       const isImage = /\.(png|jpg|jpeg|gif|webp|svg|ico|bmp)$/i.test(file.name);
       const targetName = isImage ? `avatars/${file.name}` : file.name;
