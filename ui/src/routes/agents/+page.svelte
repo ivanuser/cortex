@@ -1460,7 +1460,7 @@ _You're not a chatbot. You're becoming someone._
                 <div class="hud-panel-header">
                   <div>
                     <h3 class="hud-panel-lbl">PERMISSIONS</h3>
-                    <p class="hud-subtitle">Inter-agent permission matrix (local simulation).</p>
+                    <p class="hud-subtitle">Inter-agent permission matrix. Hover column headers for permission descriptions.</p>
                   </div>
                   <div class="hud-actions" style="margin-top:0;">
                     <button class="hud-btn hud-btn-sm" onclick={() => applyPermissionPreset('full')}>FULL ACCESS</button>
@@ -1474,11 +1474,11 @@ _You're not a chatbot. You're becoming someone._
                   <div class="permissions-grid">
                     <div class="perm-header-row">
                       <div class="perm-cell perm-agent-col">AGENT</div>
-                      <div class="perm-cell">SUMMON</div>
-                      <div class="perm-cell">MEM READ</div>
-                      <div class="perm-cell">MEM WRITE</div>
-                      <div class="perm-cell">CHAT</div>
-                      <div class="perm-cell">AUTHORITY</div>
+                      <div class="perm-cell" title="Allow this agent to summon the target into conversations or tasks">SUMMON</div>
+                      <div class="perm-cell" title="Allow this agent to read the target agent's memory files">MEM READ</div>
+                      <div class="perm-cell" title="Allow this agent to write to the target agent's memory files">MEM WRITE</div>
+                      <div class="perm-cell" title="Allow this agent to send direct messages to the target agent">CHAT</div>
+                      <div class="perm-cell" title="Grant full authority over the target — implies all other permissions">AUTHORITY</div>
                     </div>
                     {#each permissions as perm, i}
                       {@const agentName = agents.find(a => a.id === perm.agentId)?.identity?.name || perm.agentId}
